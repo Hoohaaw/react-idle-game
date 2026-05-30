@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  /* Backgrounds — dark red/maroon/black */
+  --color-bg-deep: #0f0305;
+  --color-bg-base: #1a0608;
+  --color-bg-panel: #21080b;
+  --color-bg-raised: #2d0d10;
+
+  /* Gold — used for borders, highlights, accents */
+  --color-gold-light: #f0d060;
+  --color-gold-mid: #c9922a;
+  --color-gold-dark: #7a4f10;
+  --color-gold-glow: #f5e080;
+
+  /* Text */
+  --color-text-primary: #f5e8d0;
+  --color-text-muted: #a08060;
+  --color-text-gold: #e8c050;
+
+  /* Status */
+  --color-success: #4a8c3f;
+  --color-danger: #8c2020;
+  --color-warning: #8c6020;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-bg-deep);
+  color: var(--color-text-primary);
+  font-family: 'Georgia', serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+/* ── Button base transition ───────────────────────────── */
+.btn {
+  transition: transform 0.1s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+  filter: brightness(0.9);
+}
+
+/* Primary */
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 18px rgba(200, 140, 30, 0.55), 0 2px 8px rgba(0, 0, 0, 0.7);
+  filter: brightness(1.15);
+}
+.btn-primary:active:not(:disabled) {
+  box-shadow:
+    0 0 0 1px #3a2008,
+    inset 0 0 0 1px rgba(240, 208, 96, 0.15),
+    0 0 6px rgba(200, 140, 30, 0.15),
+    inset 0 2px 5px rgba(0, 0, 0, 0.52);
+}
+
+/* Secondary */
+.btn-secondary:hover:not(:disabled) {
+  filter: brightness(1.2);
+  border-color: var(--color-gold-mid);
+}
+
+/* Danger */
+.btn-danger:hover:not(:disabled) {
+  box-shadow: 0 0 16px rgba(180, 30, 30, 0.5), 0 2px 6px rgba(0, 0, 0, 0.6);
+  filter: brightness(1.2);
+}
+
+/* Ghost */
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(200, 145, 42, 0.08) !important;
+  border-color: rgba(200, 145, 42, 0.55) !important;
+  color: var(--color-text-primary) !important;
+}
