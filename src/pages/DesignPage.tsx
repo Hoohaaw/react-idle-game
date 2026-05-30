@@ -63,6 +63,77 @@ export default function DesignPage() {
         </div>
       </Section>
 
+      {/* ── INPUT FIELDS ─────────────────────── */}
+      <Section title="Input Fields">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '320px' }}>
+          <input className="input-fantasy" type="text" placeholder="Character name…" />
+          <input className="input-fantasy" type="number" placeholder="Amount" />
+          <input className="input-fantasy" type="text" defaultValue="Alexandros Mograine" />
+          <input className="input-fantasy" type="text" placeholder="Disabled" disabled />
+        </div>
+      </Section>
+
+      {/* ── RADIO BUTTONS ────────────────────── */}
+      <Section title="Radio Buttons">
+        <div className="radio-group">
+          <label className="radio-label">
+            <input type="radio" name="demo" defaultChecked /> Start Mission
+          </label>
+          <label className="radio-label">
+            <input type="radio" name="demo" /> Send to Gather
+          </label>
+          <label className="radio-label">
+            <input type="radio" name="demo" /> Stay at Camp
+          </label>
+        </div>
+      </Section>
+
+      {/* ── RARITY BADGES ────────────────────── */}
+      <Section title="Rarity Badges">
+        <Row>
+          <RarityBadge rarity="Common" />
+          <RarityBadge rarity="Uncommon" />
+          <RarityBadge rarity="Rare" />
+          <RarityBadge rarity="Epic" />
+          <RarityBadge rarity="Legendary" />
+        </Row>
+      </Section>
+
+      {/* ── STAT ATOMS ───────────────────────── */}
+      <Section title="Stat Atoms">
+        <Row>
+          <StatPill label="ATK" value={45} />
+          <StatPill label="DEF" value={22} />
+          <StatPill label="AGI" value={38} />
+          <StatPill label="INT" value={15} />
+          <StatPill label="STR" value={30} />
+          <StatPill label="SPD" value={18} />
+          <StatPill label="HP" value={340} />
+        </Row>
+      </Section>
+
+      {/* ── LEVEL & COIN ATOMS ───────────────── */}
+      <Section title="Level & Currency Atoms">
+        <Row>
+          <LevelBadge level={7} />
+          <LevelBadge level={24} />
+          <CoinDisplay amount={1420} />
+          <CoinDisplay amount={50} />
+        </Row>
+      </Section>
+
+      {/* ── DIVIDERS ─────────────────────────── */}
+      <Section title="Dividers">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '480px' }}>
+          <GoldDivider />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <GoldDivider />
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '2px', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>Chapter I</span>
+            <GoldDivider />
+          </div>
+        </div>
+      </Section>
+
       {/* ── COLOR SWATCHES ────────────────────── */}
       <Section title="Color Palette">
         <Row>
@@ -274,5 +345,97 @@ function ProgressBar({ value, label, color = 'var(--color-danger)' }: { value: n
         }} />
       </div>
     </div>
+  )
+}
+
+const RARITY_STYLES: Record<string, { color: string; border: string; glow: string }> = {
+  Common:    { color: '#a0a0a0', border: '#555',    glow: 'transparent' },
+  Uncommon:  { color: '#4caf6e', border: '#2d6b45', glow: 'rgba(76,175,110,0.3)' },
+  Rare:      { color: '#5b9bd5', border: '#2a5a8a', glow: 'rgba(91,155,213,0.35)' },
+  Epic:      { color: '#b06fd4', border: '#6a3580', glow: 'rgba(176,111,212,0.4)' },
+  Legendary: { color: '#f0a030', border: '#8a5010', glow: 'rgba(240,160,48,0.5)' },
+}
+
+function RarityBadge({ rarity }: { rarity: string }) {
+  const s = RARITY_STYLES[rarity] ?? RARITY_STYLES.Common
+  return (
+    <span style={{
+      padding: '3px 10px',
+      borderRadius: '3px',
+      fontSize: '11px',
+      letterSpacing: '1.5px',
+      textTransform: 'uppercase',
+      fontFamily: 'Georgia, serif',
+      color: s.color,
+      border: `1px solid ${s.border}`,
+      background: 'var(--color-bg-panel)',
+      boxShadow: `0 0 8px ${s.glow}`,
+    }}>
+      {rarity}
+    </span>
+  )
+}
+
+function StatPill({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '5px',
+      padding: '4px 10px',
+      borderRadius: '4px',
+      border: '1px solid var(--color-gold-dark)',
+      background: 'linear-gradient(180deg, var(--color-bg-raised) 0%, var(--color-bg-panel) 100%)',
+      boxShadow: '0 0 0 1px #1a0c02',
+    }}>
+      <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ color: 'var(--color-text-gold)', fontSize: '13px', fontWeight: 'bold' }}>{value}</span>
+    </div>
+  )
+}
+
+function LevelBadge({ level }: { level: number }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      padding: '4px 10px',
+      borderRadius: '4px',
+      border: '2px solid var(--color-gold-dark)',
+      background: 'linear-gradient(180deg, #2a1a08 0%, #180e04 100%)',
+      boxShadow: '0 0 0 1px #1a0c02',
+    }}>
+      <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase' }}>Lv</span>
+      <span style={{ color: 'var(--color-gold-light)', fontSize: '14px', fontWeight: 'bold' }}>{level}</span>
+    </div>
+  )
+}
+
+function CoinDisplay({ amount }: { amount: number }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      padding: '4px 12px',
+      borderRadius: '4px',
+      border: '2px solid var(--color-gold-dark)',
+      background: 'linear-gradient(180deg, #2a1a08 0%, #180e04 100%)',
+      boxShadow: '0 0 0 1px #1a0c02, 0 0 8px rgba(200,140,30,0.15)',
+    }}>
+      <span style={{ fontSize: '14px' }}>🪙</span>
+      <span style={{ color: 'var(--color-text-gold)', fontSize: '14px', fontWeight: 'bold' }}>{amount.toLocaleString()}</span>
+    </div>
+  )
+}
+
+function GoldDivider() {
+  return (
+    <div style={{
+      flex: 1,
+      height: '1px',
+      background: 'linear-gradient(90deg, transparent 0%, var(--color-gold-dark) 30%, var(--color-gold-mid) 50%, var(--color-gold-dark) 70%, transparent 100%)',
+    }} />
   )
 }
