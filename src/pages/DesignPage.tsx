@@ -309,40 +309,45 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 
 function ResourceChip({ label, value }: { label: string; value: number }) {
   return (
-    <div style={{
+    <div className="atom-heavy" style={{
       display: 'flex',
       alignItems: 'center',
-      gap: '6px',
-      padding: '4px 10px',
+      gap: '7px',
+      padding: '5px 12px',
       borderRadius: '4px',
-      border: '1px solid var(--color-gold-dark)',
-      background: 'linear-gradient(180deg, var(--color-bg-raised) 0%, var(--color-bg-panel) 100%)',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+      border: '2px solid var(--color-gold-dark)',
+      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
     }}>
-      <span style={{ color: 'var(--color-gold-mid)', fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.5px' }}>{label}</span>
-      <span style={{ color: 'var(--color-text-primary)', fontSize: '13px' }}>{value}</span>
+      <span style={{
+        color: 'var(--color-gold-mid)',
+        fontSize: '11px',
+        fontWeight: 'bold',
+        letterSpacing: '1px',
+        textTransform: 'uppercase',
+        textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+      }}>{label}</span>
+      <span style={{
+        color: 'var(--color-text-primary)',
+        fontSize: '13px',
+        textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+      }}>{value}</span>
     </div>
   )
 }
 
-function ProgressBar({ value, label, color = 'var(--color-danger)' }: { value: number; label: string; color?: string }) {
+function ProgressBar({ value, label, color = '#8c2020' }: { value: number; label: string; color?: string }) {
   return (
     <div>
-      <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', marginBottom: '5px' }}>{label}</p>
-      <div style={{
-        height: '10px',
-        borderRadius: '5px',
-        background: 'var(--color-bg-raised)',
-        border: '1px solid var(--color-gold-dark)',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          height: '100%',
-          width: `${value}%`,
-          background: `linear-gradient(90deg, ${color} 0%, color-mix(in srgb, ${color} 70%, #f0d060) 100%)`,
-          boxShadow: `0 0 6px ${color}`,
-          transition: 'width 0.3s ease',
-        }} />
+      <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', marginBottom: '6px', letterSpacing: '0.5px' }}>{label}</p>
+      <div className="progress-track">
+        <div
+          className="progress-fill"
+          style={{
+            width: `${value}%`,
+            background: `linear-gradient(180deg, color-mix(in srgb, ${color} 70%, #f0d060) 0%, ${color} 60%, color-mix(in srgb, ${color} 80%, #000) 100%)`,
+            boxShadow: `0 0 8px ${color}88`,
+          }}
+        />
       </div>
     </div>
   )
@@ -359,17 +364,25 @@ const RARITY_STYLES: Record<string, { color: string; border: string; glow: strin
 function RarityBadge({ rarity }: { rarity: string }) {
   const s = RARITY_STYLES[rarity] ?? RARITY_STYLES.Common
   return (
-    <span style={{
-      padding: '3px 10px',
-      borderRadius: '3px',
+    <span className="atom-heavy" style={{
+      display: 'inline-block',
+      padding: '5px 14px',
+      borderRadius: '4px',
       fontSize: '11px',
-      letterSpacing: '1.5px',
+      letterSpacing: '2px',
       textTransform: 'uppercase',
       fontFamily: 'Georgia, serif',
       color: s.color,
-      border: `1px solid ${s.border}`,
-      background: 'var(--color-bg-panel)',
-      boxShadow: `0 0 8px ${s.glow}`,
+      border: `2px solid ${s.border}`,
+      background: `linear-gradient(180deg, color-mix(in srgb, ${s.border} 30%, #0f0203) 0%, #0f0203 100%)`,
+      /* Override atom-heavy glow with rarity-specific glow */
+      boxShadow: [
+        '0 0 0 1px #080101',
+        'inset 0 1px 0 rgba(255,255,255,0.07)',
+        'inset 0 2px 5px rgba(0,0,0,0.55)',
+        `0 0 10px ${s.glow}`,
+        '0 3px 8px rgba(0,0,0,0.65)',
+      ].join(', '),
     }}>
       {rarity}
     </span>
@@ -378,54 +391,84 @@ function RarityBadge({ rarity }: { rarity: string }) {
 
 function StatPill({ label, value }: { label: string; value: number }) {
   return (
-    <div style={{
+    <div className="atom-heavy" style={{
       display: 'flex',
       alignItems: 'center',
-      gap: '5px',
-      padding: '4px 10px',
+      gap: '7px',
+      padding: '6px 12px',
       borderRadius: '4px',
-      border: '1px solid var(--color-gold-dark)',
-      background: 'linear-gradient(180deg, var(--color-bg-raised) 0%, var(--color-bg-panel) 100%)',
-      boxShadow: '0 0 0 1px #1a0c02',
+      border: '2px solid var(--color-gold-dark)',
+      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
     }}>
-      <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase' }}>{label}</span>
-      <span style={{ color: 'var(--color-text-gold)', fontSize: '13px', fontWeight: 'bold' }}>{value}</span>
+      <span style={{
+        color: 'var(--color-text-muted)',
+        fontSize: '10px',
+        letterSpacing: '1.5px',
+        textTransform: 'uppercase',
+        textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+      }}>{label}</span>
+      <span style={{
+        color: 'var(--color-text-gold)',
+        fontSize: '15px',
+        fontWeight: 'bold',
+        textShadow: '0 0 6px rgba(232,192,80,0.4), 0 1px 2px rgba(0,0,0,0.9)',
+      }}>{value}</span>
     </div>
   )
 }
 
 function LevelBadge({ level }: { level: number }) {
   return (
-    <div style={{
+    <div className="atom-heavy" style={{
       display: 'flex',
       alignItems: 'center',
-      gap: '4px',
-      padding: '4px 10px',
+      gap: '5px',
+      padding: '6px 14px',
       borderRadius: '4px',
-      border: '2px solid var(--color-gold-dark)',
-      background: 'linear-gradient(180deg, #2a1a08 0%, #180e04 100%)',
-      boxShadow: '0 0 0 1px #1a0c02',
+      border: '2px solid var(--color-gold-mid)',
+      background: 'linear-gradient(180deg, #2a1a08 0%, #120a02 100%)',
     }}>
-      <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase' }}>Lv</span>
-      <span style={{ color: 'var(--color-gold-light)', fontSize: '14px', fontWeight: 'bold' }}>{level}</span>
+      <span style={{
+        color: 'var(--color-text-muted)',
+        fontSize: '10px',
+        letterSpacing: '2px',
+        textTransform: 'uppercase',
+      }}>LV</span>
+      <span style={{
+        color: 'var(--color-gold-light)',
+        fontSize: '16px',
+        fontWeight: 'bold',
+        textShadow: '0 0 8px rgba(240,208,96,0.5), 0 1px 3px rgba(0,0,0,0.9)',
+      }}>{level}</span>
     </div>
   )
 }
 
 function CoinDisplay({ amount }: { amount: number }) {
   return (
-    <div style={{
+    <div className="atom-heavy" style={{
       display: 'flex',
       alignItems: 'center',
-      gap: '6px',
-      padding: '4px 12px',
+      gap: '8px',
+      padding: '6px 14px',
       borderRadius: '4px',
-      border: '2px solid var(--color-gold-dark)',
-      background: 'linear-gradient(180deg, #2a1a08 0%, #180e04 100%)',
-      boxShadow: '0 0 0 1px #1a0c02, 0 0 8px rgba(200,140,30,0.15)',
+      border: '2px solid var(--color-gold-mid)',
+      background: 'linear-gradient(180deg, #2a1a08 0%, #120a02 100%)',
+      boxShadow: [
+        '0 0 0 1px #080101',
+        'inset 0 1px 0 rgba(255,255,255,0.07)',
+        'inset 0 2px 6px rgba(0,0,0,0.55)',
+        '0 0 12px rgba(200,140,30,0.2)',
+        '0 3px 8px rgba(0,0,0,0.65)',
+      ].join(', '),
     }}>
-      <span style={{ fontSize: '14px' }}>🪙</span>
-      <span style={{ color: 'var(--color-text-gold)', fontSize: '14px', fontWeight: 'bold' }}>{amount.toLocaleString()}</span>
+      <span style={{ fontSize: '15px', lineHeight: 1 }}>🪙</span>
+      <span style={{
+        color: 'var(--color-text-gold)',
+        fontSize: '15px',
+        fontWeight: 'bold',
+        textShadow: '0 0 8px rgba(232,192,80,0.4), 0 1px 2px rgba(0,0,0,0.9)',
+      }}>{amount.toLocaleString()}</span>
     </div>
   )
 }

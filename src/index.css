@@ -113,6 +113,53 @@ body {
   border-color: var(--color-gold-mid);
 }
 
+/* ── Heavy atom — shared material signature ──────────── */
+/*
+  Every non-button UI element uses this layer stack:
+  1. Outer dark grounding edge  (box-shadow outer)
+  2. Thick main border          (border property, 2px min)
+  3. Inset top bevel highlight  (box-shadow inset top)
+  4. Inset depth shadow         (box-shadow inset bottom)
+  5. Drop shadow                (box-shadow outer bottom)
+  Together they read as carved stone / cast metal — not flat UI.
+*/
+.atom-heavy {
+  box-shadow:
+    0 0 0 1px #080101,                          /* 1. outer dark grounding edge */
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),    /* 3. top bevel highlight */
+    inset 0 2px 6px rgba(0, 0, 0, 0.55),        /* 4. depth / cavity */
+    0 3px 8px rgba(0, 0, 0, 0.65);              /* 5. drop shadow / weight */
+}
+
+/* Progress bar track — stone channel feel */
+.progress-track {
+  height: 14px;
+  border-radius: 4px;
+  border: 2px solid var(--color-gold-dark);
+  background: linear-gradient(180deg, #080101 0%, #150405 60%, #1e0608 100%);
+  box-shadow:
+    0 0 0 1px #080101,
+    inset 0 3px 6px rgba(0, 0, 0, 0.7),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 2px 6px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+  position: relative;
+}
+/* Top highlight on fill — makes it look like liquid in a tube */
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 45%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+  border-radius: 2px 2px 0 0;
+}
+
 /* ── Button base transition ───────────────────────────── */
 .btn {
   transition: transform 0.1s ease, box-shadow 0.15s ease, filter 0.15s ease;
