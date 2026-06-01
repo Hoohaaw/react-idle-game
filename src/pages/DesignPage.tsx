@@ -652,7 +652,7 @@ function CharacterCard() {
         </div>
 
         {/* Tab content */}
-        <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+        <div style={{ flex: 1, padding: '16px' }}>
           {tab === 'equipped' && <EquippedTab />}
           {tab === 'talents'  && <TalentsTab />}
           {tab === 'stats'    && <StatsTab />}
