@@ -536,14 +536,19 @@ const MOCK_BLESSINGS = [
   { row: 6, unlocked: false, slots: [{ name: 'Apocalypse',    pts: 0, max: 1 }, { name: 'Soul Reaper', pts: 0, max: 1 }, { name: 'Oblivion',   pts: 0, max: 1 }] },
 ]
 
-const MOCK_STATS = {
+type StatBreakdown = { label: string; base: number; items: number; blessings: number; upgrades: number }
+
+const MOCK_STATS: { offensive: StatBreakdown[]; defensive: StatBreakdown[] } = {
   offensive: [
-    { label: 'ATK', value: 82 }, { label: 'STR', value: 64 },
-    { label: 'AGI', value: 31 }, { label: 'INT', value: 18 },
-    { label: 'SPD', value: 24 },
+    { label: 'ATK', base: 45, items: 28, blessings: 9,  upgrades: 0 },
+    { label: 'STR', base: 40, items: 24, blessings: 0,  upgrades: 0 },
+    { label: 'AGI', base: 30, items: 5,  blessings: 0,  upgrades: 3 },
+    { label: 'INT', base: 18, items: 0,  blessings: 0,  upgrades: 0 },
+    { label: 'SPD', base: 18, items: 0,  blessings: 0,  upgrades: 6 },
   ],
   defensive: [
-    { label: 'DEF', value: 55 }, { label: 'HP',  value: 1240 },
+    { label: 'DEF', base: 25, items: 20, blessings: 10, upgrades: 0 },
+    { label: 'HP',  base: 800, items: 440, blessings: 0, upgrades: 0 },
   ],
 }
 
@@ -777,27 +782,58 @@ function TalentsTab() {
   )
 }
 
+function StatBreakdownTooltip({ stat }: { stat: StatBreakdown }) {
+  const total = stat.base + stat.items + stat.blessings + stat.upgrades
+  const sources = [
+    { label: 'Base',      value: stat.base,      color: 'var(--color-text-primary)' },
+    { label: 'Items',     value: stat.items,      color: '#5b9bd5' },
+    { label: 'Blessings', value: stat.blessings,  color: '#b06fd4' },
+    { label: 'Upgrades',  value: stat.upgrades,   color: '#4caf6e' },
+  ].filter(s => s.value > 0)
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '10px' }}>
+        <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase' }}>{stat.label}</span>
+        <span style={{ color: 'var(--color-gold-light)', fontSize: '22px', fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.5)' }}>{total}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        {sources.map(s => (
+          <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '24px' }}>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>{s.label}</span>
+            <span style={{ color: s.color, fontSize: '13px', fontWeight: 'bold' }}>
+              {s.label === 'Base' ? s.value : `+${s.value}`}
+            </span>
+          </div>
+        ))}
+      </div>
+      {/* Divider + total row */}
+      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--color-gold-dark)', display: 'flex', justifyContent: 'space-between' }}>
+        <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Total</span>
+        <span style={{ color: 'var(--color-text-gold)', fontSize: '13px', fontWeight: 'bold' }}>{total}</span>
+      </div>
+    </div>
+  )
+}
+
 function StatsTab() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Offensive</span>
-          <GoldDivider />
+      {(['offensive', 'defensive'] as const).map(group => (
+        <div key={group}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{group}</span>
+            <GoldDivider />
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {MOCK_STATS[group].map(s => (
+              <Tooltip key={s.label} content={<StatBreakdownTooltip stat={s} />}>
+                <StatPill label={s.label} value={s.base + s.items + s.blessings + s.upgrades} />
+              </Tooltip>
+            ))}
+          </div>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {MOCK_STATS.offensive.map(s => <StatPill key={s.label} label={s.label} value={s.value} />)}
-        </div>
-      </div>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Defensive</span>
-          <GoldDivider />
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {MOCK_STATS.defensive.map(s => <StatPill key={s.label} label={s.label} value={s.value} />)}
-        </div>
-      </div>
+      ))}
     </div>
   )
 }
