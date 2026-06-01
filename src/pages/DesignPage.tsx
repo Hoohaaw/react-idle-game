@@ -490,6 +490,22 @@ function GoldDivider() {
   )
 }
 
+/* ── Tooltip ─────────────────────────────────────────── */
+
+function Tooltip({ children, content }: { children: React.ReactNode; content: React.ReactNode }) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <div
+      className="tooltip-wrap"
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+    >
+      {children}
+      {visible && <div className="tooltip-box">{content}</div>}
+    </div>
+  )
+}
+
 /* ── Character Card ──────────────────────────────────── */
 
 type CharTab = 'equipped' | 'talents' | 'stats'
@@ -503,9 +519,11 @@ const MOCK_EQUIPPED: Record<string, { name: string; rarity: string } | null> = {
   LEGS:     null,
   BOOTS:    { name: 'Sabatons of Might', rarity: 'Legendary' },
   WEAPON:   { name: 'Ashbringer', rarity: 'Legendary' },
-  RING 1:   { name: 'Band of Annihilation', rarity: 'Rare' },
-  RING 2:   null,
-  TRINKET:  null,
+  'RING 1':  { name: 'Band of Annihilation', rarity: 'Rare' },
+  'RING 2':  null,
+  'RING 3':  { name: 'Seal of the Lich King', rarity: 'Epic' },
+  'RING 4':  null,
+  TRINKET:   null,
 }
 
 const MOCK_BLESSINGS = [
@@ -545,7 +563,6 @@ function CharacterCard() {
         '0 0 24px rgba(200,140,30,0.12)',
         '0 6px 20px rgba(0,0,0,0.8)',
       ].join(', '),
-      overflow: 'hidden',
     }}>
       {/* ── Left: Portrait column ── */}
       <div style={{
@@ -648,33 +665,50 @@ function EquippedTab() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
       {Object.entries(MOCK_EQUIPPED).map(([slot, item]) => (
-        <div key={slot} className="atom-heavy" style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '3px',
-          padding: '8px 10px',
-          borderRadius: '4px',
-          border: `2px solid ${item ? 'var(--color-gold-dark)' : '#2a0d10'}`,
-          background: item
-            ? 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)'
-            : 'linear-gradient(180deg, #110305 0%, #0a0203 100%)',
-          opacity: item ? 1 : 0.55,
-          cursor: item ? 'pointer' : 'default',
-        }}>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{slot}</span>
-          {item ? (
-            <span style={{
-              color: RARITY_STYLES[item.rarity]?.color ?? 'var(--color-text-primary)',
-              fontSize: '12px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              textShadow: `0 0 6px ${RARITY_STYLES[item.rarity]?.glow ?? 'transparent'}`,
-            }}>{item.name}</span>
-          ) : (
-            <span style={{ color: '#3a1218', fontSize: '12px', fontStyle: 'italic' }}>Empty</span>
-          )}
-        </div>
+        <Tooltip
+          key={slot}
+          content={
+            item ? (
+              <div>
+                <p style={{ color: RARITY_STYLES[item.rarity]?.color ?? 'var(--color-text-primary)', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>{item.name}</p>
+                <RarityBadge rarity={item.rarity} />
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', marginTop: '8px', lineHeight: 1.5 }}>
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fortis arma bellum gloria.
+                </p>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', fontStyle: 'italic' }}>This slot is empty.</p>
+            )
+          }
+        >
+          <div className="atom-heavy" style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '3px',
+            padding: '8px 10px',
+            borderRadius: '4px',
+            border: `2px solid ${item ? 'var(--color-gold-dark)' : '#2a0d10'}`,
+            background: item
+              ? 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)'
+              : 'linear-gradient(180deg, #110305 0%, #0a0203 100%)',
+            opacity: item ? 1 : 0.55,
+            cursor: item ? 'pointer' : 'default',
+          }}>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{slot}</span>
+            {item ? (
+              <span style={{
+                color: RARITY_STYLES[item.rarity]?.color ?? 'var(--color-text-primary)',
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                textShadow: `0 0 6px ${RARITY_STYLES[item.rarity]?.glow ?? 'transparent'}`,
+              }}>{item.name}</span>
+            ) : (
+              <span style={{ color: '#3a1218', fontSize: '12px', fontStyle: 'italic' }}>Empty</span>
+            )}
+          </div>
+        </Tooltip>
       ))}
     </div>
   )
@@ -691,33 +725,47 @@ function TalentsTab() {
           opacity: row.unlocked ? 1 : 0.35,
         }}>
           {row.slots.map(slot => (
-            <div key={slot.name} className="atom-heavy" style={{
-              padding: '8px 10px',
-              borderRadius: '4px',
-              border: `2px solid ${row.unlocked ? 'var(--color-gold-dark)' : '#2a0d10'}`,
-              background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
-              cursor: row.unlocked ? 'pointer' : 'not-allowed',
-            }}>
-              <p style={{ color: 'var(--color-text-primary)', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.3px' }}>{slot.name}</p>
-              {/* Rank dots */}
-              <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
-                {Array.from({ length: slot.max }).map((_, i) => (
-                  <div key={i} style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    border: '1px solid var(--color-gold-dark)',
-                    background: i < slot.pts
-                      ? 'radial-gradient(circle at 40% 35%, #f0d060, #7a4f10)'
-                      : 'linear-gradient(180deg, #1a0608, #0d0304)',
-                    boxShadow: i < slot.pts ? '0 0 4px rgba(200,140,30,0.6)' : 'none',
-                  }} />
-                ))}
-                {slot.pts > 0 && (
-                  <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', marginLeft: '3px' }}>{slot.pts}/{slot.max}</span>
-                )}
+            <Tooltip
+              key={slot.name}
+              content={
+                <div>
+                  <p style={{ color: 'var(--color-gold-light)', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>{slot.name}</p>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginBottom: '8px' }}>
+                    {row.unlocked ? `Rank ${slot.pts} / ${slot.max}` : 'Locked — spend 5 points in previous row'}
+                  </p>
+                  <p style={{ color: 'var(--color-text-primary)', fontSize: '12px', lineHeight: 1.5 }}>
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Virtus et gloria per arma crescit.
+                  </p>
+                </div>
+              }
+            >
+              <div className="atom-heavy" style={{
+                padding: '8px 10px',
+                borderRadius: '4px',
+                border: `2px solid ${row.unlocked ? 'var(--color-gold-dark)' : '#2a0d10'}`,
+                background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
+                cursor: row.unlocked ? 'pointer' : 'not-allowed',
+              }}>
+                <p style={{ color: 'var(--color-text-primary)', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.3px' }}>{slot.name}</p>
+                <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+                  {Array.from({ length: slot.max }).map((_, i) => (
+                    <div key={i} style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      border: '1px solid var(--color-gold-dark)',
+                      background: i < slot.pts
+                        ? 'radial-gradient(circle at 40% 35%, #f0d060, #7a4f10)'
+                        : 'linear-gradient(180deg, #1a0608, #0d0304)',
+                      boxShadow: i < slot.pts ? '0 0 4px rgba(200,140,30,0.6)' : 'none',
+                    }} />
+                  ))}
+                  {slot.pts > 0 && (
+                    <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', marginLeft: '3px' }}>{slot.pts}/{slot.max}</span>
+                  )}
+                </div>
               </div>
-            </div>
+            </Tooltip>
           ))}
         </div>
       ))}

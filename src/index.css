@@ -160,6 +160,40 @@ body {
   border-radius: 2px 2px 0 0;
 }
 
+/* ── Tooltip ─────────────────────────────────────────── */
+.tooltip-wrap {
+  position: relative;
+}
+.tooltip-box {
+  pointer-events: none;
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  width: 220px;
+  padding: 12px 14px;
+  border-radius: 5px;
+  border: 2px solid var(--color-gold-mid);
+  background: linear-gradient(180deg, #2a0f12 0%, #120407 100%);
+  box-shadow:
+    0 0 0 1px #080101,
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    inset 0 2px 6px rgba(0,0,0,0.6),
+    0 0 20px rgba(200,140,30,0.2),
+    0 8px 24px rgba(0,0,0,0.8);
+  /* Arrow */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 7px solid transparent;
+    border-top-color: var(--color-gold-mid);
+  }
+}
+
 /* ── Button base transition ───────────────────────────── */
 .btn {
   transition: transform 0.1s ease, box-shadow 0.15s ease, filter 0.15s ease;
