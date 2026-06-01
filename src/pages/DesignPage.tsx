@@ -585,8 +585,8 @@ function CharacterCard() {
       }}>
         {/* Portrait frame */}
         <div className="atom-heavy" style={{
-          width: '140px',
-          height: '180px',
+          width: '156px',
+          height: '220px',
           border: '3px solid var(--color-gold-mid)',
           borderRadius: '4px',
           background: 'linear-gradient(180deg, #1a0608 0%, #0d0304 100%)',
@@ -616,7 +616,7 @@ function CharacterCard() {
         {/* XP bar */}
         <div style={{ width: '100%' }}>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1px', marginBottom: '5px', textTransform: 'uppercase' }}>Experience</p>
-          <ProgressBar value={62} label="" color="#7a4f10" />
+          <ProgressBar value={62} label="" color="#7c2dbe" />
         </div>
       </div>
 
