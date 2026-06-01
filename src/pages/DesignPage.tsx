@@ -523,7 +523,8 @@ const MOCK_EQUIPPED: Record<string, { name: string; rarity: string } | null> = {
   'RING 2':  null,
   'RING 3':  { name: 'Seal of the Lich King', rarity: 'Epic' },
   'RING 4':  null,
-  TRINKET:   null,
+  'TRINKET 1': null,
+  'TRINKET 2': { name: 'Eye of the Lich', rarity: 'Epic' },
 }
 
 const MOCK_BLESSINGS = [

@@ -163,6 +163,10 @@ body {
 /* ── Tooltip ─────────────────────────────────────────── */
 .tooltip-wrap {
   position: relative;
+  z-index: 1;
+}
+.tooltip-wrap:hover {
+  z-index: 9999;
 }
 .tooltip-box {
   pointer-events: none;
@@ -170,7 +174,7 @@ body {
   bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 200;
+  z-index: 9999;
   width: 220px;
   padding: 12px 14px;
   border-radius: 5px;
