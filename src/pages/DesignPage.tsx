@@ -8,6 +8,11 @@ export default function DesignPage() {
       </h1>
       <p style={{ color: 'var(--color-text-muted)', marginBottom: '48px' }}>Visual language reference — iterate here before building pages</p>
 
+      {/* ── AUTH (LOGIN / REGISTER) ───────────── */}
+      <Section title="Login / Register">
+        <AuthShowcase />
+      </Section>
+
       {/* ── BUTTONS ───────────────────────────── */}
       <Section title="Buttons">
         <Row>
@@ -189,15 +194,132 @@ function Row({ children }: { children: React.ReactNode }) {
   return <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-start' }}>{children}</div>
 }
 
+/* ── Auth (Login / Register) ─────────────── */
+
+function AuthShowcase() {
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  return mode === 'login'
+    ? <LoginForm onSwitch={() => setMode('register')} />
+    : <RegisterForm onSwitch={() => setMode('login')} />
+}
+
+function AuthCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      width: '100%',
+      maxWidth: '380px',
+      borderRadius: '8px',
+      border: '3px solid var(--color-gold-mid)',
+      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
+      boxShadow: [
+        '0 0 0 1px #080101',
+        'inset 0 1px 0 rgba(255,255,255,0.06)',
+        'inset 0 2px 8px rgba(0,0,0,0.6)',
+        '0 0 24px rgba(200,140,30,0.12)',
+        '0 6px 20px rgba(0,0,0,0.8)',
+      ].join(', '),
+      padding: '28px 26px',
+    }}>
+      <h2 style={{
+        color: 'var(--color-gold-light)',
+        fontSize: '22px',
+        letterSpacing: '1.5px',
+        textAlign: 'center',
+        textShadow: '0 0 12px rgba(240,208,96,0.45), 0 2px 4px rgba(0,0,0,0.8)',
+      }}>{title}</h2>
+      <p style={{
+        color: 'var(--color-text-muted)',
+        fontSize: '12px',
+        textAlign: 'center',
+        marginTop: '6px',
+        fontStyle: 'italic',
+      }}>{subtitle}</p>
+
+      <div style={{ margin: '18px 0' }}><GoldDivider /></div>
+
+      {children}
+    </div>
+  )
+}
+
+function Field({ label, type = 'text', placeholder }: { label: string; type?: string; placeholder?: string }) {
+  return (
+    <div style={{ marginBottom: '14px' }}>
+      <label style={{
+        display: 'block',
+        color: 'var(--color-text-muted)',
+        fontSize: '10px',
+        letterSpacing: '1.5px',
+        textTransform: 'uppercase',
+        marginBottom: '6px',
+      }}>{label}</label>
+      <input className="input-fantasy" type={type} placeholder={placeholder} />
+    </div>
+  )
+}
+
+function AuthSwitchLink({ prompt, action, onSwitch }: { prompt: string; action: string; onSwitch: () => void }) {
+  return (
+    <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '12px', marginTop: '16px' }}>
+      {prompt}{' '}
+      <button
+        type="button"
+        onClick={onSwitch}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: 'var(--color-text-gold)',
+          fontFamily: 'Georgia, serif',
+          fontSize: '12px',
+          cursor: 'pointer',
+          textDecoration: 'underline',
+          textUnderlineOffset: '2px',
+          padding: 0,
+        }}
+      >{action}</button>
+    </p>
+  )
+}
+
+function LoginForm({ onSwitch }: { onSwitch: () => void }) {
+  return (
+    <AuthCard title="Enter the Realm" subtitle="Sign in to continue your conquest">
+      <Field label="Username" placeholder="Your hero name…" />
+      <Field label="Password" type="password" placeholder="••••••••" />
+      <div style={{ marginTop: '20px' }}>
+        <PrimaryButton fullWidth type="submit">Sign In</PrimaryButton>
+      </div>
+      <AuthSwitchLink prompt="No account yet?" action="Forge one" onSwitch={onSwitch} />
+    </AuthCard>
+  )
+}
+
+function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
+  return (
+    <AuthCard title="Forge Your Legend" subtitle="Create an account to begin">
+      <Field label="Username" placeholder="Choose a hero name…" />
+      <Field label="Password" type="password" placeholder="••••••••" />
+      <Field label="Confirm Password" type="password" placeholder="••••••••" />
+      <div style={{ marginTop: '20px' }}>
+        <PrimaryButton fullWidth type="submit">Create Account</PrimaryButton>
+      </div>
+      <AuthSwitchLink prompt="Already have an account?" action="Sign in" onSwitch={onSwitch} />
+    </AuthCard>
+  )
+}
+
 /* ── Atoms ───────────────────────────────── */
 
-function PrimaryButton({ children, disabled }: { children: React.ReactNode; disabled?: boolean }) {
+function PrimaryButton({ children, disabled, fullWidth, onClick, type }: { children: React.ReactNode; disabled?: boolean; fullWidth?: boolean; onClick?: () => void; type?: 'button' | 'submit' }) {
   return (
     <button
       disabled={disabled}
+      onClick={onClick}
+      type={type ?? 'button'}
       className="btn btn-primary"
       style={{
         position: 'relative',
+        width: fullWidth ? '100%' : undefined,
         padding: '10px 24px',
         fontFamily: 'Georgia, serif',
         fontSize: '14px',
