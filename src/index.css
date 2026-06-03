@@ -240,6 +240,39 @@ body {
   }
 }
 
+/* ── Header nav links ────────────────────────────────── */
+.nav-link {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-family: 'Georgia', serif;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  cursor: pointer;
+  position: relative;
+  white-space: nowrap;
+  transition: color 0.15s ease, text-shadow 0.15s ease;
+}
+.nav-link:hover {
+  color: var(--color-text-gold);
+}
+.nav-link--active {
+  color: var(--color-gold-light);
+  text-shadow: 0 0 10px rgba(240, 208, 96, 0.5);
+}
+.nav-link--active::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -2px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-gold-mid), transparent);
+  box-shadow: 0 0 6px var(--color-gold-glow);
+}
+
 /* ── Button base transition ───────────────────────────── */
 .btn {
   transition: transform 0.1s ease, box-shadow 0.15s ease, filter 0.15s ease;
