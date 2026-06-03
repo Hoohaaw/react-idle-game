@@ -220,12 +220,7 @@ function GameHeader() {
   return (
     <header style={{
       display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: '16px',
-      flexWrap: 'wrap',
-      padding: '10px 18px',
-      background: 'linear-gradient(180deg, #21080b 0%, #130406 100%)',
+      flexDirection: 'column',
       borderBottom: '3px solid var(--color-gold-mid)',
       boxShadow: [
         '0 0 0 1px #080101',
@@ -233,8 +228,15 @@ function GameHeader() {
         '0 4px 14px rgba(0,0,0,0.7)',
       ].join(', '),
     }}>
-      {/* Left: logo + nav */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+      {/* ── Tier 1: navigation ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px',
+        flexWrap: 'wrap',
+        padding: '10px 18px',
+        background: 'linear-gradient(180deg, #2a0d10 0%, #1a0608 100%)',
+      }}>
         <span style={{
           color: 'var(--color-gold-light)',
           fontSize: '15px',
@@ -255,8 +257,18 @@ function GameHeader() {
         </nav>
       </div>
 
-      {/* Right: resources + coins (always shown) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+      {/* ── Tier 2: resources + currency (sunken strip, always shown) ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: '6px',
+        flexWrap: 'wrap',
+        padding: '8px 18px',
+        borderTop: '2px solid var(--color-gold-dark)',
+        background: 'linear-gradient(180deg, #0c0203 0%, #140405 100%)',
+        boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.6)',
+      }}>
         {HEADER_ORES.map(r => <ResourceChip key={r.label} label={r.label} value={r.value} />)}
         <HeaderDivider />
         {HEADER_MATERIALS.map(r => <ResourceChip key={r.label} label={r.label} value={r.value} />)}
