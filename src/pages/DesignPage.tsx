@@ -261,7 +261,7 @@ function GameHeader() {
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-end',
+        justifyContent: 'flex-start',
         gap: '6px',
         flexWrap: 'wrap',
         padding: '8px 18px',
@@ -521,6 +521,22 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
+// Placeholder for an icon SVG to be dropped in later (resources, currency).
+function IconSlot({ size = 16 }: { size?: number }) {
+  return (
+    <span style={{
+      display: 'inline-block',
+      width: size,
+      height: size,
+      flexShrink: 0,
+      borderRadius: '3px',
+      border: '1px solid var(--color-gold-dark)',
+      background: 'linear-gradient(180deg, #0c0203 0%, #1a0608 100%)',
+      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.6)',
+    }} />
+  )
+}
+
 function ResourceChip({ label, value }: { label: string; value: number }) {
   return (
     <div className="atom-heavy" style={{
@@ -532,6 +548,7 @@ function ResourceChip({ label, value }: { label: string; value: number }) {
       border: '2px solid var(--color-gold-dark)',
       background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
     }}>
+      <IconSlot />
       <span style={{
         color: 'var(--color-gold-mid)',
         fontSize: '11px',
@@ -676,7 +693,7 @@ function CoinDisplay({ amount }: { amount: number }) {
         '0 3px 8px rgba(0,0,0,0.65)',
       ].join(', '),
     }}>
-      <span style={{ fontSize: '15px', lineHeight: 1 }}>🪙</span>
+      <IconSlot size={18} />
       <span style={{
         color: 'var(--color-text-gold)',
         fontSize: '15px',
