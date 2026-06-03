@@ -74,7 +74,7 @@ export default function DesignPage() {
       <Section title="Input Fields">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '320px' }}>
           <input className="input-fantasy" type="text" placeholder="Character name…" />
-          <input className="input-fantasy" type="number" placeholder="Amount" />
+          <NumberStepper />
           <input className="input-fantasy" type="text" defaultValue="Alexandros Mograine" />
           <input className="input-fantasy" type="text" placeholder="Disabled" disabled />
         </div>
@@ -487,6 +487,46 @@ function GoldDivider() {
       height: '1px',
       background: 'linear-gradient(90deg, transparent 0%, var(--color-gold-dark) 30%, var(--color-gold-mid) 50%, var(--color-gold-dark) 70%, transparent 100%)',
     }} />
+  )
+}
+
+/* ── Number Stepper ──────────────────────────────────── */
+
+function NumberStepper({ min = 0, step = 1, initial = 1 }: { min?: number; step?: number; initial?: number }) {
+  const [value, setValue] = useState(initial)
+  const inc = () => setValue(v => v + step)
+  const dec = () => setValue(v => Math.max(min, v - step))
+
+  return (
+    <div className="atom-heavy" style={{
+      display: 'flex',
+      alignItems: 'stretch',
+      borderRadius: '4px',
+      border: '2px solid var(--color-gold-dark)',
+      background: 'linear-gradient(180deg, #0e0203 0%, var(--color-bg-panel) 100%)',
+      overflow: 'hidden',
+    }}>
+      <input
+        className="input-fantasy input-number"
+        type="number"
+        value={value}
+        onChange={e => {
+          const n = Number(e.target.value)
+          setValue(Number.isNaN(n) ? min : Math.max(min, n))
+        }}
+        style={{
+          flex: 1,
+          border: 'none',
+          borderRadius: 0,
+          boxShadow: 'none',
+          background: 'transparent',
+        }}
+      />
+      <div style={{ display: 'flex', flexDirection: 'column', width: '30px' }}>
+        <button type="button" className="stepper-btn" onClick={inc} aria-label="Increase">▲</button>
+        <button type="button" className="stepper-btn" onClick={dec} aria-label="Decrease">▼</button>
+      </div>
+    </div>
   )
 }
 

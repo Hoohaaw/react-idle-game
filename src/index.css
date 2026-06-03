@@ -72,6 +72,47 @@ body {
   cursor: not-allowed;
 }
 
+/* ── Number stepper ──────────────────────────────────── */
+/* Hide native spinner arrows */
+.input-number::-webkit-inner-spin-button,
+.input-number::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.input-number {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.stepper-btn {
+  flex: 1;
+  width: 30px;
+  border: none;
+  border-left: 2px solid var(--color-gold-dark);
+  background: linear-gradient(180deg, #2a1a08 0%, #120a02 100%);
+  color: var(--color-gold-light);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  transition: filter 0.12s ease, background 0.12s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.stepper-btn:first-child {
+  border-bottom: 1px solid var(--color-gold-dark);
+}
+.stepper-btn:hover {
+  filter: brightness(1.4);
+  background: linear-gradient(180deg, #3a2510 0%, #1a0e04 100%);
+}
+.stepper-btn:active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  filter: brightness(0.85);
+}
+
 /* ── Radio buttons ───────────────────────────────────── */
 .radio-group {
   display: flex;
