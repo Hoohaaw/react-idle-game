@@ -81,10 +81,10 @@ export default function DesignPage() {
         <CharacterCard />
       </Section>
 
-      {/* ── MISSION DROP TABLE ───────────────── */}
-      <Section title="Mission Drop Table">
+      {/* ── LOOT TABLE ───────────────────────── */}
+      <Section title="Loot Table">
         <Row>
-          {DROP_TABLES.map(d => <DropTablePanel key={d.mission} data={d} />)}
+          {LOOT_TABLES.map(d => <LootTable key={d.mission} data={d} />)}
         </Row>
       </Section>
 
@@ -627,14 +627,14 @@ function RarityBadge({ rarity }: { rarity: string }) {
   )
 }
 
-/* ── Mission Drop Table ──────────────────── */
+/* ── Loot Table ──────────────────────────── */
 
 type RarityChance = { rarity: string; chance: number }
 type DropItem = { name: string; slot: string; chances: RarityChance[] }
 type MissionDrops = { mission: string; stage: number; boss?: boolean; pool: DropItem[] }
 
 // Independent per-(item, rarity) chances — they do NOT sum to 100.
-const DROP_TABLES: MissionDrops[] = [
+const LOOT_TABLES: MissionDrops[] = [
   {
     mission: 'Goblin Outpost', stage: 1, pool: [
       { name: 'Coif', slot: 'Head', chances: [{ rarity: 'Common', chance: 90 }, { rarity: 'Uncommon', chance: 15 }] },
@@ -671,10 +671,10 @@ function RarityChancePill({ rarity, chance }: RarityChance) {
   )
 }
 
-function DropTablePanel({ data }: { data: MissionDrops }) {
+function LootTable({ data }: { data: MissionDrops }) {
   return (
     <div style={{
-      width: '320px',
+      width: '340px',
       borderRadius: '8px',
       border: '3px solid var(--color-gold-mid)',
       background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
@@ -697,7 +697,7 @@ function DropTablePanel({ data }: { data: MissionDrops }) {
         background: 'linear-gradient(180deg, rgba(200,145,42,0.15) 0%, rgba(200,145,42,0.04) 100%)',
       }}>
         <div>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '2px', textTransform: 'uppercase' }}>Possible Drops</p>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '2px', textTransform: 'uppercase' }}>Loot Table</p>
           <p style={{ color: 'var(--color-gold-light)', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.5px', textShadow: '0 0 10px rgba(240,208,96,0.4)' }}>{data.mission}</p>
         </div>
         <span style={{
@@ -712,22 +712,27 @@ function DropTablePanel({ data }: { data: MissionDrops }) {
         }}>{data.boss ? 'Boss' : `Stage ${data.stage}`}</span>
       </div>
 
-      {/* Item rows */}
+      {/* Item rows — image on the left, details to the right */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
         {data.pool.map(item => (
           <div key={item.name} className="atom-heavy" style={{
-            padding: '9px 11px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '10px 11px',
             borderRadius: '4px',
             border: '2px solid var(--color-gold-dark)',
             background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <IconSlot size={20} />
-              <span style={{ color: 'var(--color-text-primary)', fontSize: '13px', flex: 1 }}>{item.name}</span>
-              <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>{item.slot}</span>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-              {item.chances.map(c => <RarityChancePill key={c.rarity} rarity={c.rarity} chance={c.chance} />)}
+            <IconSlot size={48} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ color: 'var(--color-text-primary)', fontSize: '13px', flex: 1 }}>{item.name}</span>
+                <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>{item.slot}</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                {item.chances.map(c => <RarityChancePill key={c.rarity} rarity={c.rarity} chance={c.chance} />)}
+              </div>
             </div>
           </div>
         ))}
