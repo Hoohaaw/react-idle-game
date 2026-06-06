@@ -768,7 +768,7 @@ const DISPATCH_ROSTER: RosterChar[] = [
   { id: 'r3', name: 'Fandral Staghelm', class: 'Druid', level: 9, statTotal: 70, busy: true },
   { id: 'r4', name: 'Sally Whitemane', class: 'Priest', level: 15, statTotal: 120 },
 ]
-const MAX_PARTY = 4
+const MAX_PARTY = 3
 
 function DispatchLabel({ children }: { children: React.ReactNode }) {
   return <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>{children}</p>
