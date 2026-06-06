@@ -837,7 +837,10 @@ function MissionDispatch() {
 
   const party = DISPATCH_ROSTER.filter(c => selected.includes(c.id))
   const combinedStat = party.reduce((sum, c) => sum + c.statTotal, 0)
-  const rewardBonus = (combinedStat * 0.1).toFixed(1)
+  const statBonus = combinedStat * 0.1                    // % from summed stat points (0.1%/pt)
+  const partyBonus = Math.max(0, party.length - 1) * 10   // % from party size (+10% per extra char)
+  // Multiplicative: each bonus is its own independent multiplier.
+  const totalPct = ((1 + statBonus / 100) * (1 + partyBonus / 100) - 1) * 100
 
   return (
     <div style={{
@@ -910,10 +913,22 @@ function MissionDispatch() {
 
         <div style={{ margin: '0 0 14px' }}><GoldDivider /></div>
 
-        {/* Summary + send */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Party reward bonus</span>
-          <span style={{ color: 'var(--color-success)', fontSize: '15px', fontWeight: 'bold', textShadow: '0 0 8px rgba(74,140,63,0.4)' }}>+{rewardBonus}%</span>
+        {/* Reward breakdown (multiplicative) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Stat bonus</span>
+            <span style={{ color: 'var(--color-text-gold)', fontSize: '12px', fontWeight: 'bold' }}>+{statBonus.toFixed(1)}%</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>
+              Party size{party.length > 0 ? ` (×${party.length})` : ''}
+            </span>
+            <span style={{ color: 'var(--color-text-gold)', fontSize: '12px', fontWeight: 'bold' }}>+{partyBonus.toFixed(1)}%</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '7px', borderTop: '1px solid var(--color-gold-dark)' }}>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Total rewards</span>
+            <span style={{ color: 'var(--color-success)', fontSize: '16px', fontWeight: 'bold', textShadow: '0 0 8px rgba(74,140,63,0.4)' }}>+{totalPct.toFixed(1)}%</span>
+          </div>
         </div>
         <PrimaryButton fullWidth disabled={selected.length === 0}>
           {selected.length === 0 ? 'Select a character' : `Send Party (${selected.length})`}
