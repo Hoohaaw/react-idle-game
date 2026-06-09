@@ -249,6 +249,7 @@ body {
   font-size: 12px;
   letter-spacing: 1px;
   text-transform: uppercase;
+  text-decoration: none;
   padding: 6px 10px;
   cursor: pointer;
   position: relative;

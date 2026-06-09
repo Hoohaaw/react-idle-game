@@ -24,6 +24,7 @@ import { StatusTag } from '../components/atoms/StatusTag'
 import { useNow } from '../hooks/useNow'
 import { formatRemaining } from '../lib/time'
 import { Tooltip } from '../components/atoms/Tooltip'
+import { GameHeader } from '../components/organisms/GameHeader'
 
 export default function DesignPage() {
   const [modal, setModal] = useState<null | 'claim' | 'dispatch'>(null)
@@ -392,85 +393,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-start' }}>{children}</div>
-}
-
-/* ── Game Header (top nav) ───────────────── */
-
-const NAV_ITEMS = ['Missions', 'Team', 'Mines', 'Crafting', 'Shop', 'Inventory', 'Upgrades', 'Blessings', 'Transcendence', 'Statistics']
-
-const HEADER_ORES = [
-  { label: 'Cu', value: 142 }, { label: 'Ag', value: 28 }, { label: 'Au', value: 5 }, { label: 'Pt', value: 0 },
-]
-const HEADER_MATERIALS = [
-  { label: 'Wd', value: 300 }, { label: 'Co', value: 64 }, { label: 'St', value: 120 }, { label: 'Br', value: 12 }, { label: 'Fe', value: 88 },
-]
-
-function HeaderDivider() {
-  return <div style={{ width: '2px', alignSelf: 'stretch', margin: '6px 4px', background: 'linear-gradient(180deg, transparent, var(--color-gold-dark), transparent)' }} />
-}
-
-function GameHeader() {
-  const [active, setActive] = useState('Missions')
-  return (
-    <header style={{
-      display: 'flex',
-      flexDirection: 'column',
-      borderBottom: '3px solid var(--color-gold-mid)',
-      boxShadow: [
-        '0 0 0 1px #080101',
-        'inset 0 1px 0 rgba(255,255,255,0.06)',
-        '0 4px 14px rgba(0,0,0,0.7)',
-      ].join(', '),
-    }}>
-      {/* ── Tier 1: navigation ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '14px',
-        flexWrap: 'wrap',
-        padding: '10px 18px',
-        background: 'linear-gradient(180deg, #2a0d10 0%, #1a0608 100%)',
-      }}>
-        <span style={{
-          color: 'var(--color-gold-light)',
-          fontSize: '15px',
-          fontWeight: 'bold',
-          letterSpacing: '1.5px',
-          textTransform: 'uppercase',
-          textShadow: '0 0 12px rgba(240,208,96,0.5), 0 2px 3px rgba(0,0,0,0.9)',
-          whiteSpace: 'nowrap',
-        }}>⚔ The Idle Game</span>
-        <nav style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
-          {NAV_ITEMS.map(item => (
-            <button
-              key={item}
-              onClick={() => setActive(item)}
-              className={active === item ? 'nav-link nav-link--active' : 'nav-link'}
-            >{item}</button>
-          ))}
-        </nav>
-      </div>
-
-      {/* ── Tier 2: resources + currency (sunken strip, always shown) ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        gap: '6px',
-        flexWrap: 'wrap',
-        padding: '8px 18px',
-        borderTop: '2px solid var(--color-gold-dark)',
-        background: 'linear-gradient(180deg, #0c0203 0%, #140405 100%)',
-        boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.6)',
-      }}>
-        {HEADER_ORES.map(r => <ResourceChip key={r.label} label={r.label} value={r.value} />)}
-        <HeaderDivider />
-        {HEADER_MATERIALS.map(r => <ResourceChip key={r.label} label={r.label} value={r.value} />)}
-        <HeaderDivider />
-        <CoinDisplay amount={1420} />
-      </div>
-    </header>
-  )
 }
 
 /* ── Auth (Login / Register) ─────────────── */
