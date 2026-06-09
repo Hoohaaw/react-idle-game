@@ -14,10 +14,7 @@ export default function DesignPage() {
       </h1>
       <p style={{ color: 'var(--color-text-muted)', marginBottom: '48px' }}>Visual language reference — iterate here before building pages</p>
 
-      {/* ── AUTH (LOGIN / REGISTER) ───────────── */}
-      <Section title="Login / Register">
-        <AuthShowcase />
-      </Section>
+      <GroupHeading>Atoms</GroupHeading>
 
       {/* ── BUTTONS ───────────────────────────── */}
       <Section title="Buttons">
@@ -30,17 +27,15 @@ export default function DesignPage() {
         </Row>
       </Section>
 
-      {/* ── PANELS ────────────────────────────── */}
-      <Section title="Panels">
+      {/* ── ICON BUTTONS ─────────────────────── */}
+      <Section title="Icon Buttons">
         <Row>
-          <Panel title="Mission Card">
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Goblin Camp — Stage 3</p>
-            <p style={{ color: 'var(--color-text-primary)', fontSize: '14px', marginTop: '8px' }}>Reward: 120 coins · 3:00</p>
-          </Panel>
-          <Panel title="Character">
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Rogue · Level 7</p>
-            <p style={{ color: 'var(--color-text-gold)', fontSize: '13px', marginTop: '8px' }}>ATK 45 · AGI 38</p>
-          </Panel>
+          <IconButton label="Close">✕</IconButton>
+          <IconButton label="Settings">⚙</IconButton>
+          <IconButton label="Add">+</IconButton>
+          <IconButton label="Info">ℹ</IconButton>
+          <IconButton size={42} label="Close large">✕</IconButton>
+          <IconButton variant="danger" label="Delete">✕</IconButton>
         </Row>
       </Section>
 
@@ -76,28 +71,6 @@ export default function DesignPage() {
         </div>
       </Section>
 
-      {/* ── CHARACTER CARD ───────────────────── */}
-      <Section title="Character Card">
-        <CharacterCard />
-      </Section>
-
-      {/* ── LOOT TABLE ───────────────────────── */}
-      <Section title="Loot Table">
-        <Row>
-          {LOOT_TABLES.map(d => <LootTable key={d.mission} data={d} />)}
-        </Row>
-      </Section>
-
-      {/* ── MISSION DISPATCH ─────────────────── */}
-      <Section title="Mission Dispatch (Send Party)">
-        <MissionDispatch />
-      </Section>
-
-      {/* ── CLAIM REWARD ─────────────────────── */}
-      <Section title="Claim Reward (Mission Complete)">
-        <ClaimReward />
-      </Section>
-
       {/* ── INPUT FIELDS ─────────────────────── */}
       <Section title="Input Fields">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '320px' }}>
@@ -108,18 +81,36 @@ export default function DesignPage() {
         </div>
       </Section>
 
-      {/* ── RADIO BUTTONS ────────────────────── */}
-      <Section title="Radio Buttons">
-        <div className="radio-group">
-          <label className="radio-label">
-            <input type="radio" name="demo" defaultChecked /> Start Mission
-          </label>
-          <label className="radio-label">
-            <input type="radio" name="demo" /> Send to Gather
-          </label>
-          <label className="radio-label">
-            <input type="radio" name="demo" /> Stay at Camp
-          </label>
+      {/* ── CHECKBOX / RADIO / TOGGLE ────────── */}
+      <Section title="Checkbox · Radio · Toggle">
+        <div style={{ display: 'flex', gap: '48px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <label className="radio-label"><input type="checkbox" className="checkbox-fantasy" defaultChecked /> Auto-claim rewards</label>
+            <label className="radio-label"><input type="checkbox" className="checkbox-fantasy" /> Show advanced stats</label>
+          </div>
+          <div className="radio-group">
+            <label className="radio-label"><input type="radio" name="demo" defaultChecked /> Start Mission</label>
+            <label className="radio-label"><input type="radio" name="demo" /> Send to Gather</label>
+            <label className="radio-label"><input type="radio" name="demo" /> Stay at Camp</label>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <label className="radio-label"><input type="checkbox" className="toggle-fantasy" defaultChecked /> Sound</label>
+            <label className="radio-label"><input type="checkbox" className="toggle-fantasy" /> Notifications</label>
+          </div>
+        </div>
+      </Section>
+
+      {/* ── SELECT / TABS / FILTERS ──────────── */}
+      <Section title="Select · Tabs · Filters">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <select className="select-fantasy" defaultValue="rarity" style={{ maxWidth: '240px' }}>
+            <option value="rarity">Sort: Rarity</option>
+            <option value="name">Sort: Name</option>
+            <option value="recent">Sort: Recently acquired</option>
+            <option value="value">Sort: Value</option>
+          </select>
+          <Tabs tabs={['Equipped', 'Talents', 'Stats']} />
+          <SegmentedControl options={['All', 'Weapons', 'Armor', 'Trinkets']} />
         </div>
       </Section>
 
@@ -131,6 +122,18 @@ export default function DesignPage() {
           <RarityBadge rarity="Rare" />
           <RarityBadge rarity="Epic" />
           <RarityBadge rarity="Legendary" />
+        </Row>
+      </Section>
+
+      {/* ── COUNT BADGE & NOTIFICATION ───────── */}
+      <Section title="Count Badge & Notification">
+        <Row>
+          <CountBadge count={3} />
+          <CountBadge count={42} />
+          <CountBadge count={128} />
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', fontSize: '13px' }}>
+            <NotificationDot /> unclaimed reward
+          </span>
         </Row>
       </Section>
 
@@ -154,6 +157,45 @@ export default function DesignPage() {
           <LevelBadge level={24} />
           <CoinDisplay amount={1420} />
           <CoinDisplay amount={50} />
+        </Row>
+      </Section>
+
+      {/* ── AVATAR / PORTRAIT ────────────────── */}
+      <Section title="Avatar / Portrait">
+        <Row>
+          <Avatar level={12} />
+          <Avatar level={24} state="busy" />
+          <Avatar state="locked" />
+          <Avatar width={72} height={90} level={7} />
+        </Row>
+      </Section>
+
+      {/* ── SPINNER ──────────────────────────── */}
+      <Section title="Spinner / Loading">
+        <Row>
+          <Spinner size={20} />
+          <Spinner size={28} />
+          <Spinner size={40} />
+        </Row>
+      </Section>
+
+      {/* ── INLINE ALERTS ────────────────────── */}
+      <Section title="Inline Alerts">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <Alert variant="success">Mission complete — rewards claimed.</Alert>
+          <Alert variant="error">Not enough coins to recruit this character.</Alert>
+          <Alert variant="warning">Your inventory is almost full.</Alert>
+          <Alert variant="info">Shop restocks in 2h 14m.</Alert>
+        </div>
+      </Section>
+
+      {/* ── ICON PLACEHOLDER ─────────────────── */}
+      <Section title="Icon Placeholder (IconSlot)">
+        <Row>
+          <IconSlot size={16} />
+          <IconSlot size={24} />
+          <IconSlot size={40} />
+          <IconSlot size={56} />
         </Row>
       </Section>
 
@@ -188,11 +230,69 @@ export default function DesignPage() {
           ))}
         </Row>
       </Section>
+
+      <GroupHeading>Components</GroupHeading>
+
+      {/* ── PANELS ────────────────────────────── */}
+      <Section title="Panels">
+        <Row>
+          <Panel title="Mission Card">
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Goblin Camp — Stage 3</p>
+            <p style={{ color: 'var(--color-text-primary)', fontSize: '14px', marginTop: '8px' }}>Reward: 120 coins · 3:00</p>
+          </Panel>
+          <Panel title="Character">
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Rogue · Level 7</p>
+            <p style={{ color: 'var(--color-text-gold)', fontSize: '13px', marginTop: '8px' }}>ATK 45 · AGI 38</p>
+          </Panel>
+        </Row>
+      </Section>
+
+      {/* ── AUTH (LOGIN / REGISTER) ───────────── */}
+      <Section title="Login / Register">
+        <AuthShowcase />
+      </Section>
+
+      {/* ── CHARACTER CARD ───────────────────── */}
+      <Section title="Character Card">
+        <CharacterCard />
+      </Section>
+
+      {/* ── LOOT TABLE ───────────────────────── */}
+      <Section title="Loot Table">
+        <Row>
+          {LOOT_TABLES.map(d => <LootTable key={d.mission} data={d} />)}
+        </Row>
+      </Section>
+
+      {/* ── MISSION DISPATCH ─────────────────── */}
+      <Section title="Mission Dispatch (Send Party)">
+        <MissionDispatch />
+      </Section>
+
+      {/* ── CLAIM REWARD ─────────────────────── */}
+      <Section title="Claim Reward (Mission Complete)">
+        <ClaimReward />
+      </Section>
     </div>
   )
 }
 
 /* ── Layout helpers ──────────────────────── */
+
+function GroupHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 style={{
+      color: 'var(--color-gold-light)',
+      fontSize: '20px',
+      letterSpacing: '4px',
+      textTransform: 'uppercase',
+      margin: '8px 0 28px',
+      paddingBottom: '10px',
+      borderBottom: '2px solid var(--color-gold-mid)',
+      textShadow: '0 0 12px rgba(240,208,96,0.4)',
+    }}>{children}</h2>
+  )
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -1163,6 +1263,116 @@ function GoldDivider() {
       height: '1px',
       background: 'linear-gradient(90deg, transparent 0%, var(--color-gold-dark) 30%, var(--color-gold-mid) 50%, var(--color-gold-dark) 70%, transparent 100%)',
     }} />
+  )
+}
+
+/* ── New atoms ───────────────────────────── */
+
+function IconButton({ children, size = 34, label, variant = 'default' }: { children: React.ReactNode; size?: number; label?: string; variant?: 'default' | 'danger' }) {
+  return (
+    <button
+      type="button"
+      className="icon-btn"
+      aria-label={label}
+      style={{
+        width: size, height: size, fontSize: Math.round(size * 0.42),
+        ...(variant === 'danger' ? { borderColor: '#6b1010', color: '#e08080' } : {}),
+      }}
+    >{children}</button>
+  )
+}
+
+function Avatar({ width = 56, height = 70, level, state = 'available' }: { width?: number; height?: number; level?: number; state?: 'available' | 'busy' | 'locked' }) {
+  const ringColor = state === 'busy' ? 'var(--color-warning)' : state === 'locked' ? '#444' : 'var(--color-gold-mid)'
+  return (
+    <div style={{ position: 'relative', width, height, flexShrink: 0 }}>
+      <div style={{
+        width: '100%', height: '100%', borderRadius: 4, overflow: 'hidden',
+        border: `2px solid ${ringColor}`,
+        background: 'linear-gradient(180deg, #1a0608 0%, #0d0304 100%)',
+        boxShadow: state === 'available'
+          ? '0 0 0 1px #080101, inset 0 2px 6px rgba(0,0,0,0.6), 0 0 10px rgba(200,140,30,0.2)'
+          : '0 0 0 1px #080101, inset 0 2px 6px rgba(0,0,0,0.6)',
+        opacity: state === 'locked' ? 0.5 : 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <span style={{ color: 'var(--color-text-muted)', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>{state === 'locked' ? '🔒' : 'IMG'}</span>
+      </div>
+      {level !== undefined && (
+        <span style={{
+          position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
+          background: 'linear-gradient(180deg, #2a1a08, #120a02)', border: '2px solid var(--color-gold-mid)',
+          borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 'bold', color: 'var(--color-gold-light)',
+          boxShadow: '0 0 0 1px #080101, 0 1px 3px rgba(0,0,0,0.7)', whiteSpace: 'nowrap',
+        }}>Lv {level}</span>
+      )}
+      {state === 'busy' && (
+        <span style={{ position: 'absolute', top: -5, right: -5, width: 13, height: 13, borderRadius: '50%', background: 'var(--color-warning)', border: '2px solid #0d0304', boxShadow: '0 0 6px rgba(140,96,32,0.8)' }} />
+      )}
+    </div>
+  )
+}
+
+function CountBadge({ count }: { count: number }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10,
+      background: 'linear-gradient(180deg, #b32020, #6b1010)', border: '2px solid #e08080',
+      color: '#fff', fontSize: 11, fontWeight: 'bold', fontFamily: 'Georgia, serif',
+      boxShadow: '0 0 0 1px #080101, 0 0 8px rgba(180,30,30,0.5)',
+    }}>{count}</span>
+  )
+}
+
+function NotificationDot() {
+  return <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%, #ff6a6a, #8c2020)', boxShadow: '0 0 8px rgba(180,30,30,0.7), 0 0 0 1px #080101' }} />
+}
+
+function Spinner({ size = 28 }: { size?: number }) {
+  return <span className="spinner-fantasy" style={{ width: size, height: size }} />
+}
+
+const ALERT_STYLES: Record<string, { color: string; border: string; icon: string }> = {
+  success: { color: '#7ed98f', border: 'var(--color-success)', icon: '✓' },
+  error:   { color: '#e88', border: 'var(--color-danger)', icon: '✕' },
+  warning: { color: '#e8c050', border: 'var(--color-warning)', icon: '⚠' },
+  info:    { color: '#9bc4e8', border: '#2a5a8a', icon: 'ℹ' },
+}
+
+function Alert({ variant, children }: { variant: 'success' | 'error' | 'warning' | 'info'; children: React.ReactNode }) {
+  const s = ALERT_STYLES[variant]
+  return (
+    <div className="atom-heavy" style={{
+      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 4, maxWidth: 440,
+      border: '2px solid var(--color-gold-dark)', borderLeftWidth: '4px', borderLeftColor: s.border,
+      background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
+    }}>
+      <span style={{ color: s.color, fontSize: 14, fontWeight: 'bold' }}>{s.icon}</span>
+      <span style={{ color: 'var(--color-text-primary)', fontSize: 13 }}>{children}</span>
+    </div>
+  )
+}
+
+function Tabs({ tabs }: { tabs: string[] }) {
+  const [active, setActive] = useState(tabs[0])
+  return (
+    <div style={{ display: 'flex', borderBottom: '2px solid var(--color-gold-dark)' }}>
+      {tabs.map(t => (
+        <button key={t} onClick={() => setActive(t)} className={active === t ? 'tab tab--active' : 'tab'}>{t}</button>
+      ))}
+    </div>
+  )
+}
+
+function SegmentedControl({ options }: { options: string[] }) {
+  const [active, setActive] = useState(options[0])
+  return (
+    <div className="segmented">
+      {options.map(o => (
+        <button key={o} onClick={() => setActive(o)} className={active === o ? 'is-active' : ''}>{o}</button>
+      ))}
+    </div>
   )
 }
 
