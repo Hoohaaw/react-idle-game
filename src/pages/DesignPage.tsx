@@ -1476,12 +1476,17 @@ function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec: numbe
       display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 4,
       border: `2px solid ${done ? 'var(--color-success)' : 'var(--color-gold-dark)'}`,
       background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
-      fontFamily: 'Georgia, serif', fontSize: 13, fontVariantNumeric: 'tabular-nums',
+      fontFamily: 'Georgia, serif', fontSize: 13,
       color: done ? '#8ee59c' : 'var(--color-text-gold)',
       textShadow: done ? '0 0 8px rgba(74,140,63,0.4)' : '0 0 6px rgba(232,192,80,0.3)',
     }}>
       <span style={{ fontSize: 12 }}>{done ? '✓' : '⏱'}</span>
-      {done ? 'Ready' : formatRemaining(endsAt - now)}
+      <span style={{
+        // Monospace so each digit is fixed-width — the readout never reflows as it ticks.
+        fontFamily: done ? 'Georgia, serif' : '"Consolas", "SF Mono", ui-monospace, monospace',
+        fontVariantNumeric: 'tabular-nums',
+        letterSpacing: '0.5px',
+      }}>{done ? 'Ready' : formatRemaining(endsAt - now)}</span>
     </span>
   )
 }
