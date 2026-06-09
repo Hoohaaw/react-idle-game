@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { RARITY_STYLES } from '../lib/rarity'
 import { PrimaryButton, SecondaryButton, DangerButton, GhostButton } from '../components/atoms/Button'
@@ -7,6 +7,23 @@ import { IconSlot } from '../components/atoms/IconSlot'
 import { ResourceChip } from '../components/atoms/ResourceChip'
 import { ProgressBar } from '../components/atoms/ProgressBar'
 import { RarityBadge } from '../components/atoms/RarityBadge'
+import { StatPill } from '../components/atoms/StatPill'
+import { LevelBadge } from '../components/atoms/LevelBadge'
+import { CoinDisplay } from '../components/atoms/CoinDisplay'
+import { GoldDivider } from '../components/atoms/GoldDivider'
+import { IconButton } from '../components/atoms/IconButton'
+import { Avatar } from '../components/atoms/Avatar'
+import { CountBadge, NotificationDot } from '../components/atoms/CountBadge'
+import { Spinner } from '../components/atoms/Spinner'
+import { Alert } from '../components/atoms/Alert'
+import { Tabs } from '../components/atoms/Tabs'
+import { SegmentedControl } from '../components/atoms/SegmentedControl'
+import { CustomSelect } from '../components/atoms/CustomSelect'
+import { CountdownTimer } from '../components/atoms/CountdownTimer'
+import { StatusTag } from '../components/atoms/StatusTag'
+import { useNow } from '../hooks/useNow'
+import { formatRemaining } from '../lib/time'
+import { Tooltip } from '../components/atoms/Tooltip'
 
 export default function DesignPage() {
   const [modal, setModal] = useState<null | 'claim' | 'dispatch'>(null)
@@ -1005,326 +1022,6 @@ function ClaimReward() {
   )
 }
 
-function StatPill({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="atom-heavy" style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '7px',
-      padding: '6px 12px',
-      borderRadius: '4px',
-      border: '2px solid var(--color-gold-dark)',
-      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
-    }}>
-      <span style={{
-        color: 'var(--color-text-muted)',
-        fontSize: '10px',
-        letterSpacing: '1.5px',
-        textTransform: 'uppercase',
-        textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-      }}>{label}</span>
-      <span style={{
-        color: 'var(--color-text-gold)',
-        fontSize: '15px',
-        fontWeight: 'bold',
-        textShadow: '0 0 6px rgba(232,192,80,0.4), 0 1px 2px rgba(0,0,0,0.9)',
-      }}>{value}</span>
-    </div>
-  )
-}
-
-function LevelBadge({ level }: { level: number }) {
-  return (
-    <div className="atom-heavy" style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '5px',
-      padding: '6px 14px',
-      borderRadius: '4px',
-      border: '2px solid var(--color-gold-mid)',
-      background: 'linear-gradient(180deg, #2a1a08 0%, #120a02 100%)',
-    }}>
-      <span style={{
-        color: 'var(--color-text-muted)',
-        fontSize: '10px',
-        letterSpacing: '2px',
-        textTransform: 'uppercase',
-      }}>LV</span>
-      <span style={{
-        color: 'var(--color-gold-light)',
-        fontSize: '16px',
-        fontWeight: 'bold',
-        textShadow: '0 0 8px rgba(240,208,96,0.5), 0 1px 3px rgba(0,0,0,0.9)',
-      }}>{level}</span>
-    </div>
-  )
-}
-
-function CoinDisplay({ amount }: { amount: number }) {
-  return (
-    <div className="atom-heavy" style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      padding: '6px 14px',
-      borderRadius: '4px',
-      border: '2px solid var(--color-gold-mid)',
-      background: 'linear-gradient(180deg, #2a1a08 0%, #120a02 100%)',
-      boxShadow: [
-        '0 0 0 1px #080101',
-        'inset 0 1px 0 rgba(255,255,255,0.07)',
-        'inset 0 2px 6px rgba(0,0,0,0.55)',
-        '0 0 12px rgba(200,140,30,0.2)',
-        '0 3px 8px rgba(0,0,0,0.65)',
-      ].join(', '),
-    }}>
-      <IconSlot size={18} />
-      <span style={{
-        color: 'var(--color-text-gold)',
-        fontSize: '15px',
-        fontWeight: 'bold',
-        textShadow: '0 0 8px rgba(232,192,80,0.4), 0 1px 2px rgba(0,0,0,0.9)',
-      }}>{amount.toLocaleString()}</span>
-    </div>
-  )
-}
-
-function GoldDivider() {
-  return (
-    <div style={{
-      flex: 1,
-      height: '1px',
-      background: 'linear-gradient(90deg, transparent 0%, var(--color-gold-dark) 30%, var(--color-gold-mid) 50%, var(--color-gold-dark) 70%, transparent 100%)',
-    }} />
-  )
-}
-
-/* ── New atoms ───────────────────────────── */
-
-function IconButton({ children, size = 34, label, variant = 'default', onClick }: { children: React.ReactNode; size?: number; label?: string; variant?: 'default' | 'danger'; onClick?: () => void }) {
-  return (
-    <button
-      type="button"
-      className="icon-btn"
-      aria-label={label}
-      onClick={onClick}
-      style={{
-        width: size, height: size, fontSize: Math.round(size * 0.42),
-        ...(variant === 'danger' ? { borderColor: '#6b1010', color: '#e08080' } : {}),
-      }}
-    >{children}</button>
-  )
-}
-
-// size = width in px; height is derived at a fixed 4:5 portrait ratio.
-function Avatar({ size = 56, level, state = 'available' }: { size?: number; level?: number; state?: 'available' | 'busy' | 'locked' }) {
-  const width = size
-  const height = Math.round(size * 1.25)
-  const ringColor = state === 'busy' ? 'var(--color-warning)' : state === 'locked' ? '#444' : 'var(--color-gold-mid)'
-  return (
-    <div style={{ position: 'relative', width, height, flexShrink: 0 }}>
-      <div style={{
-        width: '100%', height: '100%', borderRadius: 4, overflow: 'hidden',
-        border: `2px solid ${ringColor}`,
-        background: 'linear-gradient(180deg, #1a0608 0%, #0d0304 100%)',
-        boxShadow: state === 'available'
-          ? '0 0 0 1px #080101, inset 0 2px 6px rgba(0,0,0,0.6), 0 0 10px rgba(200,140,30,0.2)'
-          : '0 0 0 1px #080101, inset 0 2px 6px rgba(0,0,0,0.6)',
-        opacity: state === 'locked' ? 0.5 : 1,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <span style={{ color: 'var(--color-text-muted)', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>{state === 'locked' ? '🔒' : 'IMG'}</span>
-      </div>
-      {level !== undefined && (
-        <span style={{
-          position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
-          background: 'linear-gradient(180deg, #2a1a08, #120a02)', border: '2px solid var(--color-gold-mid)',
-          borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 'bold', color: 'var(--color-gold-light)',
-          boxShadow: '0 0 0 1px #080101, 0 1px 3px rgba(0,0,0,0.7)', whiteSpace: 'nowrap',
-        }}>Lv {level}</span>
-      )}
-      {state === 'busy' && (
-        <span style={{ position: 'absolute', top: -5, right: -5, width: 13, height: 13, borderRadius: '50%', background: 'var(--color-warning)', border: '2px solid #0d0304', boxShadow: '0 0 6px rgba(140,96,32,0.8)' }} />
-      )}
-    </div>
-  )
-}
-
-function CountBadge({ count }: { count: number }) {
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      minWidth: 26, height: 24, padding: '2px 10px', borderRadius: 13,
-      background: 'linear-gradient(180deg, #b32020, #6b1010)', border: '2px solid #e08080',
-      color: '#fff', fontSize: 12, fontWeight: 'bold', fontFamily: 'Georgia, serif',
-      boxShadow: '0 0 0 1px #080101, 0 0 8px rgba(180,30,30,0.5)',
-    }}>{count}</span>
-  )
-}
-
-function NotificationDot() {
-  return <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%, #ff6a6a, #8c2020)', boxShadow: '0 0 8px rgba(180,30,30,0.7), 0 0 0 1px #080101' }} />
-}
-
-function Spinner({ size = 28 }: { size?: number }) {
-  return <span className="spinner-fantasy" style={{ width: size, height: size }} />
-}
-
-const ALERT_STYLES: Record<string, { border: string; bg: string; accent: string; glow: string; icon: string }> = {
-  success: { border: '#4a8c3f', bg: 'rgba(74,140,63,0.18)',  accent: '#8ee59c', glow: 'rgba(74,140,63,0.3)',  icon: '✓' },
-  error:   { border: '#d83232', bg: 'rgba(200,40,40,0.22)',  accent: '#ff9090', glow: 'rgba(200,40,40,0.4)',  icon: '✕' },
-  warning: { border: '#c8962a', bg: 'rgba(200,150,42,0.18)', accent: '#f0d060', glow: 'rgba(200,150,42,0.3)', icon: '⚠' },
-  info:    { border: '#3a86d8', bg: 'rgba(58,134,216,0.22)', accent: '#a8d2f5', glow: 'rgba(58,134,216,0.4)', icon: 'ℹ' },
-}
-
-function Alert({ variant, children }: { variant: 'success' | 'error' | 'warning' | 'info'; children: React.ReactNode }) {
-  const s = ALERT_STYLES[variant]
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px', borderRadius: 5, maxWidth: 440,
-      border: `2px solid ${s.border}`,
-      background: s.bg,
-      boxShadow: `0 0 0 1px #080101, inset 0 1px 0 rgba(255,255,255,0.05), 0 0 14px ${s.glow}`,
-    }}>
-      <span style={{ color: s.accent, fontSize: 16, fontWeight: 'bold', textShadow: `0 0 8px ${s.glow}` }}>{s.icon}</span>
-      <span style={{ color: 'var(--color-text-primary)', fontSize: 13.5 }}>{children}</span>
-    </div>
-  )
-}
-
-function Tabs({ tabs }: { tabs: string[] }) {
-  const [active, setActive] = useState(tabs[0])
-  return (
-    <div style={{ display: 'flex', borderBottom: '2px solid var(--color-gold-dark)' }}>
-      {tabs.map(t => (
-        <button key={t} onClick={() => setActive(t)} className={active === t ? 'tab tab--active' : 'tab'}>{t}</button>
-      ))}
-    </div>
-  )
-}
-
-function SegmentedControl({ options }: { options: string[] }) {
-  const [active, setActive] = useState(options[0])
-  return (
-    <div className="segmented">
-      {options.map(o => (
-        <button key={o} onClick={() => setActive(o)} className={active === o ? 'is-active' : ''}>{o}</button>
-      ))}
-    </div>
-  )
-}
-
-// Custom dropdown — fully styled list (native <select> can't restyle its open menu).
-function CustomSelect({ options, initial }: { options: { value: string; label: string }[]; initial?: string }) {
-  const [open, setOpen] = useState(false)
-  const [value, setValue] = useState(initial ?? options[0].value)
-  const current = options.find(o => o.value === value) ?? options[0]
-  return (
-    <div style={{ position: 'relative', maxWidth: 240 }}>
-      <button
-        type="button"
-        className="select-fantasy"
-        onClick={() => setOpen(o => !o)}
-        style={{ width: '100%', textAlign: 'left' }}
-      >{current.label}</button>
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
-          <ul className="select-list" style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 51 }}>
-            {options.map(o => (
-              <li key={o.value}>
-                <button
-                  type="button"
-                  className={o.value === value ? 'select-option is-selected' : 'select-option'}
-                  onClick={() => { setValue(o.value); setOpen(false) }}
-                >{o.label}</button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
-  )
-}
-
-function formatRemaining(ms: number): string {
-  if (ms <= 0) return 'Ready'
-  const totalSec = Math.floor(ms / 1000)
-  const h = Math.floor(totalSec / 3600)
-  const m = Math.floor((totalSec % 3600) / 60)
-  const s = totalSec % 60
-  if (h > 0) return `${h}h ${m}m`
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
-// Ticks the current time every second and re-syncs on tab focus/visibility,
-// so anything derived from it (countdowns, progress) never drifts while a
-// background tab is throttled. Remaining time is always computed from the
-// real clock — never decremented.
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const tick = () => setNow(Date.now())
-    const id = setInterval(tick, 1000)
-    const onFocus = () => tick()
-    document.addEventListener('visibilitychange', onFocus)
-    window.addEventListener('focus', onFocus)
-    return () => {
-      clearInterval(id)
-      document.removeEventListener('visibilitychange', onFocus)
-      window.removeEventListener('focus', onFocus)
-    }
-  }, [])
-  return now
-}
-
-function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec: number; startedSecAgo?: number }) {
-  const [endsAt] = useState(() => Date.now() + (durationSec - startedSecAgo) * 1000)
-  const now = useNow()
-  const done = endsAt - now <= 0
-  return (
-    <span className="atom-heavy" style={{
-      display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 4,
-      border: `2px solid ${done ? 'var(--color-success)' : 'var(--color-gold-dark)'}`,
-      background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
-      fontFamily: 'Georgia, serif', fontSize: 13,
-      color: done ? '#8ee59c' : 'var(--color-text-gold)',
-      textShadow: done ? '0 0 8px rgba(74,140,63,0.4)' : '0 0 6px rgba(232,192,80,0.3)',
-    }}>
-      <span style={{ fontSize: 12 }}>{done ? '✓' : '⏱'}</span>
-      <span style={{
-        // Monospace so each digit is fixed-width — the readout never reflows as it ticks.
-        fontFamily: done ? 'Georgia, serif' : '"Consolas", "SF Mono", ui-monospace, monospace',
-        fontVariantNumeric: 'tabular-nums',
-        letterSpacing: '0.5px',
-      }}>{done ? 'Ready' : formatRemaining(endsAt - now)}</span>
-    </span>
-  )
-}
-
-const STATUS_TONES: Record<string, { color: string; border: string; dot: string }> = {
-  ready:   { color: '#8ee59c', border: '#4a8c3f', dot: '#6fd98a' },
-  busy:    { color: '#e8c050', border: '#8c6020', dot: '#e8c050' },
-  locked:  { color: '#9a8a78', border: '#555',    dot: '#777' },
-  neutral: { color: 'var(--color-text-gold)', border: 'var(--color-gold-dark)', dot: 'var(--color-gold-mid)' },
-  danger:  { color: '#ff9090', border: '#8c2020', dot: '#d83232' },
-}
-
-function StatusTag({ tone = 'neutral', children }: { tone?: keyof typeof STATUS_TONES; children: React.ReactNode }) {
-  const s = STATUS_TONES[tone]
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 3,
-      border: `2px solid ${s.border}`, background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
-      fontFamily: 'Georgia, serif', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase',
-      color: s.color, boxShadow: '0 0 0 1px #080101',
-    }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.dot, boxShadow: `0 0 5px ${s.dot}`, flexShrink: 0 }} />
-      {children}
-    </span>
-  )
-}
-
 /* ── Modal / overlay shell (Framer Motion) ── */
 
 function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
@@ -1470,21 +1167,6 @@ function NumberStepper({ min = 0, step = 1, initial = 1 }: { min?: number; step?
   )
 }
 
-/* ── Tooltip ─────────────────────────────────────────── */
-
-function Tooltip({ children, content }: { children: React.ReactNode; content: React.ReactNode }) {
-  const [visible, setVisible] = useState(false)
-  return (
-    <div
-      className="tooltip-wrap"
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
-    >
-      {children}
-      {visible && <div className="tooltip-box">{content}</div>}
-    </div>
-  )
-}
 
 /* ── Character Card ──────────────────────────────────── */
 
