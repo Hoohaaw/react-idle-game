@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function DesignPage() {
   return (
@@ -71,6 +71,16 @@ export default function DesignPage() {
         </div>
       </Section>
 
+      {/* ── COUNTDOWN TIMER ──────────────────── */}
+      <Section title="Countdown Timer">
+        <Row>
+          <CountdownTimer durationSec={45} />
+          <CountdownTimer durationSec={285} />
+          <CountdownTimer durationSec={7800} />
+          <CountdownTimer durationSec={30} startedSecAgo={30} />
+        </Row>
+      </Section>
+
       {/* ── INPUT FIELDS ─────────────────────── */}
       <Section title="Input Fields">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '320px' }}>
@@ -136,6 +146,17 @@ export default function DesignPage() {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', fontSize: '13px' }}>
             <NotificationDot /> unclaimed reward
           </span>
+        </Row>
+      </Section>
+
+      {/* ── STATUS TAG ───────────────────────── */}
+      <Section title="Status Tag">
+        <Row>
+          <StatusTag tone="ready">Ready</StatusTag>
+          <StatusTag tone="busy">On Mission</StatusTag>
+          <StatusTag tone="locked">Locked</StatusTag>
+          <StatusTag tone="neutral">Stage 3</StatusTag>
+          <StatusTag tone="danger">Failed</StatusTag>
         </Row>
       </Section>
 
@@ -1419,6 +1440,72 @@ function CustomSelect({ options, initial }: { options: { value: string; label: s
         </>
       )}
     </div>
+  )
+}
+
+function formatRemaining(ms: number): string {
+  if (ms <= 0) return 'Ready'
+  const totalSec = Math.floor(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (h > 0) return `${h}h ${m}m`
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+// Counts down from a captured end timestamp — remaining is derived from the
+// real clock (never decremented), and re-syncs on tab focus so it can't drift.
+function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec: number; startedSecAgo?: number }) {
+  const [endsAt] = useState(() => Date.now() + (durationSec - startedSecAgo) * 1000)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const tick = () => setNow(Date.now())
+    const id = setInterval(tick, 1000)
+    const onFocus = () => tick()
+    document.addEventListener('visibilitychange', onFocus)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [])
+  const done = endsAt - now <= 0
+  return (
+    <span className="atom-heavy" style={{
+      display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 4,
+      border: `2px solid ${done ? 'var(--color-success)' : 'var(--color-gold-dark)'}`,
+      background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
+      fontFamily: 'Georgia, serif', fontSize: 13, fontVariantNumeric: 'tabular-nums',
+      color: done ? '#8ee59c' : 'var(--color-text-gold)',
+      textShadow: done ? '0 0 8px rgba(74,140,63,0.4)' : '0 0 6px rgba(232,192,80,0.3)',
+    }}>
+      <span style={{ fontSize: 12 }}>{done ? '✓' : '⏱'}</span>
+      {done ? 'Ready' : formatRemaining(endsAt - now)}
+    </span>
+  )
+}
+
+const STATUS_TONES: Record<string, { color: string; border: string; dot: string }> = {
+  ready:   { color: '#8ee59c', border: '#4a8c3f', dot: '#6fd98a' },
+  busy:    { color: '#e8c050', border: '#8c6020', dot: '#e8c050' },
+  locked:  { color: '#9a8a78', border: '#555',    dot: '#777' },
+  neutral: { color: 'var(--color-text-gold)', border: 'var(--color-gold-dark)', dot: 'var(--color-gold-mid)' },
+  danger:  { color: '#ff9090', border: '#8c2020', dot: '#d83232' },
+}
+
+function StatusTag({ tone = 'neutral', children }: { tone?: keyof typeof STATUS_TONES; children: React.ReactNode }) {
+  const s = STATUS_TONES[tone]
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 3,
+      border: `2px solid ${s.border}`, background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
+      fontFamily: 'Georgia, serif', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase',
+      color: s.color, boxShadow: '0 0 0 1px #080101',
+    }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.dot, boxShadow: `0 0 5px ${s.dot}`, flexShrink: 0 }} />
+      {children}
+    </span>
   )
 }
 
