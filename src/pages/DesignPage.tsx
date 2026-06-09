@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 
 export default function DesignPage() {
+  const [modal, setModal] = useState<null | 'claim' | 'dispatch'>(null)
   return (
     <div style={{ backgroundColor: 'var(--color-bg-deep)', minHeight: '100svh', padding: '40px 24px', fontFamily: 'Georgia, serif' }}>
       {/* Full-bleed header preview (sticky in-app) */}
@@ -303,6 +305,27 @@ export default function DesignPage() {
       <Section title="Claim Reward (Mission Complete)">
         <ClaimReward />
       </Section>
+
+      {/* ── MISSION CARDS ────────────────────── */}
+      <Section title="Mission Cards (Dashboard)">
+        <Row>
+          <MissionCard name="Goblin Outpost" stage={3} coins={100} duration="3:00" dropCount={3} onSend={() => setModal('dispatch')} />
+          <ActiveMissionCard name="Frozen Pass" partySize={2} durationSec={90} startedSecAgo={45} />
+          <ActiveMissionCard name="Goblin Outpost" partySize={3} durationSec={30} startedSecAgo={30} onClaim={() => setModal('claim')} />
+        </Row>
+      </Section>
+
+      {/* ── MODAL / OVERLAY ──────────────────── */}
+      <Section title="Modal / Overlay">
+        <Row>
+          <PrimaryButton onClick={() => setModal('dispatch')}>Open Dispatch</PrimaryButton>
+          <PrimaryButton onClick={() => setModal('claim')}>Open Claim</PrimaryButton>
+        </Row>
+      </Section>
+
+      <Modal open={modal !== null} onClose={() => setModal(null)}>
+        {modal === 'claim' ? <ClaimReward /> : modal === 'dispatch' ? <MissionDispatch /> : null}
+      </Modal>
     </div>
   )
 }
@@ -1298,12 +1321,13 @@ function GoldDivider() {
 
 /* ── New atoms ───────────────────────────── */
 
-function IconButton({ children, size = 34, label, variant = 'default' }: { children: React.ReactNode; size?: number; label?: string; variant?: 'default' | 'danger' }) {
+function IconButton({ children, size = 34, label, variant = 'default', onClick }: { children: React.ReactNode; size?: number; label?: string; variant?: 'default' | 'danger'; onClick?: () => void }) {
   return (
     <button
       type="button"
       className="icon-btn"
       aria-label={label}
+      onClick={onClick}
       style={{
         width: size, height: size, fontSize: Math.round(size * 0.42),
         ...(variant === 'danger' ? { borderColor: '#6b1010', color: '#e08080' } : {}),
@@ -1453,10 +1477,11 @@ function formatRemaining(ms: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-// Counts down from a captured end timestamp — remaining is derived from the
-// real clock (never decremented), and re-syncs on tab focus so it can't drift.
-function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec: number; startedSecAgo?: number }) {
-  const [endsAt] = useState(() => Date.now() + (durationSec - startedSecAgo) * 1000)
+// Ticks the current time every second and re-syncs on tab focus/visibility,
+// so anything derived from it (countdowns, progress) never drifts while a
+// background tab is throttled. Remaining time is always computed from the
+// real clock — never decremented.
+function useNow(): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const tick = () => setNow(Date.now())
@@ -1470,6 +1495,12 @@ function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec: numbe
       window.removeEventListener('focus', onFocus)
     }
   }, [])
+  return now
+}
+
+function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec: number; startedSecAgo?: number }) {
+  const [endsAt] = useState(() => Date.now() + (durationSec - startedSecAgo) * 1000)
+  const now = useNow()
   const done = endsAt - now <= 0
   return (
     <span className="atom-heavy" style={{
@@ -1511,6 +1542,111 @@ function StatusTag({ tone = 'neutral', children }: { tone?: keyof typeof STATUS_
       <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.dot, boxShadow: `0 0 5px ${s.dot}`, flexShrink: 0 }} />
       {children}
     </span>
+  )
+}
+
+/* ── Modal / overlay shell (Framer Motion) ── */
+
+function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+          onClick={onClose}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(2px)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto',
+          }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: 0.97 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            onClick={e => e.stopPropagation()}
+            style={{ position: 'relative', maxWidth: '100%' }}
+          >
+            <div style={{ position: 'absolute', top: -12, right: -12, zIndex: 1 }}>
+              <IconButton label="Close" onClick={onClose}>✕</IconButton>
+            </div>
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+/* ── Mission cards (dashboard molecules) ──── */
+
+function MissionCard({ name, stage, coins, duration, dropCount, onSend }: { name: string; stage: number; coins: number; duration: string; dropCount: number; onSend?: () => void }) {
+  return (
+    <div style={{
+      width: 250, borderRadius: 8, border: '3px solid var(--color-gold-mid)',
+      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
+      boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', 'inset 0 2px 8px rgba(0,0,0,0.6)', '0 6px 18px rgba(0,0,0,0.75)'].join(', '),
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        padding: '10px 12px', borderBottom: '2px solid var(--color-gold-dark)',
+        background: 'linear-gradient(180deg, rgba(200,145,42,0.15) 0%, rgba(200,145,42,0.04) 100%)',
+      }}>
+        <span style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.4)' }}>{name}</span>
+        <StatusTag tone="neutral">Stage {stage}</StatusTag>
+      </div>
+      <div style={{ padding: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <IconSlot size={16} /><span style={{ color: 'var(--color-text-gold)', fontSize: 13, fontWeight: 'bold' }}>{coins}</span>
+          </span>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>⏱ {duration}</span>
+        </div>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 12, fontStyle: 'italic' }}>{dropCount} possible drops</p>
+        <PrimaryButton fullWidth onClick={onSend}>Send Party</PrimaryButton>
+      </div>
+    </div>
+  )
+}
+
+function ActiveMissionCard({ name, partySize, durationSec, startedSecAgo, onClaim }: { name: string; partySize: number; durationSec: number; startedSecAgo: number; onClaim?: () => void }) {
+  const [endsAt] = useState(() => Date.now() + (durationSec - startedSecAgo) * 1000)
+  const [startAt] = useState(() => Date.now() - startedSecAgo * 1000)
+  const now = useNow()
+  const remaining = Math.max(0, endsAt - now)
+  const done = remaining <= 0
+  const pct = Math.min(100, Math.max(0, ((now - startAt) / (durationSec * 1000)) * 100))
+  return (
+    <div style={{
+      width: 250, borderRadius: 8, border: `3px solid ${done ? 'var(--color-success)' : 'var(--color-gold-mid)'}`,
+      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
+      boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', 'inset 0 2px 8px rgba(0,0,0,0.6)', '0 6px 18px rgba(0,0,0,0.75)'].join(', '),
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        padding: '10px 12px', borderBottom: '2px solid var(--color-gold-dark)',
+        background: 'linear-gradient(180deg, rgba(200,145,42,0.12) 0%, rgba(200,145,42,0.03) 100%)',
+      }}>
+        <span style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold' }}>{name}</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {Array.from({ length: partySize }).map((_, i) => <Avatar key={i} size={26} />)}
+        </div>
+      </div>
+      <div style={{ padding: 12 }}>
+        <div style={{ marginBottom: 10 }}>
+          <ProgressBar value={pct} label="" color={done ? 'var(--color-success)' : '#8c2020'} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{
+            fontFamily: '"Consolas", ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', fontSize: 13,
+            color: done ? '#8ee59c' : 'var(--color-text-gold)',
+          }}>{done ? '✓ Ready' : `⏱ ${formatRemaining(remaining)}`}</span>
+          {done
+            ? <span style={{ width: 130 }}><PrimaryButton fullWidth onClick={onClaim}>Claim</PrimaryButton></span>
+            : <span style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic' }}>In progress…</span>}
+        </div>
+      </div>
+    </div>
   )
 }
 
