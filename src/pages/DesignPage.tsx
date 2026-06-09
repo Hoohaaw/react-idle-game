@@ -103,12 +103,14 @@ export default function DesignPage() {
       {/* ── SELECT / TABS / FILTERS ──────────── */}
       <Section title="Select · Tabs · Filters">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <select className="select-fantasy" defaultValue="rarity" style={{ maxWidth: '240px' }}>
-            <option value="rarity">Sort: Rarity</option>
-            <option value="name">Sort: Name</option>
-            <option value="recent">Sort: Recently acquired</option>
-            <option value="value">Sort: Value</option>
-          </select>
+          <CustomSelect
+            options={[
+              { value: 'rarity', label: 'Sort: Rarity' },
+              { value: 'name', label: 'Sort: Name' },
+              { value: 'recent', label: 'Sort: Recently acquired' },
+              { value: 'value', label: 'Sort: Value' },
+            ]}
+          />
           <Tabs tabs={['Equipped', 'Talents', 'Stats']} />
           <SegmentedControl options={['All', 'Weapons', 'Armor', 'Trinkets']} />
         </div>
@@ -162,11 +164,18 @@ export default function DesignPage() {
 
       {/* ── AVATAR / PORTRAIT ────────────────── */}
       <Section title="Avatar / Portrait">
+        <div style={{ display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+          <Avatar size={36} level={5} />
+          <Avatar size={48} level={9} />
+          <Avatar size={56} level={12} />
+          <Avatar size={72} level={18} />
+          <Avatar size={96} level={24} />
+          <Avatar size={120} level={30} />
+        </div>
         <Row>
-          <Avatar level={12} />
-          <Avatar level={24} state="busy" />
-          <Avatar state="locked" />
-          <Avatar width={72} height={90} level={7} />
+          <Avatar size={56} state="available" level={12} />
+          <Avatar size={56} state="busy" level={12} />
+          <Avatar size={56} state="locked" />
         </Row>
       </Section>
 
@@ -1282,7 +1291,10 @@ function IconButton({ children, size = 34, label, variant = 'default' }: { child
   )
 }
 
-function Avatar({ width = 56, height = 70, level, state = 'available' }: { width?: number; height?: number; level?: number; state?: 'available' | 'busy' | 'locked' }) {
+// size = width in px; height is derived at a fixed 4:5 portrait ratio.
+function Avatar({ size = 56, level, state = 'available' }: { size?: number; level?: number; state?: 'available' | 'busy' | 'locked' }) {
+  const width = size
+  const height = Math.round(size * 1.25)
   const ringColor = state === 'busy' ? 'var(--color-warning)' : state === 'locked' ? '#444' : 'var(--color-gold-mid)'
   return (
     <div style={{ position: 'relative', width, height, flexShrink: 0 }}>
@@ -1317,9 +1329,9 @@ function CountBadge({ count }: { count: number }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10,
+      minWidth: 26, height: 24, padding: '2px 10px', borderRadius: 13,
       background: 'linear-gradient(180deg, #b32020, #6b1010)', border: '2px solid #e08080',
-      color: '#fff', fontSize: 11, fontWeight: 'bold', fontFamily: 'Georgia, serif',
+      color: '#fff', fontSize: 12, fontWeight: 'bold', fontFamily: 'Georgia, serif',
       boxShadow: '0 0 0 1px #080101, 0 0 8px rgba(180,30,30,0.5)',
     }}>{count}</span>
   )
@@ -1333,23 +1345,24 @@ function Spinner({ size = 28 }: { size?: number }) {
   return <span className="spinner-fantasy" style={{ width: size, height: size }} />
 }
 
-const ALERT_STYLES: Record<string, { color: string; border: string; icon: string }> = {
-  success: { color: '#7ed98f', border: 'var(--color-success)', icon: '✓' },
-  error:   { color: '#e88', border: 'var(--color-danger)', icon: '✕' },
-  warning: { color: '#e8c050', border: 'var(--color-warning)', icon: '⚠' },
-  info:    { color: '#9bc4e8', border: '#2a5a8a', icon: 'ℹ' },
+const ALERT_STYLES: Record<string, { border: string; bg: string; accent: string; glow: string; icon: string }> = {
+  success: { border: '#4a8c3f', bg: 'rgba(74,140,63,0.18)',  accent: '#8ee59c', glow: 'rgba(74,140,63,0.3)',  icon: '✓' },
+  error:   { border: '#d83232', bg: 'rgba(200,40,40,0.22)',  accent: '#ff9090', glow: 'rgba(200,40,40,0.4)',  icon: '✕' },
+  warning: { border: '#c8962a', bg: 'rgba(200,150,42,0.18)', accent: '#f0d060', glow: 'rgba(200,150,42,0.3)', icon: '⚠' },
+  info:    { border: '#3a86d8', bg: 'rgba(58,134,216,0.22)', accent: '#a8d2f5', glow: 'rgba(58,134,216,0.4)', icon: 'ℹ' },
 }
 
 function Alert({ variant, children }: { variant: 'success' | 'error' | 'warning' | 'info'; children: React.ReactNode }) {
   const s = ALERT_STYLES[variant]
   return (
-    <div className="atom-heavy" style={{
-      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 4, maxWidth: 440,
-      border: '2px solid var(--color-gold-dark)', borderLeftWidth: '4px', borderLeftColor: s.border,
-      background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px', borderRadius: 5, maxWidth: 440,
+      border: `2px solid ${s.border}`,
+      background: s.bg,
+      boxShadow: `0 0 0 1px #080101, inset 0 1px 0 rgba(255,255,255,0.05), 0 0 14px ${s.glow}`,
     }}>
-      <span style={{ color: s.color, fontSize: 14, fontWeight: 'bold' }}>{s.icon}</span>
-      <span style={{ color: 'var(--color-text-primary)', fontSize: 13 }}>{children}</span>
+      <span style={{ color: s.accent, fontSize: 16, fontWeight: 'bold', textShadow: `0 0 8px ${s.glow}` }}>{s.icon}</span>
+      <span style={{ color: 'var(--color-text-primary)', fontSize: 13.5 }}>{children}</span>
     </div>
   )
 }
@@ -1372,6 +1385,39 @@ function SegmentedControl({ options }: { options: string[] }) {
       {options.map(o => (
         <button key={o} onClick={() => setActive(o)} className={active === o ? 'is-active' : ''}>{o}</button>
       ))}
+    </div>
+  )
+}
+
+// Custom dropdown — fully styled list (native <select> can't restyle its open menu).
+function CustomSelect({ options, initial }: { options: { value: string; label: string }[]; initial?: string }) {
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState(initial ?? options[0].value)
+  const current = options.find(o => o.value === value) ?? options[0]
+  return (
+    <div style={{ position: 'relative', maxWidth: 240 }}>
+      <button
+        type="button"
+        className="select-fantasy"
+        onClick={() => setOpen(o => !o)}
+        style={{ width: '100%', textAlign: 'left' }}
+      >{current.label}</button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+          <ul className="select-list" style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 51 }}>
+            {options.map(o => (
+              <li key={o.value}>
+                <button
+                  type="button"
+                  className={o.value === value ? 'select-option is-selected' : 'select-option'}
+                  onClick={() => { setValue(o.value); setOpen(false) }}
+                >{o.label}</button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   )
 }

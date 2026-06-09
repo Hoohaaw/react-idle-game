@@ -378,6 +378,36 @@ body {
 .select-fantasy:focus { outline: none; border-color: var(--color-gold-mid); }
 .select-fantasy option { background: #1a0608; color: var(--color-text-primary); }
 
+/* Custom dropdown list (full control over hover — no native blue) */
+.select-list {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 2px solid var(--color-gold-mid);
+  border-radius: 4px;
+  background: linear-gradient(180deg, #1e0a0c 0%, #130406 100%);
+  box-shadow: 0 0 0 1px #080101, 0 8px 24px rgba(0, 0, 0, 0.8);
+}
+.select-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'Georgia', serif;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  padding: 8px 10px;
+  border-radius: 3px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.select-option:hover {
+  background: linear-gradient(180deg, #3a1a10 0%, #2a0f12 100%);
+  color: var(--color-gold-light);
+}
+.select-option.is-selected { color: var(--color-gold-light); }
+
 /* ── Spinner ─────────────────────────────────────────── */
 @keyframes atom-spin { to { transform: rotate(360deg); } }
 .spinner-fantasy {
@@ -386,7 +416,7 @@ body {
   border: 3px solid rgba(122, 79, 16, 0.3);
   border-top-color: var(--color-gold-light);
   box-shadow: 0 0 8px rgba(200, 140, 30, 0.3);
-  animation: atom-spin 0.8s linear infinite;
+  animation: atom-spin 1s linear infinite;
 }
 
 /* ── Tabs ────────────────────────────────────────────── */
