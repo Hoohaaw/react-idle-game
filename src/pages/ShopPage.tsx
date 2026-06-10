@@ -6,13 +6,15 @@ import { RARITY_STYLES } from '../lib/rarity'
 import type { Item } from '../types/item'
 
 // Mock shop data for the prototype (replaced by real shop/service data later).
-// Per design: 2 weapons + 2 armor, refreshed every 8h. Prices in coins only —
+// Per design: always 6 items, refreshed every 8h. Prices in coins only —
 // whether the shop also charges resources is an undecided economy question.
 const SHOP: Item[] = [
   { name: 'Emberforged Greataxe', slot: 'Weapon', rarity: 'Rare', value: 1850, stats: [{ key: 'ATK', value: '+24' }, { key: 'STR', value: '+9' }] },
   { name: 'Dagger of Whispers', slot: 'Weapon', rarity: 'Epic', value: 4200, stats: [{ key: 'ATK', value: '+18' }, { key: 'AGI', value: '+14' }], flavor: 'It hums faintly, as if remembering every throat it has met.' },
   { name: 'Warden Plate', slot: 'Chest', rarity: 'Uncommon', value: 980, stats: [{ key: 'DEF', value: '+16' }, { key: 'HP', value: '+40' }] },
   { name: 'Helm of the Vigil', slot: 'Head', rarity: 'Rare', value: 1450, stats: [{ key: 'DEF', value: '+11' }, { key: 'INT', value: '+8' }] },
+  { name: 'Loop of the Phoenix', slot: 'Ring', rarity: 'Epic', value: 3800, stats: [{ key: 'ATK', value: '+15' }, { key: 'INT', value: '+12' }] },
+  { name: 'Charm of Sevenfold Luck', slot: 'Trinket', rarity: 'Legendary', value: 8200, stats: [{ key: 'AGI', value: '+20' }], flavor: 'Its previous owners were all, without exception, extraordinarily lucky — right up until they lost it.' },
 ]
 
 const MERCHANT = {
