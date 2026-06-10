@@ -2,7 +2,7 @@ import type { Item } from '../types/item'
 
 // Shared mock inventory for the prototype (replaced by real inventory/service data
 // later). Each entry is a stack of one (item + rarity); `quantity` is how many copies
-// the player owns. Used by the Inventory and Crafting pages.
+// the player owns. Used by the Inventory and Upgrading pages.
 export const MOCK_INVENTORY: Item[] = [
   { name: 'Emberforged Greataxe', slot: 'Weapon', rarity: 'Rare', value: 1850, stats: [{ key: 'ATK', value: '+24' }, { key: 'STR', value: '+9' }], quantity: 2 },
   { name: 'Dagger of Whispers', slot: 'Weapon', rarity: 'Epic', value: 4200, stats: [{ key: 'ATK', value: '+18' }, { key: 'AGI', value: '+14' }], flavor: 'It hums faintly, as if remembering every throat it has met.' },

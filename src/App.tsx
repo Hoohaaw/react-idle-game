@@ -4,7 +4,7 @@ import DesignPage from './pages/DesignPage'
 import MissionsPage from './pages/MissionsPage'
 import TeamPage from './pages/TeamPage'
 import MinesPage from './pages/MinesPage'
-import CraftingPage from './pages/CraftingPage'
+import UpgradingPage from './pages/UpgradingPage'
 import ShopPage from './pages/ShopPage'
 import InventoryPage from './pages/InventoryPage'
 import UpgradesPage from './pages/UpgradesPage'
@@ -23,7 +23,7 @@ export default function App() {
         <Route path="/missions" element={<MissionsPage />} />
         <Route path="/team" element={<TeamPage />} />
         <Route path="/mines" element={<MinesPage />} />
-        <Route path="/crafting" element={<CraftingPage />} />
+        <Route path="/upgrading" element={<UpgradingPage />} />
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/upgrades" element={<UpgradesPage />} />

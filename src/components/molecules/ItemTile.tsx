@@ -5,7 +5,7 @@ import type { Item } from '../../types/item'
 
 // Rarity-bordered item cell: icon, a stack-count chip when the player owns multiples,
 // and the item's name + slot. Optional selection state and a footer slot (used by the
-// crafting upgrade view). Shared by the Inventory and Crafting pages.
+// upgrading view). Shared by the Inventory and Upgrading pages.
 export function ItemTile({ item, selected = false, onClick, footer }: {
   item: Item
   selected?: boolean

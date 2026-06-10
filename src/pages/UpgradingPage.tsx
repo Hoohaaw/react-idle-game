@@ -18,7 +18,7 @@ function canUpgrade(item: Item): boolean {
   return (item.quantity ?? 1) >= UPGRADE_COST && nextRarity(item.rarity) !== null
 }
 
-export default function CraftingPage() {
+export default function UpgradingPage() {
   const [inventory, setInventory] = useState<Item[]>(MOCK_INVENTORY)
   const [filter, setFilter] = useState<Filter>('All Items')
   const [target, setTarget] = useState<Item | null>(null) // stack pending the per-item modal
@@ -60,7 +60,7 @@ export default function CraftingPage() {
         marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid var(--color-gold-dark)',
       }}>
         <h2 style={{ color: 'var(--color-gold-mid)', fontSize: '12px', letterSpacing: '3px', textTransform: 'uppercase' }}>
-          Crafting <span style={{ color: 'var(--color-text-muted)' }}>· {upgradableCount} upgradable</span>
+          Upgrading <span style={{ color: 'var(--color-text-muted)' }}>· {upgradableCount} upgradable</span>
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {upgradableCount > 0 && <SecondaryButton onClick={() => setBulkOpen(true)}>⬆ Upgrade All</SecondaryButton>}

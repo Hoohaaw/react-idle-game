@@ -6,7 +6,7 @@ const NAV = [
   { label: 'Missions', to: '/missions' },
   { label: 'Team', to: '/team' },
   { label: 'Mines', to: '/mines' },
-  { label: 'Crafting', to: '/crafting' },
+  { label: 'Upgrading', to: '/upgrading' },
   { label: 'Shop', to: '/shop' },
   { label: 'Inventory', to: '/inventory' },
   { label: 'Upgrades', to: '/upgrades' },
