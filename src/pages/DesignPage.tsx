@@ -29,6 +29,8 @@ import { ClaimReward } from '../components/organisms/ClaimReward'
 import { Modal } from '../components/organisms/Modal'
 import { MissionCard } from '../components/molecules/MissionCard'
 import { ActiveMissionCard } from '../components/molecules/ActiveMissionCard'
+import { useNow } from '../hooks/useNow'
+import { formatRemaining } from '../lib/time'
 
 export default function DesignPage() {
   const [modal, setModal] = useState<null | 'claim' | 'dispatch'>(null)
@@ -351,6 +353,26 @@ export default function DesignPage() {
         </Row>
       </Section>
 
+      {/* ── ACTIVE GATHERING FEED ────────────── */}
+      <Section title="Active Gathering (Collector)">
+        <Row>
+          <ActiveGatherCard resource="Copper" gatherer="Lyra Swift" intervalSec={30} yieldPerTick={5} assignedSecAgo={18} bonus="+10% gather speed" />
+          <ActiveGatherCard resource="Gold" gatherer="Alexandros" intervalSec={300} yieldPerTick={25} assignedSecAgo={140} bonus="+20% yield" />
+          <ActiveGatherCard resource="Platinum" gatherer="Sally Whitemane" intervalSec={900} yieldPerTick={75} assignedSecAgo={600} />
+        </Row>
+      </Section>
+
+      {/* ── MINE CARDS ───────────────────────── */}
+      <Section title="Mine Cards (Mines)">
+        <Row>
+          <MineCard resource="Copper" tier="Ore" intervalSec={30} yieldPerTick={5} />
+          <MineCard resource="Copper" tier="Ore" intervalSec={30} yieldPerTick={5} gatherer="Lyra Swift" assignedSecAgo={18} bonus="+10% gather speed" />
+          <MineCard resource="Gold" tier="Ore" intervalSec={300} yieldPerTick={25} gatherer="Alexandros" assignedSecAgo={140} bonus="+20% yield" />
+          <MineCard resource="Wood" tier="Material" intervalSec={20} yieldPerTick={4} />
+          <MineCard resource="Platinum" tier="Ore" intervalSec={900} yieldPerTick={75} gatherer="Sally Whitemane" assignedSecAgo={600} />
+        </Row>
+      </Section>
+
       {/* ── MODAL / OVERLAY ──────────────────── */}
       <Section title="Modal / Overlay">
         <Row>
@@ -404,6 +426,187 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-start' }}>{children}</div>
+}
+
+/* ── Mine card (Mines page) ──────────────── */
+// A mine yields a fixed amount of one resource every interval while a character is
+// assigned, repeating indefinitely (uncapped, auto-banked). The timer loops toward
+// the next tick; the banked counter is what has accrued this session.
+function mineRate(sec: number): string {
+  if (sec < 60) return `${sec}s`
+  const m = Math.floor(sec / 60), s = sec % 60
+  return s ? `${m}m ${s}s` : `${m}m`
+}
+
+// Muted per-resource accent colors (RGB triples) — keyed off the material so each
+// gathering card carries a subtle identity. Applied only as a faint header wash +
+// accent line so it never overpowers the dark-red/gold theme.
+const RESOURCE_COLOR: Record<string, string> = {
+  Wood: '74,140,63',       // earthy green
+  Copper: '184,115,51',    // copper
+  Stone: '154,140,120',    // tan-grey
+  Coal: '120,120,128',     // smoky grey
+  Iron: '124,150,170',     // steel blue
+  Silver: '176,184,196',   // pale grey
+  Bronze: '176,125,70',    // bronze
+  Gold: '232,192,80',      // warm gold
+  Platinum: '198,222,236', // ice blue
+}
+
+function resourceHeaderStyle(resource: string): React.CSSProperties {
+  const c = RESOURCE_COLOR[resource] ?? '200,145,42'
+  return {
+    background: `linear-gradient(180deg, rgba(${c},0.40) 0%, rgba(${c},0.08) 100%)`,
+    borderBottom: `2px solid rgba(${c},0.95)`,
+  }
+}
+
+// Shows a character's gather bonus for the resource they're on (gather speed / yield).
+// This is the UI surface for the future character gather-specialization system.
+function BonusTag({ label }: { label: string }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 7px', borderRadius: 3,
+      border: '1px solid #2d6b45',
+      background: 'linear-gradient(180deg, rgba(76,175,110,0.20) 0%, rgba(76,175,110,0.05) 100%)',
+      color: '#8ee59c', fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', whiteSpace: 'nowrap',
+      boxShadow: '0 0 6px rgba(76,175,110,0.2)',
+    }}>⚡ {label}</span>
+  )
+}
+
+function MineCard({ resource, tier, intervalSec, yieldPerTick, gatherer, assignedSecAgo, bonus }: {
+  resource: string; tier: string; intervalSec: number; yieldPerTick: number; gatherer?: string; assignedSecAgo?: number; bonus?: string
+}) {
+  const active = assignedSecAgo !== undefined
+  const [assignedAt] = useState(() => Date.now() - (assignedSecAgo ?? 0) * 1000)
+  const now = useNow()
+
+  const intervalMs = intervalSec * 1000
+  const elapsed = active ? now - assignedAt : 0
+  const banked = active ? Math.floor(elapsed / intervalMs) * yieldPerTick : 0
+  const into = active ? elapsed % intervalMs : 0
+  const pct = active ? (into / intervalMs) * 100 : 0
+  const remainingMs = intervalMs - into
+
+  return (
+    <div style={{
+      width: 250, borderRadius: 8, border: '3px solid var(--color-gold-mid)',
+      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
+      boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', 'inset 0 2px 8px rgba(0,0,0,0.6)', '0 6px 18px rgba(0,0,0,0.75)'].join(', '),
+      overflow: 'hidden',
+    }}>
+      {/* Header: resource + tier (faint per-resource color wash + accent line) */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        padding: '10px 12px',
+        ...resourceHeaderStyle(resource),
+      }}>
+        <span style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.4)' }}>{resource}</span>
+        <StatusTag tone="neutral">{tier}</StatusTag>
+      </div>
+
+      <div style={{ padding: 12 }}>
+        {/* Rate — always shown so each mine's yield is clear */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <IconSlot size={16} /><span style={{ color: 'var(--color-text-gold)', fontSize: 13, fontWeight: 'bold' }}>+{yieldPerTick}</span>
+          </span>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>⏱ every {mineRate(intervalSec)}</span>
+        </div>
+
+        {active ? (
+          <>
+            {/* Gatherer + banked counter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: bonus ? 8 : 10 }}>
+              <Avatar size={28} />
+              <span style={{ color: 'var(--color-text-primary)', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{gatherer}</span>
+              <span style={{ marginLeft: 'auto', color: 'var(--color-success)', fontSize: 13, fontWeight: 'bold', textShadow: '0 0 8px rgba(74,140,63,0.4)', whiteSpace: 'nowrap' }}>+{banked} banked</span>
+            </div>
+
+            {/* Gather bonus (if the character specializes in this resource) */}
+            {bonus && <div style={{ marginBottom: 10 }}><BonusTag label={bonus} /></div>}
+
+            {/* Progress to next tick (loops) */}
+            <div style={{ marginBottom: 8 }}>
+              <ProgressBar value={pct} label="" color="#c9922a" />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{
+                fontFamily: '"Consolas", ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', fontSize: 13,
+                color: 'var(--color-text-gold)',
+              }}>⏱ {formatRemaining(remainingMs)}</span>
+              <DangerButton>Stop</DangerButton>
+            </div>
+          </>
+        ) : (
+          <>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginBottom: 12, textAlign: 'center', padding: '4px 0' }}>No gatherer assigned</p>
+            <PrimaryButton fullWidth>Assign Character</PrimaryButton>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ── Active gathering card (collector feed) ─ */
+// Compact summary of one active gather — shows the resource, the assigned character,
+// the running banked total, and a looping countdown/bar to the next tick.
+function ActiveGatherCard({ resource, gatherer, intervalSec, yieldPerTick, assignedSecAgo, bonus }: {
+  resource: string; gatherer: string; intervalSec: number; yieldPerTick: number; assignedSecAgo: number; bonus?: string
+}) {
+  const [assignedAt] = useState(() => Date.now() - assignedSecAgo * 1000)
+  const now = useNow()
+
+  const intervalMs = intervalSec * 1000
+  const elapsed = now - assignedAt
+  const banked = Math.floor(elapsed / intervalMs) * yieldPerTick
+  const into = elapsed % intervalMs
+  const pct = (into / intervalMs) * 100
+  const remainingMs = intervalMs - into
+
+  return (
+    <div style={{
+      width: 230, borderRadius: 8, border: '2px solid var(--color-gold-mid)',
+      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
+      boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', 'inset 0 2px 8px rgba(0,0,0,0.6)', '0 6px 18px rgba(0,0,0,0.75)'].join(', '),
+      overflow: 'hidden',
+    }}>
+      {/* Header: resource + banked total (faint per-resource color wash + accent line) */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        padding: '9px 11px',
+        ...resourceHeaderStyle(resource),
+      }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <IconSlot size={16} />
+          <span style={{ color: 'var(--color-gold-light)', fontSize: 13, fontWeight: 'bold' }}>{resource}</span>
+        </span>
+        <span style={{ color: 'var(--color-success)', fontSize: 13, fontWeight: 'bold', textShadow: '0 0 8px rgba(74,140,63,0.4)' }}>+{banked}</span>
+      </div>
+
+      <div style={{ padding: '9px 11px' }}>
+        {/* Gatherer + next-tick countdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Avatar size={24} />
+          <span style={{ flex: 1, minWidth: 0, color: 'var(--color-text-muted)', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{gatherer}</span>
+          <span style={{
+            fontFamily: '"Consolas", ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', fontSize: 12,
+            color: 'var(--color-text-gold)', whiteSpace: 'nowrap',
+          }}>⏱ {formatRemaining(remainingMs)}</span>
+        </div>
+
+        {/* Gather bonus (if the character specializes in this resource) */}
+        {bonus && <div style={{ marginBottom: 8 }}><BonusTag label={bonus} /></div>}
+
+        {/* Looping progress to next tick */}
+        <ProgressBar value={pct} label="" color="#c9922a" />
+      </div>
+    </div>
+  )
 }
 
 /* ── Auth (Login / Register) ─────────────── */
