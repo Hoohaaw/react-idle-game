@@ -63,9 +63,9 @@ export function SecondaryButton({ children }: { children: ReactNode }) {
   )
 }
 
-export function DangerButton({ children }: { children: ReactNode }) {
+export function DangerButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
   return (
-    <button className="btn btn-danger" style={{
+    <button onClick={onClick} className="btn btn-danger" style={{
       padding: '10px 24px',
       fontFamily: 'Georgia, serif',
       fontSize: '14px',

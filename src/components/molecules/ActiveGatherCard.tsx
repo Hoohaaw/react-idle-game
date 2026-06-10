@@ -1,0 +1,64 @@
+import { useState } from 'react'
+import { Avatar } from '../atoms/Avatar'
+import { IconSlot } from '../atoms/IconSlot'
+import { ProgressBar } from '../atoms/ProgressBar'
+import { BonusTag } from '../atoms/BonusTag'
+import { useNow } from '../../hooks/useNow'
+import { formatRemaining } from '../../lib/time'
+import { resourceHeaderStyle } from '../../lib/resources'
+
+// Compact summary of one active gather (collector feed) — shows the resource, the
+// assigned character, the running banked total, and a looping countdown/bar to the next tick.
+export function ActiveGatherCard({ resource, gatherer, intervalSec, yieldPerTick, assignedSecAgo, bonus }: {
+  resource: string; gatherer: string; intervalSec: number; yieldPerTick: number; assignedSecAgo: number; bonus?: string
+}) {
+  const [assignedAt] = useState(() => Date.now() - assignedSecAgo * 1000)
+  const now = useNow()
+
+  const intervalMs = intervalSec * 1000
+  const elapsed = now - assignedAt
+  const banked = Math.floor(elapsed / intervalMs) * yieldPerTick
+  const into = elapsed % intervalMs
+  const pct = (into / intervalMs) * 100
+  const remainingMs = intervalMs - into
+
+  return (
+    <div style={{
+      width: 230, borderRadius: 8, border: '2px solid var(--color-gold-mid)',
+      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
+      boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', 'inset 0 2px 8px rgba(0,0,0,0.6)', '0 6px 18px rgba(0,0,0,0.75)'].join(', '),
+      overflow: 'hidden',
+    }}>
+      {/* Header: resource + banked total (faint per-resource color wash + accent line) */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        padding: '9px 11px',
+        ...resourceHeaderStyle(resource),
+      }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <IconSlot size={16} />
+          <span style={{ color: 'var(--color-gold-light)', fontSize: 13, fontWeight: 'bold' }}>{resource}</span>
+        </span>
+        <span style={{ color: 'var(--color-success)', fontSize: 13, fontWeight: 'bold', textShadow: '0 0 8px rgba(74,140,63,0.4)' }}>+{banked}</span>
+      </div>
+
+      <div style={{ padding: '9px 11px' }}>
+        {/* Gatherer + next-tick countdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Avatar size={24} />
+          <span style={{ flex: 1, minWidth: 0, color: 'var(--color-text-muted)', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{gatherer}</span>
+          <span style={{
+            fontFamily: '"Consolas", ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', fontSize: 12,
+            color: 'var(--color-text-gold)', whiteSpace: 'nowrap',
+          }}>⏱ {formatRemaining(remainingMs)}</span>
+        </div>
+
+        {/* Gather bonus (if the character specializes in this resource) */}
+        {bonus && <div style={{ marginBottom: 8 }}><BonusTag label={bonus} /></div>}
+
+        {/* Looping progress to next tick */}
+        <ProgressBar value={pct} label="" color="#c9922a" />
+      </div>
+    </div>
+  )
+}
