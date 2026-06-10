@@ -373,6 +373,17 @@ export default function DesignPage() {
         </Row>
       </Section>
 
+      {/* ── PARTY ROSTER (DRAFT) ─────────────── */}
+      <Section title="Party Roster (draft)">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 300 }}>
+          <RosterCard name="Sally Whitemane" charClass="Priest" level={15} activity="idle" />
+          <RosterCard name="Fandral Staghelm" charClass="Druid" level={9} activity="idle" />
+          <RosterCard name="Alexandros Mograine" charClass="Death Knight" level={24} activity="mission" detail="Frozen Pass" />
+          <RosterCard name="Lyra Swift" charClass="Rogue" level={12} activity="gather" detail="Copper" />
+          <RosterCard name="Tyra Oakheart" charClass="Hunter" level={9} activity="gather" detail="Wood" />
+        </div>
+      </Section>
+
       {/* ── MODAL / OVERLAY ──────────────────── */}
       <Section title="Modal / Overlay">
         <Row>
@@ -426,6 +437,41 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-start' }}>{children}</div>
+}
+
+/* ── Party roster card (draft) ───────────── */
+// One character in the roster: portrait + name/class/level + current status.
+// Free characters read as selectable (gold border + glow); busy ones are dimmed
+// and show what they're doing. Reused across Team / Mines / mission dispatch.
+function RosterCard({ name, charClass, level, activity, detail }: {
+  name: string; charClass: string; level: number
+  activity: 'idle' | 'mission' | 'gather'; detail?: string
+}) {
+  const free = activity === 'idle'
+  const status = free ? 'Available' : activity === 'mission' ? 'On Mission' : 'Gathering'
+  const detailIcon = activity === 'mission' ? '⚔' : activity === 'gather' ? '⛏' : ''
+  return (
+    <div style={{
+      width: '100%', borderRadius: 8,
+      border: `2px solid ${free ? 'var(--color-gold-mid)' : 'var(--color-gold-dark)'}`,
+      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
+      boxShadow: free
+        ? ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', '0 0 12px rgba(200,140,30,0.28)', '0 4px 12px rgba(0,0,0,0.7)'].join(', ')
+        : ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.05)', '0 4px 12px rgba(0,0,0,0.7)'].join(', '),
+      opacity: free ? 1 : 0.82,
+      padding: 12,
+      display: 'flex', gap: 11,
+    }}>
+      <Avatar size={62} state={free ? 'available' : 'busy'} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 0 8px rgba(240,208,96,0.3)' }}>{name}</p>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 8 }}>{charClass} · Lv {level}</p>
+        <StatusTag tone={free ? 'ready' : 'busy'}>{status}</StatusTag>
+        {detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detailIcon} {detail}</p>}
+        {free && <p style={{ color: '#8ee59c', fontSize: 11, marginTop: 6 }}>Ready to send</p>}
+      </div>
+    </div>
+  )
 }
 
 /* ── Auth (Login / Register) ─────────────── */
