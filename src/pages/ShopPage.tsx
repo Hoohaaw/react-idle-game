@@ -2,24 +2,18 @@ import { IconSlot } from '../components/atoms/IconSlot'
 import { RarityBadge } from '../components/atoms/RarityBadge'
 import { PrimaryButton } from '../components/atoms/Button'
 import { CoinDisplay } from '../components/atoms/CoinDisplay'
+import { ItemTooltip } from '../components/organisms/ItemTooltip'
 import { RARITY_STYLES } from '../lib/rarity'
+import type { Item } from '../types/item'
 
 // Mock shop data for the prototype (replaced by real shop/service data later).
 // Per design: 2 weapons + 2 armor, refreshed every 8h. Prices in coins only —
 // whether the shop also charges resources is an undecided economy question.
-type ShopItem = {
-  name: string
-  slot: string
-  rarity: string
-  price: number
-  stats: { key: string; value: string }[]
-}
-
-const SHOP: ShopItem[] = [
-  { name: 'Emberforged Greataxe', slot: 'Weapon', rarity: 'Rare', price: 1850, stats: [{ key: 'ATK', value: '+24' }, { key: 'STR', value: '+9' }] },
-  { name: 'Dagger of Whispers', slot: 'Weapon', rarity: 'Epic', price: 4200, stats: [{ key: 'ATK', value: '+18' }, { key: 'AGI', value: '+14' }] },
-  { name: 'Warden Plate', slot: 'Chest', rarity: 'Uncommon', price: 980, stats: [{ key: 'DEF', value: '+16' }, { key: 'HP', value: '+40' }] },
-  { name: 'Helm of the Vigil', slot: 'Head', rarity: 'Rare', price: 1450, stats: [{ key: 'DEF', value: '+11' }, { key: 'INT', value: '+8' }] },
+const SHOP: Item[] = [
+  { name: 'Emberforged Greataxe', slot: 'Weapon', rarity: 'Rare', value: 1850, stats: [{ key: 'ATK', value: '+24' }, { key: 'STR', value: '+9' }] },
+  { name: 'Dagger of Whispers', slot: 'Weapon', rarity: 'Epic', value: 4200, stats: [{ key: 'ATK', value: '+18' }, { key: 'AGI', value: '+14' }], flavor: 'It hums faintly, as if remembering every throat it has met.' },
+  { name: 'Warden Plate', slot: 'Chest', rarity: 'Uncommon', value: 980, stats: [{ key: 'DEF', value: '+16' }, { key: 'HP', value: '+40' }] },
+  { name: 'Helm of the Vigil', slot: 'Head', rarity: 'Rare', value: 1450, stats: [{ key: 'DEF', value: '+11' }, { key: 'INT', value: '+8' }] },
 ]
 
 const MERCHANT = {
@@ -47,7 +41,7 @@ function StatLine({ label, value }: { label: string; value: string }) {
   )
 }
 
-function ShopItemCard({ item }: { item: ShopItem }) {
+function ShopItemCard({ item }: { item: Item }) {
   const rarityColor = (RARITY_STYLES[item.rarity] ?? RARITY_STYLES.Common).color
   return (
     <div className="atom-heavy" style={{
@@ -55,17 +49,19 @@ function ShopItemCard({ item }: { item: ShopItem }) {
       borderRadius: '6px', border: '2px solid var(--color-gold-dark)',
       background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
     }}>
-      {/* Header: icon + name + slot/rarity */}
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <IconSlot size={56} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ color: rarityColor, fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{item.name}</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <RarityBadge rarity={item.rarity} />
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>{item.slot}</span>
+      {/* Header: icon + name + slot/rarity (hover for full item card) */}
+      <ItemTooltip item={item}>
+        <div style={{ display: 'flex', gap: '12px', cursor: 'pointer' }}>
+          <IconSlot size={56} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ color: rarityColor, fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{item.name}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <RarityBadge rarity={item.rarity} />
+              <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>{item.slot}</span>
+            </div>
           </div>
         </div>
-      </div>
+      </ItemTooltip>
 
       {/* Stats */}
       <div style={{
@@ -77,7 +73,7 @@ function ShopItemCard({ item }: { item: ShopItem }) {
 
       {/* Footer: price + buy */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', paddingTop: '4px', borderTop: '1px solid var(--color-gold-dark)' }}>
-        <CoinDisplay amount={item.price} />
+        <CoinDisplay amount={item.value} />
         <PrimaryButton>Buy</PrimaryButton>
       </div>
     </div>
