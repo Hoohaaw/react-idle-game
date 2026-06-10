@@ -17,5 +17,5 @@ export const MOCK_INVENTORY: Item[] = [
   { name: 'Frostweave Gloves', slot: 'Hands', rarity: 'Rare', value: 1320, stats: [{ key: 'INT', value: '+12' }, { key: 'DEF', value: '+7' }] },
   { name: 'Girdle of Might', slot: 'Belt', rarity: 'Uncommon', value: 640, stats: [{ key: 'STR', value: '+11' }, { key: 'HP', value: '+25' }], quantity: 2 },
   { name: 'Pauldrons of Dusk', slot: 'Shoulder', rarity: 'Rare', value: 1280, stats: [{ key: 'DEF', value: '+13' }, { key: 'AGI', value: '+6' }] },
-  { name: 'Signet of Ash', slot: 'Ring', rarity: 'Common', value: 60, stats: [{ key: 'STR', value: '+3' }], quantity: 24 },
+  { name: 'Signet of Ash', slot: 'Ring', rarity: 'Common', value: 60, stats: [{ key: 'STR', value: '+3' }], quantity: 300 },
 ]
