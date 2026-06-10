@@ -9,3 +9,13 @@ export const RARITY_STYLES: Record<string, RarityStyle> = {
   Epic:      { color: '#b06fd4', border: '#6a3580', glow: 'rgba(176,111,212,0.4)' },
   Legendary: { color: '#f0a030', border: '#8a5010', glow: 'rgba(240,160,48,0.5)' },
 }
+
+// Rarity ladder, low → high. Used by the duplicate-upgrade path (5 of one rarity →
+// 1 of the next) and, later, loot rarity scaling.
+export const RARITY_ORDER = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'] as const
+
+// The next rarity up, or null when already at the top (Legendary can't be upgraded).
+export function nextRarity(rarity: string): string | null {
+  const i = RARITY_ORDER.indexOf(rarity as (typeof RARITY_ORDER)[number])
+  return i >= 0 && i < RARITY_ORDER.length - 1 ? RARITY_ORDER[i + 1] : null
+}
