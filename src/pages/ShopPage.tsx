@@ -56,7 +56,7 @@ function ShopItemCard({ item }: { item: Item }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ color: rarityColor, fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{item.name}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <RarityBadge rarity={item.rarity} />
+            <RarityBadge rarity={item.rarity} size="sm" />
             <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>{item.slot}</span>
           </div>
         </div>

@@ -1,14 +1,23 @@
 import { RARITY_STYLES } from '../../lib/rarity'
 
-export function RarityBadge({ rarity }: { rarity: string }) {
+type Size = 'sm' | 'md' | 'lg'
+
+const SIZES: Record<Size, { padding: string; fontSize: string; letterSpacing: string; borderRadius: string }> = {
+  sm: { padding: '2px 7px', fontSize: '9px', letterSpacing: '1px', borderRadius: '3px' },
+  md: { padding: '4px 10px', fontSize: '10px', letterSpacing: '1.5px', borderRadius: '4px' },
+  lg: { padding: '5px 14px', fontSize: '11px', letterSpacing: '2px', borderRadius: '4px' },
+}
+
+export function RarityBadge({ rarity, size = 'md' }: { rarity: string; size?: Size }) {
   const s = RARITY_STYLES[rarity] ?? RARITY_STYLES.Common
+  const z = SIZES[size]
   return (
     <span className="atom-heavy" style={{
       display: 'inline-block',
-      padding: '5px 14px',
-      borderRadius: '4px',
-      fontSize: '11px',
-      letterSpacing: '2px',
+      padding: z.padding,
+      borderRadius: z.borderRadius,
+      fontSize: z.fontSize,
+      letterSpacing: z.letterSpacing,
       textTransform: 'uppercase',
       fontFamily: 'Georgia, serif',
       color: s.color,

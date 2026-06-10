@@ -159,13 +159,20 @@ export default function DesignPage() {
 
       {/* ── RARITY BADGES ────────────────────── */}
       <Section title="Rarity Badges">
-        <Row>
-          <RarityBadge rarity="Common" />
-          <RarityBadge rarity="Uncommon" />
-          <RarityBadge rarity="Rare" />
-          <RarityBadge rarity="Epic" />
-          <RarityBadge rarity="Legendary" />
-        </Row>
+        {(['sm', 'md', 'lg'] as const).map(size => (
+          <div key={size} style={{ marginBottom: '14px' }}>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>
+              {size === 'sm' ? 'Small' : size === 'md' ? 'Medium' : 'Large'}
+            </p>
+            <Row>
+              <RarityBadge rarity="Common" size={size} />
+              <RarityBadge rarity="Uncommon" size={size} />
+              <RarityBadge rarity="Rare" size={size} />
+              <RarityBadge rarity="Epic" size={size} />
+              <RarityBadge rarity="Legendary" size={size} />
+            </Row>
+          </div>
+        ))}
       </Section>
 
       {/* ── COUNT BADGE & NOTIFICATION ───────── */}

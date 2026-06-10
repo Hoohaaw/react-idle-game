@@ -13,6 +13,7 @@ const NAV = [
   { label: 'Blessings', to: '/blessings' },
   { label: 'Transcendence', to: '/transcendence' },
   { label: 'Statistics', to: '/statistics' },
+  { label: 'Design', to: '/design' }, // dev-only — remove before production
 ]
 
 // Mock values for now — wired to a resources store/hook later.
