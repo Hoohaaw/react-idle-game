@@ -2,7 +2,6 @@ import { IconSlot } from '../components/atoms/IconSlot'
 import { RarityBadge } from '../components/atoms/RarityBadge'
 import { PrimaryButton } from '../components/atoms/Button'
 import { CoinDisplay } from '../components/atoms/CoinDisplay'
-import { ItemTooltip } from '../components/organisms/ItemTooltip'
 import { RARITY_STYLES } from '../lib/rarity'
 import type { Item } from '../types/item'
 
@@ -49,19 +48,17 @@ function ShopItemCard({ item }: { item: Item }) {
       borderRadius: '6px', border: '2px solid var(--color-gold-dark)',
       background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
     }}>
-      {/* Header: icon + name + slot/rarity (hover for full item card) */}
-      <ItemTooltip item={item}>
-        <div style={{ display: 'flex', gap: '12px', cursor: 'pointer' }}>
-          <IconSlot size={56} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ color: rarityColor, fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{item.name}</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <RarityBadge rarity={item.rarity} />
-              <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>{item.slot}</span>
-            </div>
+      {/* Header: icon + name + slot/rarity */}
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <IconSlot size={56} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ color: rarityColor, fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}>{item.name}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RarityBadge rarity={item.rarity} />
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1px', textTransform: 'uppercase' }}>{item.slot}</span>
           </div>
         </div>
-      </ItemTooltip>
+      </div>
 
       {/* Stats */}
       <div style={{
