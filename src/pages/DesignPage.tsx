@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { RARITY_STYLES } from '../lib/rarity'
 import { PrimaryButton, SecondaryButton, DangerButton, GhostButton } from '../components/atoms/Button'
 import { Panel } from '../components/atoms/Panel'
@@ -31,9 +31,13 @@ import { MissionCard } from '../components/molecules/MissionCard'
 import { ActiveMissionCard } from '../components/molecules/ActiveMissionCard'
 import { MineCard } from '../components/molecules/MineCard'
 import { ActiveGatherCard } from '../components/molecules/ActiveGatherCard'
+import { useNow } from '../hooks/useNow'
+import { formatRemaining } from '../lib/time'
+import { resourceHeaderStyle } from '../lib/resources'
 
 export default function DesignPage() {
   const [modal, setModal] = useState<null | 'claim' | 'dispatch'>(null)
+  const [abandonTarget, setAbandonTarget] = useState<string | null>(null)
   return (
     <div style={{ backgroundColor: 'var(--color-bg-deep)', minHeight: '100svh', padding: '40px 24px', fontFamily: 'Georgia, serif' }}>
       {/* Full-bleed header preview (sticky in-app) */}
@@ -378,9 +382,9 @@ export default function DesignPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 300 }}>
           <RosterCard name="Sally Whitemane" charClass="Priest" level={15} activity="idle" />
           <RosterCard name="Fandral Staghelm" charClass="Druid" level={9} activity="idle" />
-          <RosterCard name="Alexandros Mograine" charClass="Death Knight" level={24} activity="mission" detail="Frozen Pass" />
-          <RosterCard name="Lyra Swift" charClass="Rogue" level={12} activity="gather" detail="Copper" />
-          <RosterCard name="Tyra Oakheart" charClass="Hunter" level={9} activity="gather" detail="Wood" />
+          <RosterCard name="Alexandros Mograine" charClass="Death Knight" level={24} activity="mission" detail="Frozen Pass" durationSec={600} startedSecAgo={140} onAbandon={setAbandonTarget} />
+          <RosterCard name="Lyra Swift" charClass="Rogue" level={12} activity="gather" detail="Copper" intervalSec={30} yieldPerTick={5} assignedSecAgo={18} />
+          <RosterCard name="Tyra Oakheart" charClass="Hunter" level={9} activity="gather" detail="Wood" intervalSec={20} yieldPerTick={4} assignedSecAgo={35} />
         </div>
       </Section>
 
@@ -394,6 +398,29 @@ export default function DesignPage() {
 
       <Modal open={modal !== null} onClose={() => setModal(null)}>
         {modal === 'claim' ? <ClaimReward /> : modal === 'dispatch' ? <MissionDispatch /> : null}
+      </Modal>
+
+      {/* Abandon-mission confirmation (per the confirm-required abandon rule) */}
+      <Modal open={abandonTarget !== null} onClose={() => setAbandonTarget(null)}>
+        <div style={{
+          width: 340, borderRadius: 8, border: '3px solid var(--color-gold-mid)', overflow: 'hidden',
+          background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
+          boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', '0 8px 24px rgba(0,0,0,0.85)'].join(', '),
+          fontFamily: 'Georgia, serif',
+        }}>
+          <div style={{ padding: '12px 16px', borderBottom: '2px solid #6b1010', background: 'linear-gradient(180deg, rgba(140,32,32,0.18) 0%, rgba(140,32,32,0.04) 100%)' }}>
+            <p style={{ color: '#e08080', fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5 }}>Abandon Mission?</p>
+          </div>
+          <div style={{ padding: 16 }}>
+            <p style={{ color: 'var(--color-text-primary)', fontSize: 13, lineHeight: 1.55, marginBottom: 16 }}>
+              Abandon <span style={{ color: 'var(--color-gold-light)', fontWeight: 'bold' }}>{abandonTarget}</span>? The party will be freed, but <span style={{ color: '#e08080' }}>all rewards from this mission will be lost</span>.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <SecondaryButton onClick={() => setAbandonTarget(null)}>Cancel</SecondaryButton>
+              <DangerButton onClick={() => setAbandonTarget(null)}>Abandon</DangerButton>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   )
@@ -441,35 +468,118 @@ function Row({ children }: { children: React.ReactNode }) {
 
 /* ── Party roster card (draft) ───────────── */
 // One character in the roster: portrait + name/class/level + current status.
-// Free characters read as selectable (gold border + glow); busy ones are dimmed
-// and show what they're doing. Reused across Team / Mines / mission dispatch.
-function RosterCard({ name, charClass, level, activity, detail }: {
+// Free characters read as selectable; busy ones are dimmed and, on hover, reveal an
+// interactive popup with activity details + an Abandon (mission) / Stop (gather) action.
+// Reused across Team / Mines / mission dispatch.
+function PopupRow({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <span style={{ color: 'var(--color-text-muted)', fontSize: 11, letterSpacing: 0.5 }}>{label}</span>
+      <span style={{ color: valueColor ?? 'var(--color-text-gold)', fontSize: 12, fontWeight: 'bold', fontFamily: '"Consolas", ui-monospace, monospace', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+    </div>
+  )
+}
+
+function RosterCard({ name, charClass, level, activity, detail, durationSec, startedSecAgo, intervalSec, yieldPerTick, assignedSecAgo, onAbandon }: {
   name: string; charClass: string; level: number
   activity: 'idle' | 'mission' | 'gather'; detail?: string
+  durationSec?: number; startedSecAgo?: number
+  intervalSec?: number; yieldPerTick?: number; assignedSecAgo?: number
+  onAbandon?: (mission: string) => void
 }) {
   const free = activity === 'idle'
   const status = free ? 'Available' : activity === 'mission' ? 'On Mission' : 'Gathering'
   const detailIcon = activity === 'mission' ? '⚔' : activity === 'gather' ? '⛏' : ''
+
+  // Interactive hover popup — kept open while hovering the card or the popup itself
+  // (a short close-delay bridges the gap between them so the action stays clickable).
+  const [open, setOpen] = useState(false)
+  const closeTimer = useRef<number | undefined>(undefined)
+  const showPopup = () => { if (closeTimer.current) window.clearTimeout(closeTimer.current); setOpen(true) }
+  const hidePopup = () => { closeTimer.current = window.setTimeout(() => setOpen(false), 120) }
+
+  const now = useNow()
+  const [anchorTs] = useState(() => Date.now() - (startedSecAgo ?? assignedSecAgo ?? 0) * 1000)
+  const missionRemMs = Math.max(0, (durationSec ?? 0) * 1000 - (now - anchorTs))
+  const gIntervalMs = (intervalSec ?? 1) * 1000
+  const gElapsed = now - anchorTs
+  const gBanked = Math.floor(gElapsed / gIntervalMs) * (yieldPerTick ?? 0)
+  const gNextMs = gIntervalMs - (gElapsed % gIntervalMs)
+
   return (
-    <div style={{
-      width: '100%', borderRadius: 8,
-      border: `2px solid ${free ? 'var(--color-gold-mid)' : 'var(--color-gold-dark)'}`,
-      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
-      boxShadow: free
-        ? ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', '0 0 12px rgba(200,140,30,0.28)', '0 4px 12px rgba(0,0,0,0.7)'].join(', ')
-        : ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.05)', '0 4px 12px rgba(0,0,0,0.7)'].join(', '),
-      opacity: free ? 1 : 0.82,
-      padding: 12,
-      display: 'flex', gap: 11,
-    }}>
-      <Avatar size={62} state={free ? 'available' : 'busy'} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 0 8px rgba(240,208,96,0.3)' }}>{name}</p>
-        <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 8 }}>{charClass} · Lv {level}</p>
-        <StatusTag tone={free ? 'ready' : 'busy'}>{status}</StatusTag>
-        {detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detailIcon} {detail}</p>}
-        {free && <p style={{ color: '#8ee59c', fontSize: 11, marginTop: 6 }}>Ready to send</p>}
+    <div
+      style={{ position: 'relative', width: '100%' }}
+      onMouseEnter={free ? undefined : showPopup}
+      onMouseLeave={free ? undefined : hidePopup}
+    >
+      <div style={{
+        width: '100%', borderRadius: 8,
+        border: `2px solid ${free ? 'var(--color-gold-mid)' : 'var(--color-gold-dark)'}`,
+        background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
+        boxShadow: free
+          ? ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', '0 0 12px rgba(200,140,30,0.28)', '0 4px 12px rgba(0,0,0,0.7)'].join(', ')
+          : ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.05)', '0 4px 12px rgba(0,0,0,0.7)'].join(', '),
+        opacity: free ? 1 : 0.82,
+        padding: 12, display: 'flex', gap: 11,
+        cursor: free ? 'default' : 'help',
+      }}>
+        <Avatar size={62} state={free ? 'available' : 'busy'} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 0 8px rgba(240,208,96,0.3)' }}>{name}</p>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 8 }}>{charClass} · Lv {level}</p>
+          <StatusTag tone={free ? 'ready' : 'busy'}>{status}</StatusTag>
+          {detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detailIcon} {detail}</p>}
+          {free && <p style={{ color: '#8ee59c', fontSize: 11, marginTop: 6 }}>Ready to send</p>}
+        </div>
       </div>
+
+      {/* Hover popup: activity details + abandon/stop action */}
+      {open && !free && (
+        <div
+          onMouseEnter={showPopup}
+          onMouseLeave={hidePopup}
+          style={{
+            position: 'absolute', left: '100%', top: 0, marginLeft: 8, width: 220, zIndex: 50,
+            borderRadius: 8, overflow: 'hidden', fontFamily: 'Georgia, serif',
+            border: '2px solid var(--color-gold-mid)',
+            background: 'linear-gradient(180deg, #2a0f12 0%, #120407 100%)',
+            boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.07)', '0 8px 24px rgba(0,0,0,0.85)'].join(', '),
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            padding: '10px 12px', borderBottom: '2px solid var(--color-gold-dark)',
+            ...(activity === 'gather'
+              ? resourceHeaderStyle(detail ?? '')
+              : { background: 'linear-gradient(180deg, rgba(200,145,42,0.16) 0%, rgba(200,145,42,0.03) 100%)' }),
+          }}>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase' }}>{status}</p>
+            <p style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.35)' }}>{detailIcon} {detail}</p>
+          </div>
+
+          {/* Body */}
+          <div style={{ padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {activity === 'mission' ? (
+              <>
+                <PopupRow label="Time left" value={`⏱ ${formatRemaining(missionRemMs)}`} />
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 10, fontStyle: 'italic', marginTop: 2 }}>Rewards are lost if abandoned.</p>
+              </>
+            ) : (
+              <>
+                <PopupRow label="Banked" value={`+${gBanked}`} valueColor="var(--color-success)" />
+                <PopupRow label={`Next +${yieldPerTick ?? 0}`} value={`⏱ ${formatRemaining(gNextMs)}`} />
+              </>
+            )}
+          </div>
+
+          {/* Action */}
+          <div style={{ padding: 12, borderTop: '1px solid var(--color-gold-dark)' }}>
+            <DangerButton onClick={activity === 'mission' ? () => onAbandon?.(detail ?? '') : undefined}>
+              {activity === 'mission' ? 'Abandon Mission' : 'Stop Gathering'}
+            </DangerButton>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

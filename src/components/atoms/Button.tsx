@@ -44,9 +44,9 @@ export function PrimaryButton({ children, disabled, fullWidth, onClick, type }: 
   )
 }
 
-export function SecondaryButton({ children }: { children: ReactNode }) {
+export function SecondaryButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
   return (
-    <button className="btn btn-secondary" style={{
+    <button onClick={onClick} className="btn btn-secondary" style={{
       padding: '10px 24px',
       fontFamily: 'Georgia, serif',
       fontSize: '14px',
