@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
+import type { ReactNode, MouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Avatar } from '../components/atoms/Avatar'
 import { RoleBadge } from '../components/atoms/RoleBadge'
-import { Tooltip } from '../components/atoms/Tooltip'
 import { SecondaryButton } from '../components/atoms/Button'
 import { roleForClass } from '../lib/roles'
 
@@ -316,7 +317,7 @@ function NodeTile({ node, rank, rowUnlocked, spendable, tierHave, tierNeed, onSp
     : 'Click to learn'
 
   return (
-    <Tooltip
+    <NodeTooltip
       content={
         <div>
           <p style={{ color: node.ultimate ? '#f0d060' : 'var(--color-gold-light)', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>
@@ -357,7 +358,50 @@ function NodeTile({ node, rank, rowUnlocked, spendable, tierHave, tierNeed, onSp
         </p>
         <PipRow rank={rank} max={node.max} center={node.ultimate} />
       </div>
-    </Tooltip>
+    </NodeTooltip>
+  )
+}
+
+// Portal-based hover tooltip — rendered to document.body so the tree's scroll
+// container (overflow:auto) can never clip it. Cursor-following + pointer-events:none,
+// matching the ItemTooltip pattern. (The plain CSS Tooltip atom is fine in non-scrolling
+// contexts like the character sheet, but gets clipped inside scroll containers.)
+function NodeTooltip({ content, children }: { content: ReactNode; children: ReactNode }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const move = useCallback((e: MouseEvent) => {
+    const pad = 16
+    const w = ref.current?.offsetWidth ?? 220
+    const h = ref.current?.offsetHeight ?? 120
+    let x = e.clientX + pad
+    let y = e.clientY + pad
+    if (x + w > window.innerWidth) x = e.clientX - w - pad
+    if (y + h > window.innerHeight) y = Math.max(pad, window.innerHeight - h - pad)
+    setPos({ x, y })
+  }, [])
+
+  return (
+    <div onMouseEnter={move} onMouseMove={move} onMouseLeave={() => setPos(null)} style={{ display: 'contents' }}>
+      {children}
+      {pos && createPortal(
+        <div ref={ref} style={{
+          position: 'fixed', left: pos.x, top: pos.y, zIndex: 9999, pointerEvents: 'none',
+          width: 220, padding: '12px 14px', borderRadius: '5px', fontFamily: 'Georgia, serif',
+          border: '2px solid var(--color-gold-mid)',
+          background: 'linear-gradient(180deg, #2a0f12 0%, #120407 100%)',
+          boxShadow: [
+            '0 0 0 1px #080101',
+            'inset 0 1px 0 rgba(255,255,255,0.07)',
+            '0 0 20px rgba(200,140,30,0.2)',
+            '0 8px 24px rgba(0,0,0,0.8)',
+          ].join(', '),
+        }}>
+          {content}
+        </div>,
+        document.body,
+      )}
+    </div>
   )
 }
 
