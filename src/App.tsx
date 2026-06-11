@@ -7,6 +7,7 @@ import MinesPage from './pages/MinesPage'
 import UpgradingPage from './pages/UpgradingPage'
 import ShopPage from './pages/ShopPage'
 import InventoryPage from './pages/InventoryPage'
+import CraftingPage from './pages/CraftingPage'
 import UpgradesPage from './pages/UpgradesPage'
 import BlessingsPage from './pages/BlessingsPage'
 import TranscendencePage from './pages/TranscendencePage'
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/upgrading" element={<UpgradingPage />} />
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/crafting" element={<CraftingPage />} />
         <Route path="/upgrades" element={<UpgradesPage />} />
         <Route path="/blessings" element={<BlessingsPage />} />
         <Route path="/transcendence" element={<TranscendencePage />} />

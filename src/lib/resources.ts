@@ -15,6 +15,21 @@ export const RESOURCE_COLOR: Record<string, string> = {
   Platinum: '198,222,236', // ice blue
 }
 
+// Where each crafting material comes from — surfaced in the resource hover popover so a
+// player knows where to farm a required material. Mirrors the Mines page resources
+// (missions/other sources can be added later). See [[project-crafting]].
+export const RESOURCE_SOURCE: Record<string, { tier: string; from: string }> = {
+  Wood: { tier: 'Material', from: 'Gathered at the Wood mine' },
+  Copper: { tier: 'Ore', from: 'Gathered at the Copper mine' },
+  Stone: { tier: 'Material', from: 'Gathered at the Stone mine' },
+  Coal: { tier: 'Material', from: 'Gathered at the Coal mine' },
+  Iron: { tier: 'Material', from: 'Gathered at the Iron mine' },
+  Silver: { tier: 'Ore', from: 'Gathered at the Silver mine' },
+  Bronze: { tier: 'Material', from: 'Gathered at the Bronze mine' },
+  Gold: { tier: 'Ore', from: 'Gathered at the Gold mine' },
+  Platinum: { tier: 'Ore', from: 'Gathered at the Platinum mine' },
+}
+
 // Faint per-resource header wash + accent line for gathering cards.
 export function resourceHeaderStyle(resource: string): CSSProperties {
   const c = RESOURCE_COLOR[resource] ?? '200,145,42'

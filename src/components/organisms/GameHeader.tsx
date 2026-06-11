@@ -9,6 +9,7 @@ const NAV = [
   { label: 'Upgrading', to: '/upgrading' },
   { label: 'Shop', to: '/shop' },
   { label: 'Inventory', to: '/inventory' },
+  { label: 'Crafting', to: '/crafting' },
   { label: 'Upgrades', to: '/upgrades' },
   { label: 'Blessings', to: '/blessings' },
   { label: 'Transcendence', to: '/transcendence' },
