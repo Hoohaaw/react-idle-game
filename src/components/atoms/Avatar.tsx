@@ -2,6 +2,7 @@
 export function Avatar({ size = 56, level, state = 'available' }: { size?: number; level?: number; state?: 'available' | 'busy' | 'locked' }) {
   const width = size
   const height = Math.round(size * 1.25)
+  const badgeFont = Math.max(10, Math.round(size * 0.15)) // level badge text scales with the portrait
   const ringColor = state === 'busy' ? 'var(--color-warning)' : state === 'locked' ? '#444' : 'var(--color-gold-mid)'
   return (
     <div style={{ position: 'relative', width, height, flexShrink: 0 }}>
@@ -19,9 +20,9 @@ export function Avatar({ size = 56, level, state = 'available' }: { size?: numbe
       </div>
       {level !== undefined && (
         <span style={{
-          position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', bottom: -Math.round(badgeFont * 0.7), left: '50%', transform: 'translateX(-50%)',
           background: 'linear-gradient(180deg, #2a1a08, #120a02)', border: '2px solid var(--color-gold-mid)',
-          borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 'bold', color: 'var(--color-gold-light)',
+          borderRadius: badgeFont, padding: `${Math.round(badgeFont * 0.18)}px ${Math.round(badgeFont * 0.6)}px`, fontSize: badgeFont, fontWeight: 'bold', color: 'var(--color-gold-light)',
           boxShadow: '0 0 0 1px #080101, 0 1px 3px rgba(0,0,0,0.7)', whiteSpace: 'nowrap',
         }}>Lv {level}</span>
       )}
