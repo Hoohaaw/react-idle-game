@@ -5,6 +5,8 @@ import { RarityBadge } from '../atoms/RarityBadge'
 import { GoldDivider } from '../atoms/GoldDivider'
 import { PrimaryButton } from '../atoms/Button'
 import { SectionLabel } from '../molecules/SectionLabel'
+import { RoleBadge } from '../atoms/RoleBadge'
+import { roleForClass } from '../../lib/roles'
 
 // Mock data for the prototype — replaced by the real claim payload later.
 const CLAIM = {
@@ -70,6 +72,7 @@ export function ClaimReward() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ color: 'var(--color-text-primary)', fontSize: '12px' }}>{c.name}</p>
                 <p style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{c.class} · Lv {c.level}</p>
+                <div style={{ marginTop: '4px' }}><RoleBadge role={roleForClass(c.class)} size="sm" /></div>
               </div>
               <span style={{ color: 'var(--color-xp)', fontSize: '12px', fontWeight: 'bold', textShadow: '0 0 8px rgba(124,45,190,0.5)' }}>+{xpEach} XP</span>
             </div>

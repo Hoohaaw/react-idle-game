@@ -19,6 +19,7 @@ import { SegmentedControl } from '../components/atoms/SegmentedControl'
 import { CustomSelect } from '../components/atoms/CustomSelect'
 import { CountdownTimer } from '../components/atoms/CountdownTimer'
 import { StatusTag } from '../components/atoms/StatusTag'
+import { RoleBadge } from '../components/atoms/RoleBadge'
 import { GameHeader } from '../components/organisms/GameHeader'
 import type { MissionDrops } from '../types/loot'
 import { LootTable } from '../components/organisms/LootTable'
@@ -201,6 +202,24 @@ export default function DesignPage() {
           <StatusTag tone="neutral">Stage 3</StatusTag>
           <StatusTag tone="danger">Failed</StatusTag>
         </Row>
+      </Section>
+
+      {/* ── ROLE BADGES ──────────────────────── */}
+      <Section title="Role Badges">
+        {(['md', 'sm'] as const).map(size => (
+          <div key={size} style={{ marginBottom: '14px' }}>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>
+              {size === 'md' ? 'Medium' : 'Small'}
+            </p>
+            <Row>
+              <RoleBadge role="tank" size={size} />
+              <RoleBadge role="damage" size={size} />
+              <RoleBadge role="healer" size={size} />
+              <RoleBadge role="utility" size={size} />
+              <RoleBadge role="gatherer" size={size} />
+            </Row>
+          </div>
+        ))}
       </Section>
 
       {/* ── STAT ATOMS ───────────────────────── */}

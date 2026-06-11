@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Avatar } from '../components/atoms/Avatar'
 import { ProgressBar } from '../components/atoms/ProgressBar'
+import { RoleBadge } from '../components/atoms/RoleBadge'
+import { roleForClass } from '../lib/roles'
 import { Modal } from '../components/organisms/Modal'
 import { CharacterCard } from '../components/organisms/CharacterCard'
 
@@ -9,11 +11,11 @@ type PartyMember = { id: string; name: string; charClass: string; level: number;
 
 const PARTY: PartyMember[] = [
   { id: 'c1', name: 'Lyra Swift',        charClass: 'Rogue',       level: 12, xpCurrent: 340, xpNeeded: 520 },
-  { id: 'c2', name: 'Tyra Oakheart',     charClass: 'Hunter',      level: 9,  xpCurrent: 180, xpNeeded: 360 },
+  { id: 'c2', name: 'Tyra Oakheart',     charClass: 'Forester',    level: 9,  xpCurrent: 180, xpNeeded: 360 },
   { id: 'c3', name: 'Alexandros Mograine', charClass: 'Death Knight', level: 24, xpCurrent: 620, xpNeeded: 1000 },
   { id: 'c4', name: 'Sally Whitemane',   charClass: 'Priest',      level: 15, xpCurrent: 95,  xpNeeded: 640 },
   { id: 'c5', name: 'Fandral Staghelm',  charClass: 'Druid',       level: 9,  xpCurrent: 250, xpNeeded: 360 },
-  { id: 'c6', name: 'Bron Stormhammer',  charClass: 'Warrior',     level: 18, xpCurrent: 720, xpNeeded: 820 },
+  { id: 'c6', name: 'Bron Stormhammer',  charClass: 'Miner',       level: 18, xpCurrent: 720, xpNeeded: 820 },
 ]
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -85,6 +87,7 @@ function PartyMemberCard({ member, onOpen }: { member: PartyMember; onOpen: () =
         <p style={{ color: 'var(--color-gold-light)', fontSize: '15px', fontWeight: 'bold', textShadow: '0 0 8px rgba(240,208,96,0.35)' }}>{member.name}</p>
         <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', marginTop: '2px', letterSpacing: '0.5px' }}>{member.charClass}</p>
       </div>
+      <RoleBadge role={roleForClass(member.charClass)} size="sm" />
       <div style={{ width: '100%' }}>
         <ProgressBar value={xpPct} label={`${member.xpCurrent} / ${member.xpNeeded} XP`} color="#7c2dbe" />
       </div>

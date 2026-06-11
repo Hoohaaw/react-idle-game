@@ -5,6 +5,8 @@ import { PrimaryButton } from '../atoms/Button'
 import { SectionLabel } from '../molecules/SectionLabel'
 import { RarityChancePill } from '../molecules/RarityChancePill'
 import type { DropItem } from '../../types/loot'
+import { RoleBadge } from '../atoms/RoleBadge'
+import { roleForClass } from '../../lib/roles'
 
 // Mock data for the prototype — replaced by real mission + roster data later.
 const DISPATCH_MISSION: { name: string; stage: number; description: string; duration: string; xpPerChar: number; loot: DropItem[] } = {
@@ -72,6 +74,7 @@ function CharacterTile({ char, selected, disabled, onToggle }: { char: RosterCha
         <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '0.5px' }}>
           {char.class} · Lv {char.level}{char.busy ? ' · On mission' : ` · ${char.statTotal} pts`}
         </p>
+        <div style={{ marginTop: '5px' }}><RoleBadge role={roleForClass(char.class)} size="sm" /></div>
       </div>
       <span style={{
         width: 18, height: 18, flexShrink: 0, borderRadius: '50%',

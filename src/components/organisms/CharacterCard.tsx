@@ -6,6 +6,8 @@ import { RarityBadge } from '../atoms/RarityBadge'
 import { StatPill } from '../atoms/StatPill'
 import { GoldDivider } from '../atoms/GoldDivider'
 import { Tooltip } from '../atoms/Tooltip'
+import { RoleBadge } from '../atoms/RoleBadge'
+import { roleForClass } from '../../lib/roles'
 
 // The full character sheet: portrait + identity + XP on the left, and Equipped /
 // Talents / Stats tabs on the right. Identity + XP are per-character (props); the tab
@@ -66,6 +68,7 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded }: {
 }) {
   const [tab, setTab] = useState<CharTab>('equipped')
   const xpPct = Math.round((xpCurrent / xpNeeded) * 100)
+  const role = roleForClass(charClass)
 
   return (
     <div style={{
@@ -122,6 +125,8 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded }: {
           }}>{name}</p>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginTop: '3px', letterSpacing: '1px' }}>{charClass}</p>
         </div>
+
+        <RoleBadge role={role} />
 
         <LevelBadge level={level} />
 
