@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { RARITY_STYLES } from '../lib/rarity'
 import { PrimaryButton, SecondaryButton, DangerButton, GhostButton } from '../components/atoms/Button'
@@ -737,7 +738,7 @@ function CraftingCircle() {
 type Recipe = {
   id: string
   name: string
-  kind: 'enhance' | 'create'
+  kind: 'infuse' | 'create'
   result: string
   resources: { resource: string; qty: number }[]
   discovered: boolean
@@ -746,16 +747,21 @@ type Recipe = {
 // A small fixed recipe set (Both: enhance + create). Hybrid reveal: name + result are
 // always visible; the exact resources stay hidden until the recipe is discovered/crafted.
 const RECIPES: Recipe[] = [
-  { id: 'str', name: 'Strength Infusion', kind: 'enhance', result: '+5 Strength to an item', resources: [{ resource: 'Iron', qty: 3 }, { resource: 'Bronze', qty: 2 }], discovered: true },
+  { id: 'str', name: 'Strength Infusion', kind: 'infuse', result: '+5 Strength to an item', resources: [{ resource: 'Iron', qty: 3 }, { resource: 'Bronze', qty: 2 }], discovered: true },
   { id: 'helm', name: 'Ironforged Helm', kind: 'create', result: 'Ironforged Helm (Head)', resources: [{ resource: 'Iron', qty: 5 }, { resource: 'Coal', qty: 2 }], discovered: true },
-  { id: 'agi', name: 'Agility Etching', kind: 'enhance', result: '+5 Agility to an item', resources: [{ resource: 'Silver', qty: 2 }, { resource: 'Wood', qty: 4 }], discovered: false },
-  { id: 'vigor', name: 'Vigor Tempering', kind: 'enhance', result: '+30 Health to an item', resources: [{ resource: 'Stone', qty: 5 }, { resource: 'Coal', qty: 3 }], discovered: false },
+  { id: 'agi', name: 'Agility Etching', kind: 'infuse', result: '+5 Agility to an item', resources: [{ resource: 'Silver', qty: 2 }, { resource: 'Wood', qty: 4 }], discovered: false },
+  { id: 'vigor', name: 'Vigor Tempering', kind: 'infuse', result: '+30 Health to an item', resources: [{ resource: 'Stone', qty: 5 }, { resource: 'Coal', qty: 3 }], discovered: false },
   { id: 'ring', name: 'Silvered Band', kind: 'create', result: 'Silvered Band (Ring)', resources: [{ resource: 'Silver', qty: 4 }, { resource: 'Gold', qty: 1 }], discovered: false },
   { id: 'blade', name: 'Platinum Greatblade', kind: 'create', result: 'Platinum Greatblade (Weapon)', resources: [{ resource: 'Platinum', qty: 3 }, { resource: 'Iron', qty: 6 }, { resource: 'Coal', qty: 4 }], discovered: false },
 ]
 
 function RecipeBook({ recipes, onClose }: { recipes: Recipe[]; onClose?: () => void }) {
-  const found = recipes.filter(r => r.discovered).length
+  const [filter, setFilter] = useState('All')
+  // Only discovered recipes are shown — locked ones stay hidden until found in-game.
+  const discovered = recipes.filter(r => r.discovered)
+  const shown = filter === 'All'
+    ? discovered
+    : discovered.filter(r => r.kind === (filter === 'Infusions' ? 'infuse' : 'create'))
   return (
     <div style={{
       width: '100%', borderRadius: 8, overflow: 'hidden',
@@ -766,61 +772,127 @@ function RecipeBook({ recipes, onClose }: { recipes: Recipe[]; onClose?: () => v
       <div style={{ padding: '10px 14px', borderBottom: '2px solid var(--color-gold-dark)', background: 'linear-gradient(180deg, rgba(200,145,42,0.16) 0%, rgba(200,145,42,0.03) 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', letterSpacing: 0.5, textShadow: '0 0 10px rgba(240,208,96,0.35)' }}>📖 Recipe Book</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: 11 }}>{found}/{recipes.length} discovered</span>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: 11 }}>{discovered.length} discovered</span>
           {onClose && <IconButton label="Close recipe book" onClick={onClose}>✕</IconButton>}
         </span>
       </div>
+      {/* Filter by recipe kind */}
+      <div style={{ padding: '10px 12px 0' }}>
+        <SegmentedControl options={['All', 'Infusions', 'Creations']} value={filter} onChange={setFilter} />
+      </div>
       <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {recipes.map(r => <RecipeRow key={r.id} recipe={r} />)}
+        {discovered.length === 0
+          ? <p style={{ color: 'var(--color-text-muted)', fontSize: 12, fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>No recipes discovered yet — explore and craft to unlock them.</p>
+          : shown.length === 0
+            ? <p style={{ color: 'var(--color-text-muted)', fontSize: 12, fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>No {filter.toLowerCase()} discovered yet.</p>
+            : shown.map(r => <RecipeRow key={r.id} recipe={r} />)}
       </div>
     </div>
   )
 }
 
 function RecipeRow({ recipe }: { recipe: Recipe }) {
-  const { discovered, kind, name, result, resources } = recipe
+  const { kind, name, result, resources } = recipe
   return (
     <div style={{
       borderRadius: 6, padding: 10,
-      border: `1px solid ${discovered ? 'var(--color-gold-dark)' : '#3a2a14'}`,
-      background: discovered ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.25)',
-      opacity: discovered ? 1 : 0.9,
+      border: '1px solid var(--color-gold-dark)',
+      background: 'rgba(255,255,255,0.02)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <TypeBadge kind={kind} />
-          <span style={{ color: 'var(--color-text-primary)', fontSize: 13, fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
-        </div>
-        {!discovered && <span title="Undiscovered" style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>🔒</span>}
+      {/* Headline with the type badge to its right */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <span style={{ color: 'var(--color-text-primary)', fontSize: 13, fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+        <TypeBadge kind={kind} />
       </div>
 
-      <p style={{ color: kind === 'enhance' ? '#f0a030' : '#5b9bd5', fontSize: 11, marginTop: 4 }}>
-        {kind === 'enhance' ? '⚒ ' : '✦ '}{result}
+      <p style={{ color: kind === 'infuse' ? '#b06fd4' : '#5b9bd5', fontSize: 11, marginTop: 4 }}>
+        {kind === 'infuse' ? '⚒ ' : '✦ '}{result}
       </p>
 
+      {/* Required materials — hover a chip to see where to obtain it */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' }}>
-        {discovered
-          ? resources.map(res => <ResourceReq key={res.resource} resource={res.resource} qty={res.qty} />)
-          : (
-            <>
-              {resources.map((_, i) => <LockedReq key={i} />)}
-              <span style={{ color: 'var(--color-text-muted)', fontSize: 10, fontStyle: 'italic', marginLeft: 2 }}>craft to discover</span>
-            </>
-          )}
+        {resources.map(res => (
+          <ResourceTooltip key={res.resource} resource={res.resource}>
+            <ResourceReq resource={res.resource} qty={res.qty} />
+          </ResourceTooltip>
+        ))}
       </div>
     </div>
   )
 }
 
-function TypeBadge({ kind }: { kind: 'enhance' | 'create' }) {
-  const enhance = kind === 'enhance'
+function TypeBadge({ kind }: { kind: 'infuse' | 'create' }) {
+  const infuse = kind === 'infuse'
   return (
     <span style={{
       padding: '1px 7px', borderRadius: 3, fontSize: 9, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0,
-      border: `1px solid ${enhance ? '#8a5010' : '#2a5a8a'}`,
-      color: enhance ? '#f0a030' : '#5b9bd5',
-      background: enhance ? 'rgba(240,160,48,0.10)' : 'rgba(91,155,213,0.12)',
-    }}>{enhance ? 'Enhance' : 'Create'}</span>
+      border: `1px solid ${infuse ? '#6a3a8a' : '#2a5a8a'}`,
+      color: infuse ? '#b06fd4' : '#5b9bd5',
+      background: infuse ? 'rgba(176,111,212,0.12)' : 'rgba(91,155,213,0.12)',
+    }}>{infuse ? 'Infuse' : 'Create'}</span>
+  )
+}
+
+// Where each crafting material comes from — surfaced in the hover popover so a player
+// knows where to farm it. Mirrors the Mines page resources (replaced by real data later).
+const RESOURCE_SOURCE: Record<string, { tier: string; from: string }> = {
+  Wood: { tier: 'Material', from: 'Gathered at the Wood mine' },
+  Copper: { tier: 'Ore', from: 'Gathered at the Copper mine' },
+  Stone: { tier: 'Material', from: 'Gathered at the Stone mine' },
+  Coal: { tier: 'Material', from: 'Gathered at the Coal mine' },
+  Iron: { tier: 'Material', from: 'Gathered at the Iron mine' },
+  Silver: { tier: 'Ore', from: 'Gathered at the Silver mine' },
+  Bronze: { tier: 'Material', from: 'Gathered at the Bronze mine' },
+  Gold: { tier: 'Ore', from: 'Gathered at the Gold mine' },
+  Platinum: { tier: 'Ore', from: 'Gathered at the Platinum mine' },
+}
+
+// Hover wrapper for a material requirement — shows a small portal popover at the cursor
+// with the material's name, tier and where to obtain it. Portal + pointerEvents:none so
+// it is never clipped by the recipe book's overflow:hidden frame (see the tooltip rule).
+function ResourceTooltip({ resource, children }: { resource: string; children: React.ReactNode }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const move = useCallback((e: React.MouseEvent) => {
+    const pad = 14
+    const w = cardRef.current?.offsetWidth ?? 200
+    const h = cardRef.current?.offsetHeight ?? 110
+    let x = e.clientX + pad
+    let y = e.clientY + pad
+    if (x + w > window.innerWidth) x = e.clientX - w - pad
+    if (y + h > window.innerHeight) y = Math.max(pad, window.innerHeight - h - pad)
+    setPos({ x, y })
+  }, [])
+
+  const c = RESOURCE_COLOR[resource] ?? '200,145,42'
+  const src = RESOURCE_SOURCE[resource]
+
+  return (
+    <span onMouseEnter={move} onMouseMove={move} onMouseLeave={() => setPos(null)} style={{ display: 'contents' }}>
+      {children}
+      {pos && createPortal(
+        <div ref={cardRef} style={{
+          position: 'fixed', left: pos.x, top: pos.y, zIndex: 9999, pointerEvents: 'none',
+          width: 200, borderRadius: 6, overflow: 'hidden', fontFamily: 'Georgia, serif',
+          border: `2px solid rgba(${c},0.7)`,
+          background: 'linear-gradient(180deg, #2a0f12 0%, #120407 100%)',
+          boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.07)', `0 0 14px rgba(${c},0.35)`, '0 8px 24px rgba(0,0,0,0.85)'].join(', '),
+        }}>
+          {/* Header: swatch + name + tier */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: `1px solid rgba(${c},0.45)` }}>
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: `rgb(${c})`, boxShadow: `0 0 6px rgba(${c},0.6)`, flexShrink: 0 }} />
+            <span style={{ color: 'var(--color-text-primary)', fontSize: 14, fontWeight: 'bold', flex: 1 }}>{resource}</span>
+            {src && <span style={{ color: 'var(--color-text-muted)', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase' }}>{src.tier}</span>}
+          </div>
+          {/* Source */}
+          <div style={{ padding: '9px 12px' }}>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 3 }}>Source</p>
+            <p style={{ color: 'var(--color-text-gold)', fontSize: 12, lineHeight: 1.4 }}>{src ? src.from : 'Unknown'}</p>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </span>
   )
 }
 
@@ -831,12 +903,6 @@ function ResourceReq({ resource, qty }: { resource: string; qty: number }) {
       <span style={{ width: 8, height: 8, borderRadius: 2, background: `rgb(${c})` }} />
       {resource} <span style={{ color: 'var(--color-text-gold)', fontWeight: 'bold' }}>×{qty}</span>
     </span>
-  )
-}
-
-function LockedReq() {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 4, border: '1px dashed var(--color-gold-dark)', color: 'var(--color-text-muted)', fontSize: 13, background: 'rgba(0,0,0,0.25)' }}>?</span>
   )
 }
 
