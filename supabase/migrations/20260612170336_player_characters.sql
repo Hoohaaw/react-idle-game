@@ -40,3 +40,11 @@ create policy "player_characters_select_own"
 -- Intentionally NO insert/update/delete policy for clients: every mutation goes through an
 -- Edge Function (service role, which bypasses RLS) that validates against the Sanity def
 -- first. This is what keeps level / xp / blessings untamperable from the client.
+
+-- Table privileges. The new Supabase default does NOT auto-expose public tables to the Data
+-- API roles, so RLS by itself yields "permission denied" — the role also needs GRANTs.
+--   authenticated -> SELECT only (the RLS policy above scopes it to the player's own rows)
+--   service_role  -> full DML (Edge Functions perform every mutation, bypassing RLS)
+--   anon          -> intentionally NO grant (unauthenticated users have no characters)
+grant select on public.player_characters to authenticated;
+grant select, insert, update, delete on public.player_characters to service_role;
