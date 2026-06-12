@@ -13,7 +13,7 @@ create table public.player_characters (
   level             integer not null default 1 check (level between 1 and 50),
   xp                integer not null default 0 check (xp >= 0),
   blessings         jsonb not null default '{}'::jsonb,     -- { "<nodeId>": ranks }
-  equipped          jsonb not null default '{}'::jsonb,     -- { "<slot>": "<inventoryItemId>" }
+  equipped          jsonb not null default '{}'::jsonb,     -- { "<slot>": { "itemDefId": ..., "rarity": ... } }
   acquired_at       timestamptz not null default now(),
 
   -- One of each character per player, ever (no duplicates).
