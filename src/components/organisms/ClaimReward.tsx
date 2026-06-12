@@ -33,9 +33,13 @@ const CLAIM = {
 }
 
 export function ClaimReward() {
-  // Multiplicative chain — running value after each bonus is applied
-  let running = CLAIM.baseCoins
-  const coinSteps = CLAIM.bonuses.map(b => { running = running * (1 + b.pct / 100); return { ...b, value: Math.round(running) } })
+  // Multiplicative chain — cumulative coin value after each bonus is applied
+  const coinSteps = CLAIM.bonuses.map((b, i) => {
+    const cumulative = CLAIM.bonuses
+      .slice(0, i + 1)
+      .reduce((acc, x) => acc * (1 + x.pct / 100), CLAIM.baseCoins)
+    return { ...b, value: Math.round(cumulative) }
+  })
   const multiplier = CLAIM.bonuses.reduce((m, b) => m * (1 + b.pct / 100), 1)
   const finalCoins = Math.round(CLAIM.baseCoins * multiplier)
   const xpEach = Math.round(CLAIM.baseXp * multiplier)
