@@ -30,3 +30,6 @@ dist-ssr
 
 # Claude Code local memory and settings
 .claude/
+
+# Local-only TODO review files (advisory, not shared)
+todo-reviews/
