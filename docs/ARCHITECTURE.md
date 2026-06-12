@@ -157,7 +157,7 @@ per-table UNIQUE).
 
 These are the rules every new feature must respect.
 
-### Compute-on-read stats (anti-tamper) — [ADR-0002](./DECISIONS.md#adr-0002--compute-on-read-character-stats)
+### Compute-on-read stats (anti-tamper) — [ADR-0002](./DECISIONS.md#adr-0002--compute-on-read-character-stats); growth model [ADR-0006](./DECISIONS.md#adr-0006--character-growth-flat-per-level--additive-milestones)
 Never store derived stat values. The player row holds only `level`, `xp`, the blessing map, and equipped
 refs. Effective stats are computed server-side from `level` + the immutable Sanity def:
 

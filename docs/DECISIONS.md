@@ -25,6 +25,7 @@ the history is the point.
 | [0003](#adr-0003--server-authoritative-writes-clients-never-mutate-game-state) | Server-authoritative writes; clients never mutate game state | 2026-06-12 | Accepted |
 | [0004](#adr-0004--extensible-currencies--resources-via-registry-driven-jsonb) | Extensible currencies & resources via registry-driven JSONB | 2026-06-13 | Accepted |
 | [0005](#adr-0005--profile-creation-db-trigger-safety-net--edge-function-for-onboarding) | Profile creation: DB trigger safety-net + Edge Function for onboarding | 2026-06-13 | Accepted |
+| [0006](#adr-0006--character-growth-flat-per-level--additive-milestones) | Character growth: flat per-level + additive milestones (per character) | 2026-06-13 | Accepted |
 
 ---
 
@@ -150,3 +151,39 @@ will eventually need real logic (grant a starting currency, assign the chosen 1-
 - No "user without a profile" orphan state, ever — for free, including seed/test users.
 - The trigger must stay minimal; all gameplay/onboarding richness lives in the Edge Function.
 - The trigger couples to the Supabase-managed `auth.users` schema (an accepted, supported hook).
+
+---
+
+## ADR-0006 — Character growth: flat per-level + additive milestones
+**Date:** 2026-06-13 · **Status:** Accepted
+
+**Context.** Per-character progression is a headline pillar — different characters should gain different
+amounts per level and have their own spikes (the original example: a Death Knight gains +3 strength per
+level plus a one-off +8 at level 10, while a mage barely gains strength but stacks intelligence). There is
+**no shared class growth template.** We need a model expressive enough for that, light to author across a
+whole roster, that feeds the compute-on-read baseline ([ADR-0002](#adr-0002--compute-on-read-character-stats)).
+
+**Decision.** Growth is authored **per character, per stat** in the Sanity `characterDef` as
+`{ perLevel, milestones: [{ level, bonus }] }`:
+
+```
+baseline(stat, L) = base + perLevel × (L − 1) + Σ(milestone.bonus where milestone.level ≤ L)
+```
+
+Milestones are **additive** — a milestone at level 10 adds to that level's normal gain (level 10 →
+`perLevel + bonus`), it does not replace it. Across characters, base / perLevel / milestones are all
+independent.
+
+**Alternatives considered.**
+- *Shared class-based growth template* — rejected: per-character bespoke growth is a core pillar.
+- *Replace-style milestones* (the milestone _sets_ the level's gain) — rejected in favour of additive
+  (cleaner; the milestone reads as a bonus on top of the normal gain).
+- *An explicit per-level table* (a hand-picked value for every level, per stat) — rejected for now:
+  maximally expressive but verbose to author and store across a roster.
+
+**Consequences.**
+- Per-character uniqueness from just a couple of numbers per stat plus the occasional spike.
+- A **single** character's curve is a flat `perLevel` slope with additive bumps at milestone levels — it
+  is **not** a freely hand-drawn value at every level. To deviate at one level, add a milestone there; to
+  hand-author *every* level, switch that stat to an explicit table (the deferred escalation path above).
+- Implemented in `src/lib/stats.ts` (`baselineForStat` / `computeBaselines`), unit-tested.
