@@ -1,0 +1,152 @@
+# Decisions — The Idle Game
+
+A running log of the **notable decisions** made while building this game, so we can come back
+and see *what* we chose and *why* (including the options we rejected). This is the human-facing,
+version-controlled record — distinct from in-code comments (the "how") and `TODO.md` (the "what's left").
+
+**Format:** lightweight [ADR](https://adr.github.io/) entries. Each is numbered, dated, and has a
+*status*. New decisions are appended at the bottom with the next number. When a later decision
+overrides an earlier one, the old entry is marked **Superseded by ADR-NNNN** rather than deleted —
+the history is the point.
+
+**Status values:** `Accepted` · `Superseded` · `Proposed` (leaning a way but not locked) ·
+`Open` (deliberately undecided — see also `TODO.md` and the design notes).
+
+> This is a **work in progress**. Decisions here are the current best call for an evolving game,
+> not permanent law. Revisiting one is fine — record the change as a new entry.
+
+---
+
+## Index
+| # | Decision | Date | Status |
+|---|---|---|---|
+| [0001](#adr-0001--definitioninstance-split-sanity-for-content-supabase-for-runtime) | Definition/instance split: Sanity for content, Supabase for runtime | 2026-06-12 | Accepted |
+| [0002](#adr-0002--compute-on-read-character-stats) | Compute-on-read character stats (anti-tamper) | 2026-06-12 | Accepted |
+| [0003](#adr-0003--server-authoritative-writes-clients-never-mutate-game-state) | Server-authoritative writes; clients never mutate game state | 2026-06-12 | Accepted |
+| [0004](#adr-0004--extensible-currencies--resources-via-registry-driven-jsonb) | Extensible currencies & resources via registry-driven JSONB | 2026-06-13 | Accepted |
+| [0005](#adr-0005--profile-creation-db-trigger-safety-net--edge-function-for-onboarding) | Profile creation: DB trigger safety-net + Edge Function for onboarding | 2026-06-13 | Accepted |
+
+---
+
+## ADR-0001 — Definition/instance split: Sanity for content, Supabase for runtime
+**Date:** 2026-06-12 · **Status:** Accepted
+
+**Context.** The game has a large amount of hand-authored content (characters, a bespoke blessing
+tree per character, missions, items, loot tables, recipes) that is identical for every player, plus
+per-player progress that changes constantly. Mixing the two in one database makes authoring,
+rebalancing, and anti-cheat all harder.
+
+**Decision.** Split by nature of the data:
+- **Definitions** (authored, read-only to players) live in **Sanity** (headless CMS), queried with GROQ.
+- **Instances** (per-player runtime state) live in **Supabase / Postgres**.
+- **Game logic** lives in **Supabase Edge Functions**, which fetch the relevant definitions from Sanity
+  (cached) to validate every write.
+- The two are linked by a stable string key (`charKey`), never Sanity's internal `_id`.
+
+**Alternatives considered.**
+- *Everything in Postgres* (the old prototype's model) — rejected: authoring bespoke content in SQL
+  rows is painful and couples content edits to player-data migrations.
+- *Everything in Sanity* — rejected: Sanity isn't built for high-write per-player runtime state or
+  transactional integrity.
+
+**Consequences.**
+- Adding/rebalancing content touches only Sanity; player progress is never affected.
+- Adds Sanity as a stack dependency (also a deliberate learning exercise).
+- Validation reads defs from Sanity at runtime (cached). Escalation path if that gets heavy: mirror
+  defs into a thin Postgres table via a publish webhook. Deferred until needed.
+
+---
+
+## ADR-0002 — Compute-on-read character stats
+**Date:** 2026-06-12 · **Status:** Accepted
+
+**Context.** A player's effective stats are derived from level + growth tables + blessings + gear.
+Any stored, mutable stat value is a target for tampering.
+
+**Decision.** Store only **intent** on the player row — `level`, `xp`, the blessing allocation map,
+and equipped-item refs. Never store computed stat values. Baselines and effective stats are
+**computed on read** (server-side) from `level` + the immutable Sanity definition:
+`baseline(stat, L) = base + perLevel×(L−1) + Σ(milestones for level ≤ L)`.
+
+**Alternatives considered.**
+- *Store baseline stats on the row, update on level-up* — rejected: larger tamper surface and a
+  denormalized value that can drift from the definition.
+
+**Consequences.**
+- The smallest possible trusted mutable surface; a tampered row can at most desync level/xp, which
+  is cap-checked and recomputable. There is no stored stat to inflate.
+- Recompute cost is trivial (a fold over ≤50 levels + a few dozen nodes/items) and defs are cached.
+
+---
+
+## ADR-0003 — Server-authoritative writes; clients never mutate game state
+**Date:** 2026-06-12 · **Status:** Accepted
+
+**Context.** This is a progression game where currencies, levels, and loot have value. If a browser
+can write its own balances or levels, the economy is meaningless.
+
+**Decision.** Every gameplay table has **Row Level Security** allowing an authenticated player to
+**read their own rows only**, with **no client INSERT/UPDATE/DELETE policy**. All mutations go through
+**Edge Functions** using the service role (which bypasses RLS) after validating against the Sanity
+definition. Postgres GRANTs are set per table (`authenticated`→SELECT, `service_role`→full DML,
+`anon`→nothing) — note the new Supabase default does *not* auto-expose tables, so GRANTs are required
+in addition to RLS.
+
+**Consequences.**
+- Clients can never write game state directly — the anti-cheat enforcement point is the Edge Function.
+- Every new gameplay table must follow this pattern (RLS owner-read + explicit GRANTs + no client write).
+- The service-role key is used **only inside Edge Functions**, never shipped to the client bundle.
+
+---
+
+## ADR-0004 — Extensible currencies & resources via registry-driven JSONB
+**Date:** 2026-06-13 · **Status:** Accepted
+
+**Context.** The game starts with coins and ~9 gathered resources, but this is a work in progress —
+more currencies (e.g. a premium gem, event tokens) and resources are expected. We don't want a schema
+migration every time the economy grows.
+
+**Decision.** The player's `profiles` row holds two **JSONB maps** — `currencies` and `resources` —
+keyed by a **code-side registry** (`src/lib/currencies.ts`, `src/lib/resources.ts`). An absent key
+means a zero balance. Adding a currency or resource is a **one-line code change with no migration**.
+Currencies and resources are kept as **two separate maps** (distinct concepts, distinct UI, and "Gold"
+the ore would otherwise collide with coins). This mirrors the existing stat registry (ADR-0002 territory).
+
+**Alternatives considered.**
+- *Fixed columns per currency/resource* (`coins int`, `wood int`, …) — rejected: every new economy
+  item needs a migration; locks us in.
+- *One unified `balances` map* — rejected: currencies and resources are conceptually different and the
+  `Gold` (ore) vs `coins` distinction is cleaner with separate namespaces.
+
+**Consequences.**
+- The database is agnostic to *which* currencies/resources exist; the code registry is the source of truth.
+- Reads must treat a missing key as 0.
+- Balance changes still go through Edge Functions (per ADR-0003).
+
+---
+
+## ADR-0005 — Profile creation: DB trigger safety-net + Edge Function for onboarding
+**Date:** 2026-06-13 · **Status:** Accepted
+
+**Context.** Every authenticated user needs exactly one `profiles` row (their wallet). The question is
+*who creates it*: a database trigger on signup, or explicit application/Edge-Function code. Onboarding
+will eventually need real logic (grant a starting currency, assign the chosen 1-of-3 starter character).
+
+**Decision.** Use **both, with clear roles**:
+- A **`SECURITY DEFINER` trigger** (`on_auth_user_created` on `auth.users`) creates a **bare** profile
+  (empty wallet) the instant a user signs up. Its only job is the invariant "every user has a profile" —
+  it is kept trivially simple so it can never fail and block signups.
+- A future **onboarding Edge Function** does the **rich** new-player flow by *updating* the
+  already-existing row (starter character, starting coins, "onboarded" flag).
+
+**Alternatives considered.**
+- *Trigger only, with rich logic inside it* — rejected: complex logic in a signup trigger is hard to
+  test, can't easily call external services, and if it throws it blocks signups entirely.
+- *Edge Function only (no trigger)* — rejected for the base row: leaves a window where a user exists
+  with no profile (orphan risk), and every signup path (OAuth, admin-created, seed users) would have to
+  remember to call it. Good for onboarding, not for the guaranteed base row.
+
+**Consequences.**
+- No "user without a profile" orphan state, ever — for free, including seed/test users.
+- The trigger must stay minimal; all gameplay/onboarding richness lives in the Edge Function.
+- The trigger couples to the Supabase-managed `auth.users` schema (an accepted, supported hook).

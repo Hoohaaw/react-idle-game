@@ -1,6 +1,19 @@
-# The Idle Game — Technical Documentation
+# The Idle Game — Technical Documentation (LEGACY / OLD PROTOTYPE)
 
-> **Purpose of this document:** Complete technical specification for an AI agent or developer to understand, extend, or rebuild this project. Every system, model, route, and data flow is described precisely.
+> ⚠️ **LEGACY — this describes the _previous_ prototype, not the current project.**
+> The old game was an **Express + MongoDB + EJS** server-rendered app. The current project is a
+> fundamentally different rewrite: a **React + Vite + TypeScript SPA**, with **Supabase**
+> (Postgres / Auth / Edge Functions) for player runtime and **Sanity** (headless CMS) for authored
+> content. **None of the code, database models, or routes described below exist in the new stack.**
+>
+> This file is kept **only as a reference for carried-over game _values_** — mission, gather,
+> crafting, upgrade, and blessing numbers, plus character data — while we rebuild. Treat the
+> architecture here as historical.
+>
+> 👉 For how the **current** project is built, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+> For the decisions behind it (and why), see [`docs/DECISIONS.md`](docs/DECISIONS.md).
+
+> **Original purpose (old project):** Complete technical specification for an AI agent or developer to understand, extend, or rebuild this project. Every system, model, route, and data flow is described precisely.
 
 ---
 
