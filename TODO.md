@@ -36,6 +36,12 @@ full picture, so a review (even an unattended one) can give a *qualified* propos
 - [ ] Replace mock data in pages with real Supabase / Sanity reads
   `↳ context: project-next-steps (UI pages), project-data-architecture · src/pages/, src/hooks/`
 
+## Housekeeping / polish
+- [ ] Rename the project in `package.json` (`name` is still `vite-scaffold`, `version` `0.0.0`)
+  `↳ context: cosmetic scaffold leftover · package.json`
+- [ ] Code-split the app bundle (build warns: chunk > 500 kB)
+  `↳ context: whole-app bundle; route-level dynamic import() or manualChunks · vite.config.ts, src/`
+
 ## Done
 - [x] Profiles table (wallet: extensible JSONB currencies/resources + transcendence count) + signup trigger + `src/lib/currencies.ts` (RLS + grants, verified) — ADR-0004/0005
 - [x] Stat engine: compute-on-read baselines, stacking, blessing bonuses, reward pipeline (`src/lib/stats.ts`, 16 tests) — per-stat *combat* effects & gear bonuses deferred to the combat model / item schema
