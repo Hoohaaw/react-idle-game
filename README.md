@@ -56,8 +56,8 @@ migration/typegen workflow are documented in [`docs/ARCHITECTURE.md`](./docs/ARC
 | `npm run build` | Type-check (`tsc -b`) and build for production |
 | `npm run lint` | Run ESLint |
 | `npm run preview` | Preview the production build |
-
-_(Tests run via `vitest` / Playwright; a `test` script will be wired as the suite grows.)_
+| `npm test` | Run the unit tests once (`vitest run`) |
+| `npm run test:watch` | Run the unit tests in watch mode |
 
 ## Project structure
 

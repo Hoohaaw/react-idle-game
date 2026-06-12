@@ -194,6 +194,7 @@ Adding a stat / currency / resource = **one entry, no DB or Sanity schema change
 means a zero balance.
 
 ### Other `src/lib` helpers
+`stats.ts` (the **stat engine** — baselines, stacking, blessing bonuses, reward pipeline; unit-tested),
 `roles.ts` (class→role map + the 5 roles), `rarity.ts` (rarity palette/logic), `time.ts`, `upgrade.ts`,
 plus `mockInventory.ts` / `mockRecipes.ts` (placeholder data to be replaced by real reads).
 
@@ -255,5 +256,5 @@ client to `createClient<Database>`.
   purple XP, a rarity palette, and a portal-tooltip rule (overlays portal to `document.body` so ancestors
   can't clip them). Prototyped live on the `/design` page before extraction into atoms.
 - **Status:** see §5 / `TODO.md`. Built: design system + component library, Sanity schema (deployed),
-  the five Supabase tables (RLS + grants), the Supabase client + env wiring, the currency registry.
-  Planned next: the stat engine, DB types, then the first Edge Functions and real data reads.
+  the five Supabase tables (RLS + grants), the Supabase client + env wiring, the currency registry, and the **stat engine** (`src/lib/stats.ts`, unit-tested).
+  Planned next: DB types, then the first Edge Functions and real data reads.

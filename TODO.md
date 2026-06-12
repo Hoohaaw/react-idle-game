@@ -13,8 +13,6 @@ full picture, so a review (even an unattended one) can give a *qualified* propos
 ## Backend (Supabase)
 - [ ] First Edge Function (recruit / level-up) — the server-authoritative write path
   `↳ context: project-data-architecture, project-tech-stack · supabase/functions/, src/lib/supabase.ts`
-- [ ] Player profile + currency/resources table (coins, wood/ore/…, transcendence count)
-  `↳ context: project-data-architecture, project-design-decisions · supabase/migrations/`
 - [ ] Transcendence-reset logic (keep characters, reset level → 1 + blessings)
   `↳ context: project-design-decisions (transcendence), project-undecided (reset scope) · supabase/functions/`
 - [ ] Generate DB types (`createClient<Database>`) — after `npx supabase login`
@@ -35,12 +33,12 @@ full picture, so a review (even an unattended one) can give a *qualified* propos
 ## App wiring
 - [ ] Install `@sanity/client` + first GROQ query into a page
   `↳ context: project-data-architecture (option a fetch), project-tech-stack · src/lib/, src/services/`
-- [ ] Stat engine: `statDefinitions.ts` effects + compute-on-read baselines + reward calc (with tests)
-  `↳ context: project-design-decisions (stats/rewards), project-data-architecture (growth) · src/lib/statDefinitions.ts`
 - [ ] Replace mock data in pages with real Supabase / Sanity reads
   `↳ context: project-next-steps (UI pages), project-data-architecture · src/pages/, src/hooks/`
 
 ## Done
+- [x] Profiles table (wallet: extensible JSONB currencies/resources + transcendence count) + signup trigger + `src/lib/currencies.ts` (RLS + grants, verified) — ADR-0004/0005
+- [x] Stat engine: compute-on-read baselines, stacking, blessing bonuses, reward pipeline (`src/lib/stats.ts`, 16 tests) — per-stat *combat* effects & gear bonuses deferred to the combat model / item schema
 - [x] Sanity Studio + `characterDef`/blessing-tree schema (deployed)
 - [x] Supabase local stack + `player_characters` / `player_inventory` / `mission_runs` / `gather_assignments` (RLS + grants, verified)
 - [x] Supabase browser client + env wiring
