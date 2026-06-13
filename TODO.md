@@ -23,8 +23,6 @@ full picture, so a review (even an unattended one) can give a *qualified* propos
   `↳ context: project-data-architecture (no cloud yet) · supabase/`
 
 ## Content (Sanity)
-- [ ] Author the first real character + blessing tree in the Studio
-  `↳ context: project-character-development, project-data-architecture (Sanity modeling) · studio/`
 - [ ] Mission / item / loot-table / recipe schemas
   `↳ context: project-design-decisions (loot/items), project-crafting · studio/schemaTypes/`
 - [ ] Author the remaining roster + content
@@ -43,6 +41,7 @@ full picture, so a review (even an unattended one) can give a *qualified* propos
   `↳ context: whole-app bundle; route-level dynamic import() or manualChunks · vite.config.ts, src/`
 
 ## Done
+- [x] First real character authored in Sanity: **Mordrek Graveborn** (Death Knight / tank) — base stats + per-level growth (str +8@10, hp +30@25 milestones) + a 5-node blessing tree (prereq chain + row-7 ultimate). Seeded via Sanity **CLI** (`sanity documents create`, the MCP is read-only here). Currently a **draft** — review/publish in the Studio.
 - [x] Profiles table (wallet: extensible JSONB currencies/resources + transcendence count) + signup trigger + `src/lib/currencies.ts` (RLS + grants, verified) — ADR-0004/0005
 - [x] Stat engine: compute-on-read baselines, stacking, blessing bonuses, reward pipeline (`src/lib/stats.ts`, 16 tests) — per-stat *combat* effects & gear bonuses deferred to the combat model / item schema
 - [x] Sanity Studio + `characterDef`/blessing-tree schema (deployed)
