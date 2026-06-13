@@ -102,10 +102,10 @@ describe('collectBlessingBonuses', () => {
 })
 
 describe('statRewardBonus', () => {
-  it('sums offensive + defensive points at 0.1% each and ignores misc', () => {
+  it('sums reward-flagged points at 0.1% each and ignores misc', () => {
     const bonus = statRewardBonus({
-      attack: 100, // offensive
-      health: 50, // defensive
+      attack: 100, // reward-flagged
+      health: 50, // reward-flagged
       gatherSpeed: 999, // misc → ignored
     })
     expect(bonus).toBeCloseTo(150 * REWARD_BONUS_PER_STAT_POINT) // 0.15
@@ -113,6 +113,14 @@ describe('statRewardBonus', () => {
 
   it('is 0 when only misc stats are present', () => {
     expect(statRewardBonus({ gatherYield: 500, missionSpeedDecrease: 20 })).toBe(0)
+  })
+
+  it('ignores combat-depth stats flagged reward:false even though they are offensive/defensive (ADR-0007)', () => {
+    // critChance is category "offensive" but reward:false — it must NOT inflate rewards.
+    expect(statRewardBonus({ critChance: 999 })).toBe(0)
+    expect(statRewardBonus({ attack: 10, critChance: 999, dodge: 500 })).toBeCloseTo(
+      10 * REWARD_BONUS_PER_STAT_POINT,
+    )
   })
 })
 

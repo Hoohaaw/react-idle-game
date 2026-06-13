@@ -2,32 +2,51 @@
 // Adding a stat = one entry here. No DB migration, no Sanity schema edit: the Sanity
 // content schema and the game both read their stat list from STAT_DEFS.
 //
-// Categories drive the reward multiplier (see project_design_decisions):
-//   offensive + defensive  → count toward the 0.1%/point reward multiplier
-//   misc                   → has an effect (e.g. time/gather) but NOT the reward multiplier
+// `category` groups a stat (offensive / defensive / support / misc — for UI + intent); the separate
+// `reward` flag decides whether it feeds the 0.1%/point reward multiplier. These are DECOUPLED
+// (ADR-0007) so we can add combat depth (crit, dodge, …) without inflating the economy:
+//   reward: true   → a core "power" stat that counts toward the reward multiplier
+//   reward: false  → has a gameplay effect but does NOT inflate rewards
 //
-// SEED: this is the minimal registry (keys + categories, both already decided). The
-// per-stat `effect`/`formula` definitions arrive with the stat-system build (next-steps #9).
+// Per-stat combat `effect`/`formula` definitions still arrive with the combat model (deferred).
 
-export type StatCategory = 'offensive' | 'defensive' | 'misc'
+export type StatCategory = 'offensive' | 'defensive' | 'support' | 'misc'
 
 export type StatDef = {
   key: string
   label: string
   category: StatCategory
+  /** Whether this stat feeds the 0.1%/pt reward multiplier (ADR-0007 — decoupled from category). */
+  reward: boolean
 }
 
 export const STAT_DEFS: StatDef[] = [
-  { key: 'attack', label: 'Attack', category: 'offensive' },
-  { key: 'strength', label: 'Strength', category: 'offensive' },
-  { key: 'agility', label: 'Agility', category: 'offensive' },
-  { key: 'speed', label: 'Speed', category: 'offensive' },
-  { key: 'intelligence', label: 'Intelligence', category: 'offensive' },
-  { key: 'health', label: 'Health', category: 'defensive' },
-  { key: 'defense', label: 'Defense', category: 'defensive' },
-  { key: 'missionSpeedDecrease', label: 'Mission Speed Decrease', category: 'misc' },
-  { key: 'gatherSpeed', label: 'Gather Speed', category: 'misc' },
-  { key: 'gatherYield', label: 'Gather Yield', category: 'misc' },
+  // Core power stats — the curated set that drives the reward multiplier.
+  { key: 'attack', label: 'Attack', category: 'offensive', reward: true },
+  { key: 'strength', label: 'Strength', category: 'offensive', reward: true },
+  { key: 'agility', label: 'Agility', category: 'offensive', reward: true },
+  { key: 'speed', label: 'Speed', category: 'offensive', reward: true },
+  { key: 'intelligence', label: 'Intelligence', category: 'offensive', reward: true },
+  { key: 'health', label: 'Health', category: 'defensive', reward: true },
+  { key: 'defense', label: 'Defense', category: 'defensive', reward: true },
+
+  // Combat depth — texture for builds. Effects await the combat model; reward:false keeps them
+  // from inflating loot (a crit stat shouldn't double-dip into the economy).
+  { key: 'critChance', label: 'Crit Chance', category: 'offensive', reward: false },
+  { key: 'critDamage', label: 'Crit Damage', category: 'offensive', reward: false },
+  { key: 'armorPen', label: 'Armor Penetration', category: 'offensive', reward: false },
+  { key: 'accuracy', label: 'Accuracy', category: 'offensive', reward: false },
+  { key: 'dodge', label: 'Dodge', category: 'defensive', reward: false },
+  { key: 'block', label: 'Block', category: 'defensive', reward: false },
+  { key: 'resistance', label: 'Resistance', category: 'defensive', reward: false },
+  { key: 'healthRegen', label: 'Health Regen', category: 'defensive', reward: false },
+  { key: 'healingPower', label: 'Healing Power', category: 'support', reward: false },
+
+  // Economy / utility — an effect, but never the reward multiplier.
+  { key: 'missionSpeedDecrease', label: 'Mission Speed Decrease', category: 'misc', reward: false },
+  { key: 'gatherSpeed', label: 'Gather Speed', category: 'misc', reward: false },
+  { key: 'gatherYield', label: 'Gather Yield', category: 'misc', reward: false },
+  { key: 'luck', label: 'Luck', category: 'misc', reward: false },
 ]
 
 export const STAT_KEYS: string[] = STAT_DEFS.map((s) => s.key)

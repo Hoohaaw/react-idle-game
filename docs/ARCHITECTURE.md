@@ -170,7 +170,7 @@ effective(stat)   = baseline + Σ(flat bonuses) + baseline × (Σ(pct bonuses) /
 ```
 final = base × (1 + statBonus) × (1 + partySizeBonus) × (1 + transcendenceBonus)
 ```
-`statBonus` = 0.1% per point of **offensive + defensive** stats (the `misc` category does not feed it).
+`statBonus` = 0.1% per point of every **reward-flagged** stat ([ADR-0007](./DECISIONS.md#adr-0007--decouple-reward-eligibility-from-stat-category)) — a curated set of core power stats. Combat-depth stats (crit, dodge, …) and economy stats carry a gameplay effect but are `reward:false`, so they never inflate loot.
 _(How real-time combat interacts with this is **Open** — see §7.)_
 
 ### Server-authoritative writes — [ADR-0003](./DECISIONS.md#adr-0003--server-authoritative-writes-clients-never-mutate-game-state)

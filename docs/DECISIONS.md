@@ -26,6 +26,7 @@ the history is the point.
 | [0004](#adr-0004--extensible-currencies--resources-via-registry-driven-jsonb) | Extensible currencies & resources via registry-driven JSONB | 2026-06-13 | Accepted |
 | [0005](#adr-0005--profile-creation-db-trigger-safety-net--edge-function-for-onboarding) | Profile creation: DB trigger safety-net + Edge Function for onboarding | 2026-06-13 | Accepted |
 | [0006](#adr-0006--character-growth-flat-per-level--additive-milestones) | Character growth: flat per-level + additive milestones (per character) | 2026-06-13 | Accepted |
+| [0007](#adr-0007--decouple-reward-eligibility-from-stat-category) | Decouple reward-eligibility from stat category (expanded stat registry) | 2026-06-13 | Accepted |
 
 ---
 
@@ -187,3 +188,41 @@ independent.
   is **not** a freely hand-drawn value at every level. To deviate at one level, add a milestone there; to
   hand-author *every* level, switch that stat to an explicit table (the deferred escalation path above).
 - Implemented in `src/lib/stats.ts` (`baselineForStat` / `computeBaselines`), unit-tested.
+
+---
+
+## ADR-0007 — Decouple reward-eligibility from stat category
+**Date:** 2026-06-13 · **Status:** Accepted
+
+**Context.** The stat registry started lean (10 stats). Expanding it for combat depth (crit, dodge,
+penetration, regen, a healer's healing power, luck, …) exposed a coupling: the reward multiplier counted
+*every* `offensive`/`defensive` stat at 0.1%/point, excluding only `misc`. Under that rule, adding
+combat-depth stats would silently inflate loot — and a crit stat would "double-dip" (boost both damage
+and rewards).
+
+**Decision.** Split the two concerns on each `StatDef`:
+- `category` (`offensive` / `defensive` / `support` / `misc`) = grouping + intent, for UI.
+- `reward: boolean` = whether the stat feeds the 0.1%/point reward multiplier.
+
+`statRewardBonus` now sums only `reward:true` stats. The curated reward set is the original seven core
+power stats (attack / strength / agility / speed / intelligence / health / defense); all newly added
+depth and economy stats are `reward:false`. Flipping a stat's reward-eligibility is a one-field change.
+
+The registry expanded 10 → 20 stats and gained a `support` category (home for `healingPower`, the
+previously missing healer stat). Per-stat *combat effects* remain deferred to the combat model — only
+the stat vocabulary + reward eligibility are defined now.
+
+**Alternatives considered.**
+- *Keep category driving rewards; file depth stats under `misc`* — rejected: `misc` means "non-combat
+  economy/time"; putting crit/dodge there is semantically wrong and pollutes UI grouping.
+- *Let all offensive/defensive stats count* — rejected: inflates the economy with every new stat and
+  causes double-dipping.
+
+**Consequences.**
+- Adding combat depth is balance-neutral for the economy by default; reward-eligibility is an explicit,
+  per-stat decision.
+- `category` is now purely semantic/UI — nothing should infer reward behavior from it.
+- The broader reward-vs-real-time-combat reconciliation stays **Open** (see `TODO.md` / design notes);
+  this ADR only decouples eligibility, it does not decide combat's role in rewards.
+- Implemented in `src/lib/statDefinitions.ts` (`+reward` flag) and `src/lib/stats.ts` (filter on the
+  flag); unit-tested (a `reward:false` offensive stat contributes 0 to the reward bonus).

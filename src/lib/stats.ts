@@ -124,14 +124,15 @@ export function collectBlessingBonuses(
 /** Reward multiplier contribution per point of a reward-contributing stat (0.1% — decided). */
 export const REWARD_BONUS_PER_STAT_POINT = 0.001
 
-/** Stats that feed the reward bonus: everything except the `misc` category (source of truth: the registry). */
+/** Stats that feed the reward bonus: those flagged `reward` in the registry (ADR-0007 — decoupled
+ *  from category, so combat-depth stats like crit/dodge can exist without inflating the economy). */
 const REWARD_STAT_KEYS = new Set(
-  STAT_DEFS.filter((d) => d.category !== 'misc').map((d) => d.key),
+  STAT_DEFS.filter((d) => d.reward).map((d) => d.key),
 )
 
 /**
  * The reward bonus contributed by one character's EFFECTIVE stats: 0.1% per point of every
- * offensive/defensive stat. Returned as a fraction (e.g. 0.15 = +15%). `misc` stats are ignored.
+ * reward-flagged stat. Returned as a fraction (e.g. 0.15 = +15%). Non-reward stats are ignored.
  *
  * Note: how a whole PARTY's bonus is aggregated (sum vs. average), and whether real-time combat
  * changes the role of stats in rewards, are open questions — kept out of this function on purpose.
