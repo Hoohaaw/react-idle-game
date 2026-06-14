@@ -27,6 +27,8 @@ the history is the point.
 | [0005](#adr-0005--profile-creation-db-trigger-safety-net--edge-function-for-onboarding) | Profile creation: DB trigger safety-net + Edge Function for onboarding | 2026-06-13 | Accepted |
 | [0006](#adr-0006--character-growth-flat-per-level--additive-milestones) | Character growth: flat per-level + additive milestones (per character) | 2026-06-13 | Accepted |
 | [0007](#adr-0007--decouple-reward-eligibility-from-stat-category) | Decouple reward-eligibility from stat category (expanded stat registry) | 2026-06-13 | Accepted |
+| [0008](#adr-0008--character-role-authored-per-character-class-provides-the-default) | Character role authored per character (class provides the default) | 2026-06-14 | Accepted |
+| [0009](#adr-0009--stat-vocabulary-expansion--wow-style-routing) | Stat vocabulary expansion + WoW-style routing | 2026-06-14 | Accepted |
 
 ---
 
@@ -226,3 +228,79 @@ the stat vocabulary + reward eligibility are defined now.
   this ADR only decouples eligibility, it does not decide combat's role in rewards.
 - Implemented in `src/lib/statDefinitions.ts` (`+reward` flag) and `src/lib/stats.ts` (filter on the
   flag); unit-tested (a `reward:false` offensive stat contributes 0 to the reward bonus).
+
+---
+
+## ADR-0008 — Character role authored per character (class provides the default)
+**Date:** 2026-06-14 · **Status:** Accepted
+
+**Context.** Role (tank / damage / healer / utility / gatherer) was derived *purely* from class
+(`roleForClass` over the `CLASS_ROLE` map). But we want a single class to be able to fill different
+roles — e.g. a Mage that **heals** vs a Mage that **deals damage** — which is also what makes the
+healer-specific stats (Healing Power, Healing Crit) meaningful. With a fixed, hand-authored, no-dupes
+roster, the natural way to express that is as **distinct recruits**, not a runtime spec toggle.
+
+**Decision.** Role is **authored per character** on the Sanity `characterDef` via an **optional `role`
+field**:
+- **Blank → the class default** (`CLASS_ROLE` / `roleForClass`).
+- **Set → an explicit override** (e.g. a Mage authored as Healer).
+
+`resolveRole(charClass, authoredRole?)` applies the precedence (`authoredRole ?? roleForClass(...)`).
+This makes per-role stat routing concrete: a character authored as a Healer routes Intelligence →
+Healing Power, one authored as Damage routes it → Spell Power (the routing itself lands with the
+combat model — [ADR-0009](#adr-0009--stat-vocabulary-expansion--wow-style-routing)).
+
+**Alternatives considered.**
+- *Keep role fixed-by-class* — rejected: blocks the Mage-healer vs Mage-DPS distinction entirely.
+- *Player-chosen, switchable spec (WoW dual-spec)* — deferred: needs per-player role storage, a
+  spec-select UI, a respec mechanism, and forces a "one blessing tree or one-per-spec" decision; it
+  also leans on the (still-Open) combat model. Authoring role per character delivers the variety now
+  and fits the fixed-roster design, with the switchable-spec version available as a later escalation.
+
+**Consequences.**
+- `characterDef` gains an optional `role` dropdown (the 5 roles); the studio dropdown is generated
+  from `ROLE_STYLES`. A character with no `role` is unchanged (resolves to the class default).
+- `resolveRole` is additive; existing `roleForClass` UI callers keep working until the Sanity client
+  is wired, at which point they pass the authored role through `resolveRole`.
+- Supersedes the earlier *informal* "role is fixed by class" approach (which was never its own ADR).
+
+---
+
+## ADR-0009 — Stat vocabulary expansion + WoW-style routing
+**Date:** 2026-06-14 · **Status:** Accepted
+
+**Context.** We surveyed how MMORPGs/ARPGs/idle games turn stats into mechanics (WoW role-routed
+primaries + secondary stats; PoE attribute-gating; Diablo Magic Find; Melvor's combat skills). We chose
+**WoW's model** (simplest, matches intent) and found the lean registry needed a few more stats to
+express casters, healers, and item-finding. Builds on [ADR-0007](#adr-0007--decouple-reward-eligibility-from-stat-category).
+
+**Decision.**
+- **Routing (intent).** Primaries are the "main stat"; what they *do* is **routed by role**:
+  Strength/Agility → **Attack** (physical), Intelligence → **Spell Power** (damage) **or** **Healing
+  Power** (healer), Health = the HP pool.
+- **Defensive model = mitigate, not avoid.** Defense/Resistance *reduce* physical/magic damage; **Dodge**
+  fully avoids a hit; **Block** partly blunts one. (Rejected Melvor's "Defense = evasion".)
+- **Registry change: 20 → 23 stats.** Added **Spell Power**, **Haste**, **Healing Crit**, **Magic
+  Find**; **removed Accuracy / Hit Rating** (modern WoW dropped hit/expertise — Dodge needs no
+  counter-stat); **redefined Luck**.
+- **Item-finding split.** **Magic Find = the RATE** of finding items; **Luck = the AMOUNT** found.
+  (Deliberately diverges from Diablo, where Magic Find governs *quality* — rate/amount is more intuitive
+  for an idle loop.)
+- **Reward eligibility** (per ADR-0007's decouple). **Spell Power** and **Haste** are `reward:true`
+  (parity with Attack; and Speed already counts, so both tempo stats count by explicit call). All other
+  additions are `reward:false`. **9 reward-eligible stats** total.
+- **No diminishing returns for now** — %-stats scale linearly. Flagged to revisit as numbers grow.
+
+**Alternatives considered.**
+- *PoE attribute-gating* (attributes unlock gear/skills) — rejected: more complex than wanted.
+- *Defense-as-avoidance* (Melvor) — rejected in favour of mitigate + a separate Dodge.
+- *Diminishing returns now* — deferred (idle numbers grow forever, so this WILL return).
+- *A separate Healing Crit Damage* — deferred; one Healing Crit (chance) stat for now.
+
+**Consequences.**
+- Per-stat **combat effects/formulas remain deferred** to the combat model — only the stat vocabulary,
+  reward eligibility, and routing *intent* are fixed here.
+- The Sanity stat dropdowns (statValue/statGrowth/nodeEffect) auto-update from `STAT_DEFS`; `REWARD_STAT_KEYS`
+  auto-derives — no schema migration. Removing Accuracy is safe (no content referenced it).
+- Implemented in `src/lib/statDefinitions.ts`; unit-tested (spellPower/haste count, healingCrit/magicFind
+  do not).

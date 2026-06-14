@@ -1,7 +1,7 @@
-// Character role / archetype — what a character is good at. Role is FIXED BY CLASS
-// (the CLASS_ROLE map below is the source of truth); blessing points later deepen
-// the role rather than change it. Surfaced as a <RoleBadge> on the character card,
-// mission dispatch, claim reward, and party roster.
+// Character role / archetype — what a character is good at. Role DEFAULTS from class (the CLASS_ROLE
+// map below) but can be OVERRIDDEN per character in Sanity (ADR-0008) — e.g. a Mage authored as a
+// Healer. Use resolveRole() to apply that precedence. Blessing points later deepen the role rather
+// than change it. Surfaced as a <RoleBadge> on the character card, mission dispatch, claim, roster.
 export type CharacterRole = 'tank' | 'damage' | 'healer' | 'utility' | 'gatherer'
 
 export type RoleStyle = { label: string; icon: string; color: string; border: string; glow: string }
@@ -16,7 +16,8 @@ export const ROLE_STYLES: Record<CharacterRole, RoleStyle> = {
   gatherer: { label: 'Gatherer', icon: '⛏', color: '#cf9a4f', border: '#7a4f10', glow: 'rgba(207,154,79,0.35)' },
 }
 
-// Class → role. Fixed mapping. Classes not listed fall back to 'damage'.
+// Class → DEFAULT role. The fallback when a character doesn't override its role in Sanity.
+// Classes not listed fall back to 'damage'.
 export const CLASS_ROLE: Record<string, CharacterRole> = {
   // Tank
   Warrior: 'tank',
@@ -43,4 +44,9 @@ export const CLASS_ROLE: Record<string, CharacterRole> = {
 
 export function roleForClass(charClass: string): CharacterRole {
   return CLASS_ROLE[charClass] ?? 'damage'
+}
+
+/** A character's role: the authored override if present, else the class default (ADR-0008). */
+export function resolveRole(charClass: string, authoredRole?: CharacterRole | null): CharacterRole {
+  return authoredRole ?? roleForClass(charClass)
 }

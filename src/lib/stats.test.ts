@@ -122,6 +122,11 @@ describe('statRewardBonus', () => {
       10 * REWARD_BONUS_PER_STAT_POINT,
     )
   })
+
+  it('counts the WoW-routing power stats spellPower + haste, but not the new depth/economy stats (ADR-0009)', () => {
+    expect(statRewardBonus({ spellPower: 30, haste: 20 })).toBeCloseTo(50 * REWARD_BONUS_PER_STAT_POINT)
+    expect(statRewardBonus({ healingCrit: 999, magicFind: 999 })).toBe(0)
+  })
 })
 
 describe('finalReward', () => {

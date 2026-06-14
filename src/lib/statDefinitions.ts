@@ -21,31 +21,40 @@ export type StatDef = {
 }
 
 export const STAT_DEFS: StatDef[] = [
-  // Core power stats — the curated set that drives the reward multiplier.
+  // Core power stats — the curated set that drives the reward multiplier (reward:true). Under
+  // WoW-style routing (ADR-0009), primaries feed derived scalars by role: Strength/Agility → Attack
+  // (physical), Intelligence → Spell Power (damage) or Healing Power (healer); Health = the HP pool.
   { key: 'attack', label: 'Attack', category: 'offensive', reward: true },
   { key: 'strength', label: 'Strength', category: 'offensive', reward: true },
   { key: 'agility', label: 'Agility', category: 'offensive', reward: true },
   { key: 'speed', label: 'Speed', category: 'offensive', reward: true },
   { key: 'intelligence', label: 'Intelligence', category: 'offensive', reward: true },
+  { key: 'spellPower', label: 'Spell Power', category: 'offensive', reward: true },
+  { key: 'haste', label: 'Haste', category: 'offensive', reward: true },
   { key: 'health', label: 'Health', category: 'defensive', reward: true },
   { key: 'defense', label: 'Defense', category: 'defensive', reward: true },
 
-  // Combat depth — texture for builds. Effects await the combat model; reward:false keeps them
-  // from inflating loot (a crit stat shouldn't double-dip into the economy).
+  // Combat depth — texture for builds. Effects await the combat model; reward:false keeps them from
+  // inflating loot (a crit stat shouldn't double-dip). Defensive model is mitigate-not-avoid (ADR-0009):
+  // Defense/Resistance reduce physical/magic damage, Dodge fully avoids a hit, Block partly blunts one.
   { key: 'critChance', label: 'Crit Chance', category: 'offensive', reward: false },
   { key: 'critDamage', label: 'Crit Damage', category: 'offensive', reward: false },
   { key: 'armorPen', label: 'Armor Penetration', category: 'offensive', reward: false },
-  { key: 'accuracy', label: 'Accuracy', category: 'offensive', reward: false },
   { key: 'dodge', label: 'Dodge', category: 'defensive', reward: false },
   { key: 'block', label: 'Block', category: 'defensive', reward: false },
   { key: 'resistance', label: 'Resistance', category: 'defensive', reward: false },
   { key: 'healthRegen', label: 'Health Regen', category: 'defensive', reward: false },
-  { key: 'healingPower', label: 'Healing Power', category: 'support', reward: false },
 
-  // Economy / utility — an effect, but never the reward multiplier.
+  // Support — a healer's output. Effects await the combat model.
+  { key: 'healingPower', label: 'Healing Power', category: 'support', reward: false },
+  { key: 'healingCrit', label: 'Healing Crit', category: 'support', reward: false },
+
+  // Economy / utility — a real effect, but never the reward multiplier. Magic Find = the RATE of
+  // finding items; Luck = the AMOUNT found (ADR-0009).
   { key: 'missionSpeedDecrease', label: 'Mission Speed Decrease', category: 'misc', reward: false },
   { key: 'gatherSpeed', label: 'Gather Speed', category: 'misc', reward: false },
   { key: 'gatherYield', label: 'Gather Yield', category: 'misc', reward: false },
+  { key: 'magicFind', label: 'Magic Find', category: 'misc', reward: false },
   { key: 'luck', label: 'Luck', category: 'misc', reward: false },
 ]
 

@@ -1,10 +1,11 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 import { UserIcon } from '@sanity/icons'
-import { CLASS_ROLE } from '../../src/lib/roles'
+import { CLASS_ROLE, ROLE_STYLES } from '../../src/lib/roles'
 
-// Class options come from the shared CLASS_ROLE map (single source of truth). Role itself
-// is derived from class in code (roleForClass) — it is NOT stored on the document.
+// Class options come from the shared CLASS_ROLE map (single source of truth). Class sets the
+// DEFAULT role; the optional `role` field below can override it per character (ADR-0008).
 const CLASS_OPTIONS = Object.keys(CLASS_ROLE).map((c) => ({ title: c, value: c }))
+const ROLE_OPTIONS = Object.entries(ROLE_STYLES).map(([value, s]) => ({ title: s.label, value }))
 
 type BlessingNodeValue = { isUltimate?: boolean }
 
@@ -34,10 +35,18 @@ export const characterDef = defineType({
     defineField({
       name: 'charClass',
       title: 'Class',
-      description: 'Role is derived from class in code (CLASS_ROLE) — not stored here.',
+      description: 'Sets the default role (see Role below, which can override it).',
       type: 'string',
       options: { list: CLASS_OPTIONS },
       validation: (rule) => rule.required(),
+    }),
+    defineField({
+      name: 'role',
+      title: 'Role',
+      description:
+        'Leave blank to use the class default. Set it to OVERRIDE — e.g. a Mage authored as a Healer (ADR-0008).',
+      type: 'string',
+      options: { list: ROLE_OPTIONS },
     }),
     defineField({
       name: 'baseStats',

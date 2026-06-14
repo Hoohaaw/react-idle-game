@@ -129,8 +129,8 @@ Edge Functions import from there.
 - _Planned:_ `missionDef`, `itemDef`, `lootTable`, `recipe` schemas.
 
 The `stat` field everywhere is constrained to the **shared code registry** (`src/lib/statDefinitions.ts`),
-so adding a stat needs no Sanity schema change. **Role is derived in code** from `charClass`
-(`src/lib/roles.ts`), never stored.
+so adding a stat needs no Sanity schema change. **Role defaults from `charClass`** but can be **overridden
+per character** via an optional `role` field ([ADR-0008](./DECISIONS.md#adr-0008--character-role-authored-per-character-class-provides-the-default)); `resolveRole()` in `src/lib/roles.ts` applies the precedence.
 
 ### 5.2 Supabase (player runtime) — **Built (local)**
 
@@ -170,7 +170,7 @@ effective(stat)   = baseline + Σ(flat bonuses) + baseline × (Σ(pct bonuses) /
 ```
 final = base × (1 + statBonus) × (1 + partySizeBonus) × (1 + transcendenceBonus)
 ```
-`statBonus` = 0.1% per point of every **reward-flagged** stat ([ADR-0007](./DECISIONS.md#adr-0007--decouple-reward-eligibility-from-stat-category)) — a curated set of core power stats. Combat-depth stats (crit, dodge, …) and economy stats carry a gameplay effect but are `reward:false`, so they never inflate loot.
+`statBonus` = 0.1% per point of every **reward-flagged** stat ([ADR-0007](./DECISIONS.md#adr-0007--decouple-reward-eligibility-from-stat-category)) — a curated set of 9 core power stats (attack, strength, agility, speed, intelligence, spell power, haste, health, defense — [ADR-0009](./DECISIONS.md#adr-0009--stat-vocabulary-expansion--wow-style-routing)). Combat-depth stats (crit, dodge, …) and economy stats (magic find, luck, …) carry a gameplay effect but are `reward:false`, so they never inflate loot.
 _(How real-time combat interacts with this is **Open** — see §7.)_
 
 ### Server-authoritative writes — [ADR-0003](./DECISIONS.md#adr-0003--server-authoritative-writes-clients-never-mutate-game-state)
