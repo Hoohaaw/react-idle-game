@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { Avatar } from '../components/atoms/Avatar'
 import { RoleBadge } from '../components/atoms/RoleBadge'
 import { SecondaryButton } from '../components/atoms/Button'
-import { roleForClass } from '../lib/roles'
+import { resolveRole, type CharacterRole } from '../lib/roles'
 
 // Blessings page — interactive mock (no backend yet, like Team / Crafting / Mines).
 // Left: every owned character, selectable. Middle: that character's 7-row blessing
@@ -14,12 +14,13 @@ import { roleForClass } from '../lib/roles'
 // The tree data is one shared mock for now — per-character trees arrive with the
 // backend; identity (name / role / level / point pool) is already per-character.
 
-type Member = { id: string; name: string; charClass: string; level: number }
+type Member = { id: string; name: string; charClass: string; level: number; role?: CharacterRole }
 
 const PARTY: Member[] = [
   { id: 'c1', name: 'Lyra Swift',          charClass: 'Rogue',        level: 12 },
   { id: 'c2', name: 'Tyra Oakheart',       charClass: 'Forester',     level: 9 },
-  { id: 'c3', name: 'Alexandros Mograine', charClass: 'Death Knight', level: 24 },
+  // Demo of ADR-0008: a Death Knight (tank by class) authored as a Damage dealer.
+  { id: 'c3', name: 'Alexandros Mograine', charClass: 'Death Knight', level: 24, role: 'damage' },
   { id: 'c4', name: 'Sally Whitemane',     charClass: 'Priest',       level: 15 },
   { id: 'c5', name: 'Fandral Staghelm',    charClass: 'Druid',        level: 9 },
   { id: 'c6', name: 'Bron Stormhammer',    charClass: 'Miner',        level: 18 },
@@ -263,7 +264,7 @@ function CharacterRow({ member, selected, onSelect }: { member: Member; selected
       <div style={{ minWidth: 0, flex: 1 }}>
         <p style={{ color: selected ? 'var(--color-gold-light)' : 'var(--color-text-primary)', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{member.name}</p>
         <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', margin: '2px 0 5px' }}>{member.charClass}</p>
-        <RoleBadge role={roleForClass(member.charClass)} size="sm" />
+        <RoleBadge role={resolveRole(member.charClass, member.role)} size="sm" />
       </div>
     </button>
   )
@@ -278,7 +279,7 @@ function TreeHeader({ selected, available, spent, onRespec }: { selected: Member
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <span style={{ color: 'var(--color-gold-light)', fontSize: '17px', fontWeight: 'bold', textShadow: '0 0 8px rgba(240,208,96,0.35)' }}>{selected.name}</span>
-        <RoleBadge role={roleForClass(selected.charClass)} size="sm" />
+        <RoleBadge role={resolveRole(selected.charClass, selected.role)} size="sm" />
         <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>Level {selected.level}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>

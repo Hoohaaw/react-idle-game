@@ -6,7 +6,7 @@ import { GoldDivider } from '../atoms/GoldDivider'
 import { PrimaryButton } from '../atoms/Button'
 import { SectionLabel } from '../molecules/SectionLabel'
 import { RoleBadge } from '../atoms/RoleBadge'
-import { roleForClass } from '../../lib/roles'
+import { resolveRole, type CharacterRole } from '../../lib/roles'
 
 // Mock data for the prototype — replaced by the real claim payload later.
 const CLAIM = {
@@ -15,10 +15,11 @@ const CLAIM = {
   elapsed: '3:00',
   baseCoins: 100,
   baseXp: 120,
+  // Death Knight authored as Damage = demo of the per-character role override (ADR-0008).
   party: [
     { name: 'Lyra Swift', class: 'Rogue', level: 12 },
-    { name: 'Alexandros Mograine', class: 'Death Knight', level: 24 },
-  ],
+    { name: 'Alexandros Mograine', class: 'Death Knight', level: 24, role: 'damage' },
+  ] as { name: string; class: string; level: number; role?: CharacterRole }[],
   resources: [{ label: 'Cu', value: 20 }, { label: 'Wd', value: 13 }, { label: 'St', value: 8 }],
   items: [
     { name: 'Coif', slot: 'Head', rarity: 'Uncommon' },
@@ -76,7 +77,7 @@ export function ClaimReward() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ color: 'var(--color-text-primary)', fontSize: '12px' }}>{c.name}</p>
                 <p style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{c.class} · Lv {c.level}</p>
-                <div style={{ marginTop: '4px' }}><RoleBadge role={roleForClass(c.class)} size="sm" /></div>
+                <div style={{ marginTop: '4px' }}><RoleBadge role={resolveRole(c.class, c.role)} size="sm" /></div>
               </div>
               <span style={{ color: 'var(--color-xp)', fontSize: '12px', fontWeight: 'bold', textShadow: '0 0 8px rgba(124,45,190,0.5)' }}>+{xpEach} XP</span>
             </div>

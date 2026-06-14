@@ -1,7 +1,7 @@
 import { Avatar } from '../atoms/Avatar'
 import { StatusTag } from '../atoms/StatusTag'
 import { RoleBadge } from '../atoms/RoleBadge'
-import { roleForClass } from '../../lib/roles'
+import { resolveRole, type CharacterRole } from '../../lib/roles'
 
 // A character row in the roster. `activity` is derived server-side from the
 // character's current assignment (on a mission / gathering / idle).
@@ -12,6 +12,7 @@ export type RosterCharacter = {
   level: number
   activity: 'idle' | 'mission' | 'gather'
   detail?: string // mission name or resource being gathered
+  role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
 }
 
 // Select-mode roster: lists EVERY owned character (busy ones included, shown
@@ -59,7 +60,7 @@ function RosterRow({ char, selected, onSelect }: { char: RosterCharacter; select
         <p style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 0 8px rgba(240,208,96,0.3)' }}>{char.name}</p>
         <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 7 }}>{char.charClass} · Lv {char.level}</p>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          <RoleBadge role={roleForClass(char.charClass)} size="sm" />
+          <RoleBadge role={resolveRole(char.charClass, char.role)} size="sm" />
           <StatusTag tone={free ? 'ready' : 'busy'}>{status}</StatusTag>
         </div>
         {char.detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detailIcon} {char.detail}</p>}

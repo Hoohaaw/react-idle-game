@@ -7,7 +7,7 @@ import { StatPill } from '../atoms/StatPill'
 import { GoldDivider } from '../atoms/GoldDivider'
 import { Tooltip } from '../atoms/Tooltip'
 import { RoleBadge } from '../atoms/RoleBadge'
-import { roleForClass } from '../../lib/roles'
+import { resolveRole, type CharacterRole } from '../../lib/roles'
 
 // The full character sheet: portrait + identity + XP on the left, and Equipped /
 // Talents / Stats tabs on the right. Identity + XP are per-character (props); the tab
@@ -59,16 +59,17 @@ const MOCK_STATS: { offensive: StatBreakdown[]; defensive: StatBreakdown[] } = {
   ],
 }
 
-export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded }: {
+export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, role: roleProp }: {
   name: string
   charClass: string
   level: number
   xpCurrent: number
   xpNeeded: number
+  role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
 }) {
   const [tab, setTab] = useState<CharTab>('equipped')
   const xpPct = Math.round((xpCurrent / xpNeeded) * 100)
-  const role = roleForClass(charClass)
+  const role = resolveRole(charClass, roleProp)
 
   return (
     <div style={{
