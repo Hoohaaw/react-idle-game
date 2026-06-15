@@ -28,8 +28,9 @@ dist-ssr
 .env.local
 .env.*.local
 
-# Claude Code local memory and settings
-.claude/
+# Claude Code — local-only files (memory, personal notes)
+.claude/memory/
+# Project-scoped settings and hooks ARE committed (.claude/settings.json, .claude/hooks/)
 
 # Local-only TODO review files (advisory, not shared)
 todo-reviews/
