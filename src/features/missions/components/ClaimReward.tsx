@@ -1,12 +1,12 @@
 import type { CSSProperties } from 'react'
-import { IconSlot } from '../atoms/IconSlot'
-import { ResourceChip } from '../atoms/ResourceChip'
-import { RarityBadge } from '../atoms/RarityBadge'
-import { GoldDivider } from '../atoms/GoldDivider'
-import { PrimaryButton } from '../atoms/Button'
-import { SectionLabel } from '../molecules/SectionLabel'
-import { RoleBadge } from '../atoms/RoleBadge'
-import { resolveRole, type CharacterRole } from '../../lib/roles'
+import { IconSlot } from '@/components/atoms/IconSlot'
+import { ResourceChip } from '@/components/atoms/ResourceChip'
+import { RarityBadge } from '@/components/atoms/RarityBadge'
+import { GoldDivider } from '@/components/atoms/GoldDivider'
+import { PrimaryButton } from '@/components/atoms/Button'
+import { SectionLabel } from '@/components/molecules/SectionLabel'
+import { RoleBadge } from '@/components/atoms/RoleBadge'
+import { resolveRole, type CharacterRole } from '@/lib/roles'
 
 // Mock data for the prototype — replaced by the real claim payload later.
 const CLAIM = {

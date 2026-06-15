@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { GameLayout } from './components/templates/GameLayout'
 import DesignPage from './pages/DesignPage'
-import MissionsPage from './pages/MissionsPage'
+import { MissionsPage } from '@/features/missions'
 import TeamPage from './pages/TeamPage'
 import MinesPage from './pages/MinesPage'
 import UpgradingPage from './pages/UpgradingPage'
