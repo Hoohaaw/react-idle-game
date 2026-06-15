@@ -72,6 +72,27 @@ Unmigrated pages still live in `src/pages/`.
 
 ---
 
+## Agent routing — when to delegate
+
+Four project-scoped agents live in `.claude/agents/`. Delegate proactively — don't do in the
+main context what an agent can do in its own.
+
+| Agent | Delegate when… | Model |
+|---|---|---|
+| **explorer** | Any read-only question: "where is X", "what files use Y", "explain how Z works", architecture questions | Haiku |
+| **feature-migrator** | "Migrate `<Page>` to `src/features/<feature>/`" — handles the full move end-to-end | Sonnet |
+| **code-reviewer** | "Review this diff", "does this follow the ADRs", "is this safe to merge" | Sonnet |
+| **db-engineer** | Writing migrations, RLS policies, Edge Function stubs, schema design | Sonnet |
+
+**Rules for the main context:**
+- Research that needs more than 2–3 lookups → **explorer**
+- A self-contained migration task → **feature-migrator** (background if other work is happening)
+- Any review request → **code-reviewer** (read-only, independent opinion)
+- Anything touching `supabase/migrations/` or `supabase/functions/` → **db-engineer**
+- Everything else (cross-cutting changes, discussions, planning) → main context
+
+---
+
 ## Core engineering rules (don't violate — full rationale in ADRs)
 - **Server-authoritative writes** (ADR-0003): clients never mutate game state; all writes go
   through Edge Functions. Every gameplay table = RLS owner-read + explicit GRANTs + no client write.
