@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { MissionCard } from '../components/molecules/MissionCard'
-import { ActiveMissionCard } from '../components/molecules/ActiveMissionCard'
-import { Modal } from '../components/organisms/Modal'
-import { MissionDispatch } from '../components/organisms/MissionDispatch'
-import { ClaimReward } from '../components/organisms/ClaimReward'
+import { Modal } from '@/components/organisms/Modal'
+import { MissionCard } from './components/MissionCard'
+import { ActiveMissionCard } from './components/ActiveMissionCard'
+import { MissionDispatch } from './components/MissionDispatch'
+import { ClaimReward } from './components/ClaimReward'
 
 // Mock progression + mission data (replaced by real data/services later).
 const ADVENTURE_STAGE = 4

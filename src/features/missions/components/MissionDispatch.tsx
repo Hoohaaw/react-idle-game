@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { IconSlot } from '../atoms/IconSlot'
-import { GoldDivider } from '../atoms/GoldDivider'
-import { PrimaryButton } from '../atoms/Button'
-import { SectionLabel } from '../molecules/SectionLabel'
-import { RarityChancePill } from '../molecules/RarityChancePill'
-import type { DropItem } from '../../types/loot'
-import { RoleBadge } from '../atoms/RoleBadge'
-import { resolveRole, type CharacterRole } from '../../lib/roles'
+import { IconSlot } from '@/components/atoms/IconSlot'
+import { GoldDivider } from '@/components/atoms/GoldDivider'
+import { PrimaryButton } from '@/components/atoms/Button'
+import { SectionLabel } from '@/components/molecules/SectionLabel'
+import { RarityChancePill } from '@/components/molecules/RarityChancePill'
+import type { DropItem } from '@/types/loot'
+import { RoleBadge } from '@/components/atoms/RoleBadge'
+import { resolveRole, type CharacterRole } from '@/lib/roles'
 
 // Mock data for the prototype — replaced by real mission + roster data later.
 const DISPATCH_MISSION: { name: string; stage: number; description: string; duration: string; xpPerChar: number; loot: DropItem[] } = {

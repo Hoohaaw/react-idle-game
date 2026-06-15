@@ -1,6 +1,6 @@
-import { StatusTag } from '../atoms/StatusTag'
-import { IconSlot } from '../atoms/IconSlot'
-import { PrimaryButton } from '../atoms/Button'
+import { StatusTag } from '@/components/atoms/StatusTag'
+import { IconSlot } from '@/components/atoms/IconSlot'
+import { PrimaryButton } from '@/components/atoms/Button'
 
 export function MissionCard({ name, stage, coins, duration, dropCount, locked, onSend }: { name: string; stage: number; coins: number; duration: string; dropCount: number; locked?: boolean; onSend?: () => void }) {
   return (

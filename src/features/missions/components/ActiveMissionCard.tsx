@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Avatar } from '../atoms/Avatar'
-import { ProgressBar } from '../atoms/ProgressBar'
-import { PrimaryButton } from '../atoms/Button'
-import { useNow } from '../../hooks/useNow'
-import { formatRemaining } from '../../lib/time'
+import { Avatar } from '@/components/atoms/Avatar'
+import { ProgressBar } from '@/components/atoms/ProgressBar'
+import { PrimaryButton } from '@/components/atoms/Button'
+import { useNow } from '@/hooks/useNow'
+import { formatRemaining } from '@/lib/time'
 
 export function ActiveMissionCard({ name, partySize, durationSec, startedSecAgo, onClaim }: { name: string; partySize: number; durationSec: number; startedSecAgo: number; onClaim?: () => void }) {
   const [endsAt] = useState(() => Date.now() + (durationSec - startedSecAgo) * 1000)

@@ -83,17 +83,21 @@ Data is split by its nature:
 
 ```
 the-idle-game/
-├─ src/                      # React SPA (atomic design)
-│  ├─ components/
+├─ CLAUDE.md                 # working agreement: git workflow + structure conventions (read first)
+├─ src/                      # React SPA (feature modules + atomic-design shared kit — see ADR-0010)
+│  ├─ features/              # per-domain modules; `missions/` is the exemplar (see src/features/README.md)
+│  │  └─ <feature>/          #   components/ + <Feature>Page.tsx + index.ts (public barrel)
+│  ├─ components/            # shared, domain-agnostic UI kit
 │  │  ├─ atoms/              # smallest UI units (Button, CoinDisplay, ResourceChip, RoleBadge, …)
-│  │  ├─ molecules/          # small compositions (MissionCard, ItemTile, MineCard, …)
-│  │  ├─ organisms/          # feature blocks (CharacterCard, MissionDispatch, CraftingCircle, GameHeader, Modal, …)
+│  │  ├─ molecules/          # small compositions (ItemTile, MineCard, SectionLabel, …)
+│  │  ├─ organisms/          # shared blocks (CharacterCard, CraftingCircle, GameHeader, Modal, …)
 │  │  └─ templates/          # page scaffolds (GameLayout, PagePlaceholder)
-│  ├─ pages/                 # routed pages (Missions, Mines, Team, Blessings, Crafting, Shop, … + DesignPage)
+│  ├─ pages/                 # routed pages NOT yet migrated to features/ (Mines, Team, Crafting, … + DesignPage)
 │  ├─ lib/                   # framework-agnostic logic & registries (see §6)
 │  ├─ services/              # Planned — typed data-access layer (Supabase + Sanity calls)
 │  ├─ types/                 # shared TS types (item, loot, recipe)
 │  └─ sanity.types.ts        # GENERATED from the Sanity schema (typegen)
+├─ .github/workflows/        # CI — lint.yml (ESLint on every push & PR)
 ├─ studio/                   # Sanity Studio — standalone package, schema-as-code
 │  └─ schemaTypes/           # characterDef + objects/{blessingNode,nodeEffect,statValue,statGrowth}
 ├─ supabase/
@@ -106,9 +110,16 @@ the-idle-game/
 └─ todo-reviews/             # local-only (gitignored) advisory TODO reviews
 ```
 
-**Atomic design** (atoms → molecules → organisms → templates → pages) is the component convention.
-Presentation and logic are kept separate: components render; `src/lib` holds the rules; the (planned)
-`src/services` layer owns data access. Components target ~200 lines.
+**Two layers sit side by side** ([ADR-0010](./DECISIONS.md#adr-0010--feature-based-modules-alongside-atomic-design--branch-per-task-workflow)):
+**atomic design** (atoms → molecules → organisms → templates) is the **shared UI kit** in
+`src/components/`, and **feature modules** in `src/features/<feature>/` own each game domain (its page,
+feature-specific components, and later hooks/data/types/store). The rule: code used by one feature lives
+inside it; the moment a second feature needs it, promote it up to the shared layer. Features expose a
+**public barrel (`index.ts`)** and never reach into each other's internals; the **`@/` alias** (`@`→`src`)
+keeps imports clean. Migration is **incremental** — `missions/` is the exemplar, other domains still live
+in `src/pages/` until migrated (one feature per branch). Presentation and logic stay separate: components
+render; `src/lib` holds the rules; the (planned) `src/services` layer owns data access. Components target
+~200 lines. **Contribution flow and conventions live in [`../CLAUDE.md`](../CLAUDE.md).**
 
 ---
 
