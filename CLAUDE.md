@@ -83,12 +83,14 @@ main context what an agent can do in its own.
 | **feature-migrator** | "Migrate `<Page>` to `src/features/<feature>/`" — handles the full move end-to-end | Sonnet |
 | **code-reviewer** | "Review this diff", "does this follow the ADRs", "is this safe to merge" | Sonnet |
 | **db-engineer** | Writing migrations, RLS policies, Edge Function stubs, schema design | Sonnet |
+| **test-writer** | "Write tests for X", "add tests to Y", "test this function", "increase coverage" | Sonnet |
 
 **Rules for the main context:**
 - Research that needs more than 2–3 lookups → **explorer**
 - A self-contained migration task → **feature-migrator** (background if other work is happening)
 - Any review request → **code-reviewer** (read-only, independent opinion)
 - Anything touching `supabase/migrations/` or `supabase/functions/` → **db-engineer**
+- Writing tests for any file → **test-writer**
 - Everything else (cross-cutting changes, discussions, planning) → main context
 
 ---
