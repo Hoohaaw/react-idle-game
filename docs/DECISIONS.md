@@ -29,6 +29,7 @@ the history is the point.
 | [0007](#adr-0007--decouple-reward-eligibility-from-stat-category) | Decouple reward-eligibility from stat category (expanded stat registry) | 2026-06-13 | Accepted |
 | [0008](#adr-0008--character-role-authored-per-character-class-provides-the-default) | Character role authored per character (class provides the default) | 2026-06-14 | Accepted |
 | [0009](#adr-0009--stat-vocabulary-expansion--wow-style-routing) | Stat vocabulary expansion + WoW-style routing | 2026-06-14 | Accepted |
+| [0010](#adr-0010--feature-based-modules-alongside-atomic-design--branch-per-task-workflow) | Feature-based modules alongside atomic design + branch-per-task workflow | 2026-06-15 | Accepted |
 
 ---
 
@@ -304,3 +305,50 @@ express casters, healers, and item-finding. Builds on [ADR-0007](#adr-0007--deco
   auto-derives — no schema migration. Removing Accuracy is safe (no content referenced it).
 - Implemented in `src/lib/statDefinitions.ts`; unit-tested (spellPower/haste count, healingCrit/magicFind
   do not).
+
+---
+
+## ADR-0010 — Feature-based modules alongside atomic design + branch-per-task workflow
+**Date:** 2026-06-15 · **Status:** Accepted
+
+**Context.** The project is growing (a dozen routed pages, dozens of components) and headed for a
+large amount of code. Atomic design alone groups by *technical kind* (atom/molecule/organism), which
+scatters a single game domain — Missions has a page, organisms, and molecules in three different
+folders — making a domain hard to find, change, and reason about. We also want a safer contribution
+flow now that more structure is needed.
+
+**Decision.** Two complementary changes.
+
+1. **Feature modules alongside atomic design.** Keep `src/components/` (atoms→molecules→organisms→
+   templates) as the **shared, domain-agnostic UI kit**, and add **`src/features/<feature>/`** for
+   everything owned by a single game domain (its page, feature-specific components/hooks/data/types,
+   later its store slice + data access). The boundary rule: **used by one feature → lives inside it;
+   needed by a second → promote to the shared layer.** Each feature exposes a **public barrel
+   (`index.ts`)** and outsiders import only that — never a feature's internals, and features don't
+   depend on each other's internals (dependencies stay one-directional, shared via `@/lib`/`@/types`/
+   a store). A **`@/` path alias** (`@`→`src`) keeps cross-module imports clean.
+
+2. **Branch-per-task git workflow.** One short-lived branch per task
+   (`feature/` · `fix/` · `refactor/` · `chore/` · `docs/`) off `master`, one logical change each,
+   merged back via PR with CI (lint) green; no direct pushes to `master`. A **Lint GitHub Action**
+   runs ESLint on every push/PR.
+
+**Migration is incremental, not big-bang.** **Missions** is migrated as the reference exemplar; the
+remaining domains migrate one-per-branch as each is next touched. Unmigrated pages stay in
+`src/pages/`. The conventions live in [`CLAUDE.md`](../CLAUDE.md) and
+[`src/features/README.md`](../src/features/README.md).
+
+**Alternatives considered.**
+- *Pure atomic design (status quo)* — rejected: domain logic scatters across kind-folders as the app grows.
+- *Replace atomic design entirely with features* — rejected: genuinely shared UI (Button, Modal, badges)
+  still wants a kind-organized kit; the two layers are complementary.
+- *Big-bang migrate every page at once* — rejected: touches nearly every import in one diff, high risk,
+  hard to review. Incremental per-feature migration fits the new one-branch-one-task workflow and keeps
+  each change safe and reviewable.
+
+**Consequences.**
+- New domain code goes in `src/features/<feature>/`; promote shared pieces up rather than importing
+  across features. The `@/` alias is the preferred import style going forward (relative paths still work).
+- A transitional period where some domains live in `features/` and others in `pages/` — expected and fine.
+- Slightly more ceremony per change (a branch + PR), bought back in reviewability, CI safety, and a
+  clean history.
