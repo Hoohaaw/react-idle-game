@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Avatar } from '../components/atoms/Avatar'
 import { ProgressBar } from '../components/atoms/ProgressBar'
 import { RoleBadge } from '../components/atoms/RoleBadge'
+import { ClassBadge } from '../components/atoms/ClassBadge'
 import { resolveRole, type CharacterRole } from '../lib/roles'
 import { Modal } from '../components/organisms/Modal'
 import { CharacterCard } from '../components/organisms/CharacterCard'
@@ -88,9 +89,11 @@ function PartyMemberCard({ member, onOpen }: { member: PartyMember; onOpen: () =
       </div>
       <div style={{ textAlign: 'center' }}>
         <p style={{ color: 'var(--color-gold-light)', fontSize: '15px', fontWeight: 'bold', textShadow: '0 0 8px rgba(240,208,96,0.35)' }}>{member.name}</p>
-        <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', marginTop: '2px', letterSpacing: '0.5px' }}>{member.charClass}</p>
       </div>
-      <RoleBadge role={resolveRole(member.charClass, member.role)} size="sm" />
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <ClassBadge charClass={member.charClass} size="sm" />
+        <RoleBadge role={resolveRole(member.charClass, member.role)} size="sm" />
+      </div>
       <div style={{ width: '100%' }}>
         <ProgressBar value={xpPct} label={`${member.xpCurrent} / ${member.xpNeeded} XP`} color="#7c2dbe" />
       </div>

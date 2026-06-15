@@ -7,6 +7,7 @@ import { StatPill } from '../atoms/StatPill'
 import { GoldDivider } from '../atoms/GoldDivider'
 import { Tooltip } from '../atoms/Tooltip'
 import { RoleBadge } from '../atoms/RoleBadge'
+import { ClassBadge } from '../atoms/ClassBadge'
 import { resolveRole, type CharacterRole } from '../../lib/roles'
 
 // The full character sheet: portrait + identity + XP on the left, and Equipped /
@@ -124,10 +125,13 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, rol
             textShadow: '0 0 8px rgba(240,208,96,0.4)',
             lineHeight: 1.3,
           }}>{name}</p>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginTop: '3px', letterSpacing: '1px' }}>{charClass}</p>
         </div>
 
-        <RoleBadge role={role} />
+        {/* Identity line: class (who they are) + role (what they do) */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <ClassBadge charClass={charClass} size="sm" />
+          <RoleBadge role={role} size="sm" />
+        </div>
 
         <LevelBadge level={level} />
 

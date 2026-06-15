@@ -20,6 +20,7 @@ import { CustomSelect } from '../components/atoms/CustomSelect'
 import { CountdownTimer } from '../components/atoms/CountdownTimer'
 import { StatusTag } from '../components/atoms/StatusTag'
 import { RoleBadge } from '../components/atoms/RoleBadge'
+import { ClassBadge } from '../components/atoms/ClassBadge'
 import { GameHeader } from '../components/organisms/GameHeader'
 import type { MissionDrops } from '../types/loot'
 import { LootTable } from '../components/organisms/LootTable'
@@ -220,6 +221,34 @@ export default function DesignPage() {
             </Row>
           </div>
         ))}
+      </Section>
+
+      {/* ── CLASS BADGES ─────────────────────── */}
+      <Section title="Class & Role Badges">
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', lineHeight: 1.5, marginBottom: '12px' }}>
+          ClassBadge (neutral gold = <em>who they are</em>) sits beside the colour-coded RoleBadge
+          (<em>what they do</em>). Shown together as the character's identity line.
+        </p>
+        {(['md', 'sm'] as const).map(size => (
+          <div key={size} style={{ marginBottom: '14px' }}>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>
+              {size === 'md' ? 'Medium' : 'Small'}
+            </p>
+            <Row>
+              <ClassBadge charClass="Death Knight" size={size} />
+              <ClassBadge charClass="Mage" size={size} />
+              <ClassBadge charClass="Rogue" size={size} />
+              <ClassBadge charClass="Priest" size={size} />
+            </Row>
+          </div>
+        ))}
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', margin: '4px 0 8px' }}>
+          Identity line (both together)
+        </p>
+        <Row>
+          <ClassBadge charClass="Death Knight" />
+          <RoleBadge role="damage" />
+        </Row>
       </Section>
 
       {/* ── STAT ATOMS ───────────────────────── */}
