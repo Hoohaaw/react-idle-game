@@ -37,7 +37,8 @@ export default function TeamPage() {
   return (
     <div>
       <SectionTitle>Your Party</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+      {/* min 250px so the class + role identity line always fits on one row (longest class = "Death Knight"). */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '16px' }}>
         {PARTY.map(m => (
           <PartyMemberCard key={m.id} member={m} onOpen={() => setOpenId(m.id)} />
         ))}
