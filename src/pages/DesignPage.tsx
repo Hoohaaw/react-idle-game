@@ -372,7 +372,14 @@ export default function DesignPage() {
 
       {/* ── CHARACTER CARD ───────────────────── */}
       <Section title="Character Card">
-        <CharacterCard name="Alexandros Mograine" charClass="Death Knight" level={24} xpCurrent={620} xpNeeded={1000} />
+        <CharacterCard
+          name="Alexandros Mograine" charClass="Death Knight" level={24} xpCurrent={620} xpNeeded={1000}
+          baseStats={[
+            { stat: 'attack', value: 45 }, { stat: 'strength', value: 40 }, { stat: 'agility', value: 30 },
+            { stat: 'intelligence', value: 18 }, { stat: 'speed', value: 18 },
+            { stat: 'health', value: 800 }, { stat: 'defense', value: 25 },
+          ]}
+        />
       </Section>
 
       {/* ── LOOT TABLE ───────────────────────── */}
