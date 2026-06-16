@@ -9,6 +9,8 @@ import { Tooltip } from '../atoms/Tooltip'
 import { RoleBadge } from '../atoms/RoleBadge'
 import { ClassBadge } from '../atoms/ClassBadge'
 import { resolveRole, type CharacterRole } from '../../lib/roles'
+import { computeBaselines, type StatValue, type StatGrowth } from '../../lib/stats'
+import { STAT_DEFS } from '../../lib/statDefinitions'
 
 // The full character sheet: portrait + identity + XP on the left, and Equipped /
 // Talents / Stats tabs on the right. Identity + XP are per-character (props); the tab
@@ -46,31 +48,19 @@ const MOCK_BLESSINGS = [
 
 type StatBreakdown = { label: string; base: number; items: number; blessings: number; upgrades: number }
 
-const MOCK_STATS: { offensive: StatBreakdown[]; defensive: StatBreakdown[] } = {
-  offensive: [
-    { label: 'ATK', base: 45, items: 28, blessings: 9,  upgrades: 0 },
-    { label: 'STR', base: 40, items: 24, blessings: 0,  upgrades: 0 },
-    { label: 'AGI', base: 30, items: 5,  blessings: 0,  upgrades: 3 },
-    { label: 'INT', base: 18, items: 0,  blessings: 0,  upgrades: 0 },
-    { label: 'SPD', base: 18, items: 0,  blessings: 0,  upgrades: 6 },
-  ],
-  defensive: [
-    { label: 'DEF', base: 25, items: 20, blessings: 10, upgrades: 0 },
-    { label: 'HP',  base: 800, items: 440, blessings: 0, upgrades: 0 },
-  ],
-}
-
-export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, role: roleProp }: {
+export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, role: roleProp, baseStats = [], growth = [] }: {
   name: string
   charClass: string
   level: number
-  xpCurrent: number
-  xpNeeded: number
+  xpCurrent?: number
+  xpNeeded?: number
   role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
+  baseStats?: StatValue[]
+  growth?: StatGrowth[]
 }) {
   const [tab, setTab] = useState<CharTab>('equipped')
-  const xpPct = Math.round((xpCurrent / xpNeeded) * 100)
   const role = resolveRole(charClass, roleProp)
+  const xpPct = xpCurrent != null && xpNeeded != null ? Math.round((xpCurrent / xpNeeded) * 100) : 0
 
   return (
     <div style={{
@@ -135,14 +125,16 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, rol
 
         <LevelBadge level={level} />
 
-        {/* XP bar */}
-        <div style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase' }}>Experience</span>
-            <span style={{ color: 'var(--color-text-primary)', fontSize: '10px', fontWeight: 'bold' }}>{xpCurrent} / {xpNeeded}</span>
+        {/* XP bar — only when a player instance supplies xp (no instance yet = preview mode) */}
+        {xpCurrent != null && xpNeeded != null && (
+          <div style={{ width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
+              <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase' }}>Experience</span>
+              <span style={{ color: 'var(--color-text-primary)', fontSize: '10px', fontWeight: 'bold' }}>{xpCurrent} / {xpNeeded}</span>
+            </div>
+            <ProgressBar value={xpPct} label="" color="#7c2dbe" />
           </div>
-          <ProgressBar value={xpPct} label="" color="#7c2dbe" />
-        </div>
+        )}
       </div>
 
       {/* ── Right: Tabs column ── */}
@@ -185,7 +177,7 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, rol
         <div style={{ flex: 1, padding: '16px' }}>
           {tab === 'equipped' && <EquippedTab />}
           {tab === 'talents'  && <TalentsTab />}
-          {tab === 'stats'    && <StatsTab />}
+          {tab === 'stats'    && <StatsTab baseStats={baseStats} growth={growth} level={level} />}
         </div>
       </div>
     </div>
@@ -341,21 +333,45 @@ function StatBreakdownTooltip({ stat }: { stat: StatBreakdown }) {
   )
 }
 
-function StatsTab() {
+const STAT_CATEGORIES = ['offensive', 'defensive', 'support', 'misc'] as const
+
+function StatsTab({ baseStats, growth, level }: { baseStats: StatValue[]; growth: StatGrowth[]; level: number }) {
+  // Compute-on-read baselines from the authored def (src/lib/stats.ts). Items/Blessings/Upgrades are
+  // 0 until gear + the player's blessing allocation exist (those arrive with the Supabase/instance step).
+  const baselines = computeBaselines(level, baseStats, growth)
+  const groups = STAT_CATEGORIES
+    .map(category => ({
+      category,
+      stats: STAT_DEFS.filter(d => d.category === category && baselines[d.key] !== undefined),
+    }))
+    .filter(g => g.stats.length > 0)
+
+  if (groups.length === 0) {
+    return (
+      <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', fontStyle: 'italic' }}>
+        No stats authored for this character.
+      </p>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {(['offensive', 'defensive'] as const).map(group => (
-        <div key={group}>
+      {groups.map(({ category, stats }) => (
+        <div key={category}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{group}</span>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{category}</span>
             <GoldDivider />
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {MOCK_STATS[group].map(s => (
-              <Tooltip key={s.label} content={<StatBreakdownTooltip stat={s} />}>
-                <StatPill label={s.label} value={s.base + s.items + s.blessings + s.upgrades} />
-              </Tooltip>
-            ))}
+            {stats.map(d => {
+              const value = baselines[d.key] ?? 0
+              const breakdown: StatBreakdown = { label: d.label, base: value, items: 0, blessings: 0, upgrades: 0 }
+              return (
+                <Tooltip key={d.key} content={<StatBreakdownTooltip stat={breakdown} />}>
+                  <StatPill label={d.label} value={value} />
+                </Tooltip>
+              )
+            })}
           </div>
         </div>
       ))}
