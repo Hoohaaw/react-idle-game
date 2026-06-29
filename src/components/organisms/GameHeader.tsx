@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import { ResourceChip } from '../atoms/ResourceChip'
 import { CoinDisplay } from '../atoms/CoinDisplay'
+import { useAuthStore } from '@/stores/authStore'
+import { signOut } from '@/services/auth'
 
 const NAV = [
   { label: 'Missions', to: '/missions' },
@@ -27,6 +29,34 @@ const HEADER_MATERIALS = [
 
 function HeaderDivider() {
   return <div style={{ width: '2px', alignSelf: 'stretch', margin: '6px 4px', background: 'linear-gradient(180deg, transparent, var(--color-gold-dark), transparent)' }} />
+}
+
+function UserMenu() {
+  const email = useAuthStore((s) => s.user?.email)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+      {email && (
+        <span style={{ color: 'var(--color-text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{email}</span>
+      )}
+      <button
+        type="button"
+        onClick={() => { void signOut() }}
+        className="btn btn-ghost"
+        style={{
+          padding: '5px 12px',
+          fontFamily: 'Georgia, serif',
+          fontSize: 12,
+          letterSpacing: '1px',
+          cursor: 'pointer',
+          borderRadius: 5,
+          border: '1px solid rgba(200,145,42,0.3)',
+          background: 'transparent',
+          color: 'var(--color-text-muted)',
+          whiteSpace: 'nowrap',
+        }}
+      >Sign out</button>
+    </div>
+  )
 }
 
 export function GameHeader() {
@@ -72,6 +102,7 @@ export function GameHeader() {
             >{item.label}</NavLink>
           ))}
         </nav>
+        <UserMenu />
       </div>
 
       {/* ── Tier 2: resources + currency (sunken strip, always shown) ── */}

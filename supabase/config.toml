@@ -385,6 +385,11 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# recruit: server-authoritative write that adds an owned character (validates auth + Sanity def).
+# verify_jwt stays on (default) so the gateway rejects unauthenticated calls before our code runs.
+[functions.recruit]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

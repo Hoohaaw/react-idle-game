@@ -6,6 +6,9 @@ import { resolveRole } from '../lib/roles'
 import { Modal } from '../components/organisms/Modal'
 import { CharacterCard } from '../components/organisms/CharacterCard'
 import { useCharacters } from '../hooks/useCharacters'
+import { useRecruit } from '../hooks/useRecruit'
+import { PrimaryButton } from '../components/atoms/Button'
+import { Alert } from '../components/atoms/Alert'
 import type { GameCharacter } from '../services/characters'
 
 // Team page — reads the real authored roster from Sanity (replaces the old mock party). There is no
@@ -58,14 +61,17 @@ export default function TeamPage() {
       {/* Click a member → full character sheet (Stats tab = real computed baselines) */}
       <Modal open={openKey !== null} onClose={() => setOpenKey(null)}>
         {openMember && (
-          <CharacterCard
-            name={openMember.name}
-            charClass={openMember.charClass}
-            level={previewLevel}
-            role={openMember.role}
-            baseStats={openMember.baseStats}
-            growth={openMember.growth}
-          />
+          <>
+            <CharacterCard
+              name={openMember.name}
+              charClass={openMember.charClass}
+              level={previewLevel}
+              role={openMember.role}
+              baseStats={openMember.baseStats}
+              growth={openMember.growth}
+            />
+            <RecruitAction charKey={openMember.charKey} name={openMember.name} />
+          </>
         )}
       </Modal>
     </div>
@@ -88,6 +94,25 @@ function PreviewLevel({ level, onChange }: { level: number; onChange: (n: number
         }}
       />
     </label>
+  )
+}
+
+// Minimal smoke-test surface for the recruit Edge Function (the server-authoritative write path).
+// A full starter-selection / recruitment UI comes later; this just exercises the loop end-to-end.
+function RecruitAction({ charKey, name }: { charKey: string; name: string }) {
+  const recruit = useRecruit()
+  return (
+    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+      {recruit.isSuccess && <Alert variant="success">{name} recruited to your roster.</Alert>}
+      {recruit.isError && (
+        <Alert variant="error">{recruit.error instanceof Error ? recruit.error.message : 'Recruit failed'}</Alert>
+      )}
+      {!recruit.isSuccess && (
+        <PrimaryButton onClick={() => recruit.mutate(charKey)} disabled={recruit.isPending}>
+          {recruit.isPending ? 'Recruiting…' : 'Recruit'}
+        </PrimaryButton>
+      )}
+    </div>
   )
 }
 
