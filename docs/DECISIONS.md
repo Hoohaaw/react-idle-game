@@ -30,6 +30,8 @@ the history is the point.
 | [0008](#adr-0008--character-role-authored-per-character-class-provides-the-default) | Character role authored per character (class provides the default) | 2026-06-14 | Accepted |
 | [0009](#adr-0009--stat-vocabulary-expansion--wow-style-routing) | Stat vocabulary expansion + WoW-style routing | 2026-06-14 | Accepted |
 | [0010](#adr-0010--feature-based-modules-alongside-atomic-design--branch-per-task-workflow) | Feature-based modules alongside atomic design + branch-per-task workflow | 2026-06-15 | Accepted |
+| [0011](#adr-0011--leveling-gentlesteep-xp-curve-pure-helper-no-client-facing-endpoint) | Leveling: gentle→steep XP curve, pure helper, no client-facing endpoint | 2026-06-30 | Accepted |
+| [0012](#adr-0012--combat-resolution--reward-model-auto-battle-sim-at-claim-win-gates-margin-scales) | Combat resolution & reward model: auto-battle sim at claim, win-gates/margin-scales | 2026-06-30 | Accepted |
 
 ---
 
@@ -388,3 +390,67 @@ stat deltas on level-up is wrong — bumping `level` is all that's needed.
 - Mission claim (when built, pending the reward-model-vs-combat decision) imports `applyXp`; no rework.
 - Level-up is pure bookkeeping — fully unit-testable with no DB, and stat growth stays authored in the
   Sanity def. Curve tuning is a one-line change in `leveling.ts`.
+
+---
+
+## ADR-0012 — Combat resolution & reward model: auto-battle sim at claim, win-gates/margin-scales
+**Date:** 2026-06-30 · **Status:** Accepted
+
+**Context.** Two earlier directions were on a collision course. ADR-era design set a **reward pipeline**
+that assumed missions always succeed — `final = base × (1 + statBonus) × (1 + partySizeBonus) ×
+(1 + transcendenceBonus)`, where `statBonus` = every reward-eligible stat point × 0.1%. Separately, the
+combat design (project memory: combat) declared missions are **real-time fights that can fail**, where
+**all stats matter**, **roles do distinct jobs** (tank soaks, healer sustains), and **damage persists
+between missions** (recovered via infirmary or an in-combat healer). These can't both stand as-is:
+- A reward bonus that just counts stat points double-dips once stats *also* decide the win.
+- "Damage persists" and "the healer kept the tank alive" are only expressible if combat produces a
+  **per-character ending HP** — a flat "power ≥ difficulty → win" check cannot.
+
+This was the foundational open question blocking the mission-claim Edge Function.
+
+**Decision.**
+1. **Combat resolves as a deterministic auto-battle simulation, run server-side in the mission-claim
+   Edge Function** (the existing `started_at → ends_at → claim` timer is the wait; the claim runs the
+   fight). The sim is a fast tick-based HP/damage exchange computed from each character's *effective*
+   stats (ADR-0002 compute-on-read) vs. the mission's authored encounter. It is **deterministic** given
+   its inputs, so it is authoritative on the server and the client may *replay* it as the visualized
+   "real-time fight" without being trusted for the outcome.
+2. **The sim outputs: win/lose + each character's ending HP** (and a margin/clear metric). Ending HP is
+   persisted, realizing **persistent damage**; roles, healing, mitigation, dodge, crit and every other
+   stat get a place to act in the tick math.
+3. **Rewards are gated on a win.** A loss grants nothing (and leaves the party damaged). On a win the
+   pipeline becomes:
+   `final = base × (1 + marginBonus) × (1 + partySizeBonus) × (1 + transcendenceBonus)`.
+4. **The flat 0.1%/pt `statBonus` is replaced by `marginBonus`** — a bonus that scales with *how
+   decisively* you won (e.g. surplus power / clear speed / surviving HP), derived from the combat result
+   rather than from re-summing stat points. So "more stats = more reward" survives, but only as a payoff
+   for over-powering a fight, not a flat tax that double-dips with winning it.
+5. **`partySizeBonus` `(partySize−1)×10%` and `transcendenceBonus` are unchanged** — they are scarcity
+   and prestige levers, orthogonal to combat power.
+
+**Alternatives considered.**
+- *Power-vs-difficulty threshold* (sum party power, compare to a difficulty number) — rejected as the
+  resolution model: simple, but produces no ending HP, so persistent damage, in-combat healing, and
+  distinct role jobs would all need bolt-on systems. It contradicts "all stats matter."
+- *Win-probability roll* (power ratio → P(win), rolled at claim) — rejected: RNG losses feel unfair in
+  an idle game, the odds are opaque, and it still yields no per-character ending HP.
+- *Keep 0.1%/pt and just gate the whole payout behind a win* — rejected as the reward model: smallest
+  change, but stats double-dip (decide the win **and** multiply the reward), letting over-leveling
+  trivialize the economy.
+- *Fixed per-mission reward, retire the multiplier entirely* — viable and simplest, but discards the
+  stat-reward lever the economy was designed around; margin-scaling keeps that lever while making combat
+  primary.
+
+**Consequences.**
+- The **mission-claim Edge Function is now the combat resolver**: validate `now ≥ ends_at` → run the sim
+  → on win, roll loot + apply rewards (margin × party × transcendence) + `applyXp` (ADR-0011) → persist
+  ending HP for all participants → free the party, atomically. On loss, persist damage + free the party,
+  grant nothing.
+- New **persistent-HP state** is required on `player_characters` (an HP/damage field). The **infirmary**
+  becomes the recovery sink. Both were already flagged open; this confirms they're needed.
+- **Mission encounters must be authored** (enemy stats / difficulty) in Sanity alongside the loot table.
+- The combat **tick formulas** (how each stat maps to damage/mitigation/healing/dodge/crit) and the
+  **margin formula** (which metric, what rate) are deliberately left as tuning — see `TODO.md` /
+  project-undecided. This ADR fixes the *model*, not the numbers.
+- The `reward:true` flag / reward-eligible stat set (ADR-0007/0009) loses its role as a per-point reward
+  multiplier; whether it survives in any form under outcome-derived margin is a follow-up question.
