@@ -6,6 +6,7 @@ import { resolveRole } from '../lib/roles'
 import { Modal } from '../components/organisms/Modal'
 import { CharacterCard } from '../components/organisms/CharacterCard'
 import { useCharacters } from '../hooks/useCharacters'
+import { usePlayerCharacters } from '../hooks/usePlayerCharacters'
 import { useRecruit } from '../hooks/useRecruit'
 import { PrimaryButton } from '../components/atoms/Button'
 import { Alert } from '../components/atoms/Alert'
@@ -28,6 +29,7 @@ const muted: CSSProperties = { color: 'var(--color-text-muted)', fontSize: '13px
 
 export default function TeamPage() {
   const { data: characters, isLoading, isError, error } = useCharacters()
+  const { data: recruitedIds } = usePlayerCharacters()
   const [openKey, setOpenKey] = useState<string | null>(null)
   // No per-player instance yet → preview the def's computed baselines at a chosen level.
   const [previewLevel, setPreviewLevel] = useState(1)
@@ -70,7 +72,9 @@ export default function TeamPage() {
               baseStats={openMember.baseStats}
               growth={openMember.growth}
             />
-            <RecruitAction charKey={openMember.charKey} name={openMember.name} />
+            {!recruitedIds?.includes(openMember.charKey) && (
+              <RecruitAction charKey={openMember.charKey} name={openMember.name} />
+            )}
           </>
         )}
       </Modal>
