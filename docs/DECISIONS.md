@@ -352,3 +352,39 @@ remaining domains migrate one-per-branch as each is next touched. Unmigrated pag
 - A transitional period where some domains live in `features/` and others in `pages/` — expected and fine.
 - Slightly more ceremony per change (a branch + PR), bought back in reviewability, CI safety, and a
   clean history.
+
+---
+
+## ADR-0011 — Leveling: gentle→steep XP curve, pure helper, no client-facing endpoint
+**Date:** 2026-06-30 · **Status:** Accepted
+
+**Context.** Characters level from XP earned by completing successful missions (cap 50). We needed a
+concrete XP curve and a place for the leveling logic. The old prototype (TECHNICAL.md, now LEGACY)
+used a linear `maxExperience = level × 200` and mutated stored stats on each level-up
+(`attack += 3; maxHealth += 25`). Two things make that unsuitable here: (1) the design calls for a
+**gentle-early / steep-late** curve so L50 is a long-term goal, not linear difficulty; (2) under
+compute-on-read (ADR-0002) stats are **derived** from `level` + the def's growth curve, so storing
+stat deltas on level-up is wrong — bumping `level` is all that's needed.
+
+**Decision.**
+1. **XP curve:** `xpToNext(L) = round(50 × L^1.5)` — XP to advance from L to L+1 (1→2 = 50, 10→11 ≈
+   1581, 25→26 = 6250, 49→50 ≈ 17150). At the cap `xpToNext` returns `Infinity` (UI shows "MAX");
+   XP earned at the cap is discarded.
+2. **Pure helper, not an Edge Function:** the logic lives in `src/lib/leveling.ts` (`LEVEL_CAP`,
+   `xpToNext`, `applyXp`). `applyXp(level, xp, gained)` adds XP and rolls over as many levels as it
+   covers, capping at 50. It writes nothing and touches no stats.
+3. **No client-facing level-up endpoint.** XP must originate server-side from a verified source. The
+   mission-claim Edge Function (the server-authoritative XP source, ADR-0003) will call `applyXp` and
+   persist the new `level`/`xp`. A client-callable function that accepted an XP amount would let the
+   client mint levels — rejected.
+
+**Alternatives considered.**
+- *Linear `level × 200` (old prototype)* — rejected: flat difficulty, contradicts the gentle→steep goal.
+- *Standalone client-facing `level-up` Edge Function* — rejected: no legitimate client XP source; it
+  would be an exploit surface. Leveling is a side-effect of mission completion, computed server-side.
+- *Store stat values on level-up* — rejected: violates compute-on-read (ADR-0002); stats derive from level.
+
+**Consequences.**
+- Mission claim (when built, pending the reward-model-vs-combat decision) imports `applyXp`; no rework.
+- Level-up is pure bookkeeping — fully unit-testable with no DB, and stat growth stays authored in the
+  Sanity def. Curve tuning is a one-line change in `leveling.ts`.
