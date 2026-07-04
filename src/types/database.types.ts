@@ -83,6 +83,7 @@ export type Database = {
           acquired_at: string
           blessings: Json
           character_def_id: string
+          current_hp: number | null
           equipped: Json
           id: string
           level: number
@@ -93,6 +94,7 @@ export type Database = {
           acquired_at?: string
           blessings?: Json
           character_def_id: string
+          current_hp?: number | null
           equipped?: Json
           id?: string
           level?: number
@@ -103,6 +105,7 @@ export type Database = {
           acquired_at?: string
           blessings?: Json
           character_def_id?: string
+          current_hp?: number | null
           equipped?: Json
           id?: string
           level?: number
