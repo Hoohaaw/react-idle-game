@@ -22,6 +22,18 @@ full picture, so a review (even an unattended one) can give a *qualified* propos
 - [ ] Hosted Supabase project + push migrations (deploy time)
   `↳ context: project-data-architecture (no cloud yet) · supabase/`
 
+## Combat (sim v1 — ADR-0013)
+- [ ] Enemy / encounter stat schema — decide the concrete enemy stat block (HP, attack, defense, resistance, attack-speed, damage-type) + encounter shape (1–N enemies, per-tier template + overrides), author in Sanity
+  `↳ context: project-combat (ADR-0013 fork 3), project-design-decisions (loot authoring) · studio/schemaTypes/`
+- [ ] DR-curve damage formula specifics — pin the curve constant K + stat→power coefficients (STR/AGI→attack, INT→spellPower), crit/dodge/block base values, heal coefficients
+  `↳ context: project-combat (ADR-0013 fork 5 + tuning knobs) · src/lib/ (combat sim module)`
+- [ ] Combat sim module — pure, seeded (mission_run id), action-timeline auto-battle → win/lose + per-char ending HP; unit-tested
+  `↳ context: project-combat (ADR-0013) · src/lib/`
+- [ ] `player_characters.current_hp` migration (nullable = full; 0 = downed) + persistence on claim
+  `↳ context: project-combat (persistence), project-data-architecture · supabase/migrations/`
+- [ ] Utility role passive expression — OPEN (fork 6, digging deeper before deciding)
+  `↳ context: project-combat (ADR-0013 fork 6), project-undecided, project-roles`
+
 ## Content (Sanity)
 - [ ] Mission / item / loot-table / recipe schemas
   `↳ context: project-design-decisions (loot/items), project-crafting · studio/schemaTypes/`
