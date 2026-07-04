@@ -13,6 +13,39 @@
  */
 
 // Source: schema.json
+export type MissionReward = {
+  _type: "missionReward";
+  kind?: "currency" | "resource";
+  code?: string;
+  amount?: number;
+};
+
+export type LootDrop = {
+  _type: "lootDrop";
+  item?: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "itemDef";
+  };
+  dropChance?: number;
+  rarityWeights?: Array<{
+    rarity?: "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
+    weight?: number;
+    _type: "rarityWeight";
+    _key: string;
+  }>;
+  quantityMin?: number;
+  quantityMax?: number;
+};
+
+export type ItemStat = {
+  _type: "itemStat";
+  stat?: "attack" | "strength" | "agility" | "speed" | "intelligence" | "spellPower" | "haste" | "health" | "defense" | "critChance" | "critDamage" | "armorPen" | "dodge" | "block" | "resistance" | "healthRegen" | "healingPower" | "healingCrit" | "missionSpeedDecrease" | "gatherSpeed" | "gatherYield" | "magicFind" | "luck";
+  kind?: "flat" | "pct";
+  value?: number;
+};
+
 export type EncounterEnemy = {
   _type: "encounterEnemy";
   enemy?: {
@@ -62,6 +95,58 @@ export type StatValue = {
   _type: "statValue";
   stat?: "attack" | "strength" | "agility" | "speed" | "intelligence" | "spellPower" | "haste" | "health" | "defense" | "critChance" | "critDamage" | "armorPen" | "dodge" | "block" | "resistance" | "healthRegen" | "healingPower" | "healingCrit" | "missionSpeedDecrease" | "gatherSpeed" | "gatherYield" | "magicFind" | "luck";
   value?: number;
+};
+
+export type MissionDef = {
+  _id: string;
+  _type: "missionDef";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  name?: string;
+  missionKey?: string;
+  description?: string;
+  encounter?: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "encounterDef";
+  };
+  durationSeconds?: number;
+  baseXp?: number;
+  rewards?: Array<{
+    _key: string;
+  } & MissionReward>;
+  loot?: Array<{
+    _key: string;
+  } & LootDrop>;
+};
+
+export type ItemDef = {
+  _id: string;
+  _type: "itemDef";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  name?: string;
+  itemKey?: string;
+  slot?: "head" | "shoulders" | "chest" | "hands" | "legs" | "feet" | "weapon" | "offhand" | "ring" | "trinket";
+  sprite?: {
+    asset?: {
+      _ref: string;
+      _type: "reference";
+      _weak?: boolean;
+      [internalGroqTypeReferenceTo]?: "sanity.imageAsset";
+    };
+    media?: unknown;
+    hotspot?: SanityImageHotspot;
+    crop?: SanityImageCrop;
+    _type: "image";
+  };
+  description?: string;
+  statBonuses?: Array<{
+    _key: string;
+  } & ItemStat>;
 };
 
 export type EncounterDef = {
@@ -254,5 +339,5 @@ export type SanityAssetSourceData = {
   url?: string;
 };
 
-export type AllSanitySchemaTypes = EncounterEnemy | BlessingNode | NodeEffect | StatGrowth | StatValue | EncounterDef | EnemyDef | CharacterDef | SanityImagePaletteSwatch | SanityImagePalette | SanityImageDimensions | SanityImageHotspot | SanityImageCrop | SanityFileAsset | SanityImageAsset | SanityImageMetadata | Geopoint | Slug | SanityAssetSourceData;
+export type AllSanitySchemaTypes = MissionReward | LootDrop | ItemStat | EncounterEnemy | BlessingNode | NodeEffect | StatGrowth | StatValue | MissionDef | ItemDef | EncounterDef | EnemyDef | CharacterDef | SanityImagePaletteSwatch | SanityImagePalette | SanityImageDimensions | SanityImageHotspot | SanityImageCrop | SanityFileAsset | SanityImageAsset | SanityImageMetadata | Geopoint | Slug | SanityAssetSourceData;
 export declare const internalGroqTypeReferenceTo: unique symbol;
