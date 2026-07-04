@@ -33,6 +33,7 @@ the history is the point.
 | [0011](#adr-0011--leveling-gentlesteep-xp-curve-pure-helper-no-client-facing-endpoint) | Leveling: gentle→steep XP curve, pure helper, no client-facing endpoint | 2026-06-30 | Accepted |
 | [0012](#adr-0012--combat-resolution--reward-model-auto-battle-sim-at-claim-win-gates-margin-scales) | Combat resolution & reward model: auto-battle sim at claim, win-gates/margin-scales | 2026-06-30 | Accepted |
 | [0013](#adr-0013--combat-sim-v1--seeded-action-timeline-auto-battle-passive-stats-only) | Combat sim v1: seeded action-timeline auto-battle, passive stats only | 2026-07-04 | Accepted |
+| [0014](#adr-0014--capped-level-power-bonus-unkillable-comps-intended-utility-built-now) | Capped level power bonus, unkillable comps intended, Utility built now | 2026-07-04 | Accepted |
 
 ---
 
@@ -514,3 +515,52 @@ in-combat healer). Characters **carry their damage into the next fight**.
 - Still open (tracked in project-undecided): Utility's passive expression (fork 6), and all tuning —
   the DR constant `K`, stat→power coefficients, crit/dodge/block base values, heal coefficients, the
   margin%→bonus curve, and the concrete enemy stat list.
+
+> **Refined by ADR-0014:** a capped level-based power bonus is added to the reward pipeline (the
+> `reward:true` flag stays retired, not "vestigial pending repurpose"); unkillable comps are confirmed an
+> intended build under timeout=loss; Utility characters are built now with combat function deferred (fork 6).
+
+---
+
+## ADR-0014 — Capped level power bonus, unkillable comps intended, Utility built now
+**Date:** 2026-07-04 · **Status:** Accepted
+
+**Context.** Pinning the sim (ADR-0013) surfaced three follow-ups. (1) ADR-0012 had retired the flat
+per-point `statBonus` in favor of margin-only reward — but we want *some* payoff for fielding powerful
+characters, without reopening the runaway-economy risk that killed the flat model. (2) Should
+"unkillable" party comps be possible under `timeout = loss`? (3) Utility's passive expression was left
+open in ADR-0013 (fork 6) — what's its near-term status?
+
+**Decision.**
+1. **Add a capped, level-based power bonus to the reward pipeline** (win-gated, participating characters
+   only):
+   `final = base × (1 + marginHP%) × (1 + levelBonus) × (1 + partySizeBonus) × (1 + transcendenceBonus)`.
+   `levelBonus` is derived from participating characters' **levels**, leaning **average party level**
+   (not sum — sum would double-count the party-size axis that `partySizeBonus` already covers). Because
+   level is **hard-capped at 50**, the bonus has a fixed ceiling and **cannot run away with gear
+   inflation** — which is exactly why it's safe where the old stat-sum term wasn't. This *refines*
+   ADR-0012 (margin was the only stat-derived scaler) and **confirms the `reward:true` flag stays
+   retired**: we read level, never summed stats. It also gives leveling (ADR-0011) a direct economic
+   payoff beyond unlocking content, reinforcing the core loop. Rate + avg-vs-sum = tuning.
+   - *Rejected:* reviving the `reward:true` flag / summed-stat term (includes gear → uncapped →
+     reintroduces the ADR-0012 runaway risk); and margin-only (drops the progression payoff we want).
+2. **Unkillable comps are an intended, permitted build.** `timeout = loss` (ADR-0013) stands, so an
+   unkillable-but-low-DPS comp **times out → loss** (no reward, ~no injury) — not an auto-win.
+   "Unkillable" (sustain ≥ incoming; the DR curve asymptotes toward but never reaches 100%, so it
+   requires heal/mitigation *throughput*, not just armor) is a legitimate build whose payoff is
+   **zero-injury safe farming** — but it only pays out when paired with enough DPS to beat the clock. It
+   doesn't break difficulty gating because defensive investment costs DPS. This is a **tuning constraint**
+   (enemy HP/damage scaling must keep the DPS/timer check meaningful), not a rule change.
+3. **Utility characters are built now; their combat function is determined later.** Fork 6 stays open by
+   choice: Utility heroes are authored/recruitable, but in sim v1 they fight as **generic combatants**
+   (their stats apply; no distinct role behavior) until their passive/active kit is designed. Not a build
+   blocker.
+
+**Consequences.**
+- Reward pipeline gains one **bounded** multiplier; leveling now has a direct economic payoff (synergy
+  with ADR-0011).
+- The `reward:true` flag / 9-stat reward set stays retired for missions (level replaces the intent);
+  revisit only if a non-mission use appears.
+- Combat tuning carries a hard constraint: preserve the DPS/timer check so unkillable ≠ auto-win.
+- New tuning knobs: the `levelBonus` rate and avg-vs-sum choice (tracked with the other combat numbers).
+- Utility remains a known gap in the sim until its kit is designed — recruitable, but mechanically plain.
