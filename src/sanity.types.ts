@@ -13,6 +13,17 @@
  */
 
 // Source: schema.json
+export type EncounterEnemy = {
+  _type: "encounterEnemy";
+  enemy?: {
+    _ref: string;
+    _type: "reference";
+    _weak?: boolean;
+    [internalGroqTypeReferenceTo]?: "enemyDef";
+  };
+  count?: number;
+};
+
 export type BlessingNode = {
   _type: "blessingNode";
   nodeId?: string;
@@ -30,14 +41,14 @@ export type BlessingNode = {
 
 export type NodeEffect = {
   _type: "nodeEffect";
-  stat?: "attack" | "strength" | "agility" | "speed" | "intelligence" | "health" | "defense" | "missionSpeedDecrease" | "gatherSpeed" | "gatherYield";
+  stat?: "attack" | "strength" | "agility" | "speed" | "intelligence" | "spellPower" | "haste" | "health" | "defense" | "critChance" | "critDamage" | "armorPen" | "dodge" | "block" | "resistance" | "healthRegen" | "healingPower" | "healingCrit" | "missionSpeedDecrease" | "gatherSpeed" | "gatherYield" | "magicFind" | "luck";
   kind?: "flat" | "pct";
   perRank?: number;
 };
 
 export type StatGrowth = {
   _type: "statGrowth";
-  stat?: "attack" | "strength" | "agility" | "speed" | "intelligence" | "health" | "defense" | "missionSpeedDecrease" | "gatherSpeed" | "gatherYield";
+  stat?: "attack" | "strength" | "agility" | "speed" | "intelligence" | "spellPower" | "haste" | "health" | "defense" | "critChance" | "critDamage" | "armorPen" | "dodge" | "block" | "resistance" | "healthRegen" | "healingPower" | "healingCrit" | "missionSpeedDecrease" | "gatherSpeed" | "gatherYield" | "magicFind" | "luck";
   perLevel?: number;
   milestones?: Array<{
     level?: number;
@@ -49,8 +60,59 @@ export type StatGrowth = {
 
 export type StatValue = {
   _type: "statValue";
-  stat?: "attack" | "strength" | "agility" | "speed" | "intelligence" | "health" | "defense" | "missionSpeedDecrease" | "gatherSpeed" | "gatherYield";
+  stat?: "attack" | "strength" | "agility" | "speed" | "intelligence" | "spellPower" | "haste" | "health" | "defense" | "critChance" | "critDamage" | "armorPen" | "dodge" | "block" | "resistance" | "healthRegen" | "healingPower" | "healingCrit" | "missionSpeedDecrease" | "gatherSpeed" | "gatherYield" | "magicFind" | "luck";
   value?: number;
+};
+
+export type EncounterDef = {
+  _id: string;
+  _type: "encounterDef";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  name?: string;
+  encounterKey?: string;
+  description?: string;
+  enemies?: Array<{
+    _key: string;
+  } & EncounterEnemy>;
+  timeLimitSeconds?: number;
+};
+
+export type EnemyDef = {
+  _id: string;
+  _type: "enemyDef";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  name?: string;
+  enemyKey?: string;
+  archetype?: "bruiser" | "caster" | "tank" | "swarm" | "boss";
+  tier?: number;
+  sprite?: {
+    asset?: {
+      _ref: string;
+      _type: "reference";
+      _weak?: boolean;
+      [internalGroqTypeReferenceTo]?: "sanity.imageAsset";
+    };
+    media?: unknown;
+    hotspot?: SanityImageHotspot;
+    crop?: SanityImageCrop;
+    _type: "image";
+  };
+  health?: number;
+  attack?: number;
+  damageType?: "physical" | "magic";
+  speed?: number;
+  defense?: number;
+  resistance?: number;
+  block?: number;
+  critChance?: number;
+  critDamage?: number;
+  armorPen?: number;
+  dodge?: number;
+  healthRegen?: number;
 };
 
 export type CharacterDef = {
@@ -62,6 +124,7 @@ export type CharacterDef = {
   name?: string;
   charKey?: string;
   charClass?: "Warrior" | "Death Knight" | "Rogue" | "Hunter" | "Warlock" | "Mage" | "Fighter" | "Priest" | "Shaman" | "Druid" | "Bard" | "Engineer" | "Brewmaster" | "Painter" | "Miner" | "Forester";
+  role?: "tank" | "damage" | "healer" | "utility" | "gatherer";
   baseStats?: Array<{
     _key: string;
   } & StatValue>;
@@ -191,5 +254,5 @@ export type SanityAssetSourceData = {
   url?: string;
 };
 
-export type AllSanitySchemaTypes = BlessingNode | NodeEffect | StatGrowth | StatValue | CharacterDef | SanityImagePaletteSwatch | SanityImagePalette | SanityImageDimensions | SanityImageHotspot | SanityImageCrop | SanityFileAsset | SanityImageAsset | SanityImageMetadata | Geopoint | Slug | SanityAssetSourceData;
+export type AllSanitySchemaTypes = EncounterEnemy | BlessingNode | NodeEffect | StatGrowth | StatValue | EncounterDef | EnemyDef | CharacterDef | SanityImagePaletteSwatch | SanityImagePalette | SanityImageDimensions | SanityImageHotspot | SanityImageCrop | SanityFileAsset | SanityImageAsset | SanityImageMetadata | Geopoint | Slug | SanityAssetSourceData;
 export declare const internalGroqTypeReferenceTo: unique symbol;
