@@ -34,6 +34,7 @@ the history is the point.
 | [0012](#adr-0012--combat-resolution--reward-model-auto-battle-sim-at-claim-win-gates-margin-scales) | Combat resolution & reward model: auto-battle sim at claim, win-gates/margin-scales | 2026-06-30 | Accepted |
 | [0013](#adr-0013--combat-sim-v1--seeded-action-timeline-auto-battle-passive-stats-only) | Combat sim v1: seeded action-timeline auto-battle, passive stats only | 2026-07-04 | Accepted |
 | [0014](#adr-0014--capped-level-power-bonus-unkillable-comps-intended-utility-built-now) | Capped level power bonus, unkillable comps intended, Utility built now | 2026-07-04 | Accepted |
+| [0015](#adr-0015--combat-math-v1--formulas--first-pass-constants) | Combat math v1: formulas + first-pass constants | 2026-07-05 | Accepted |
 
 ---
 
@@ -564,3 +565,68 @@ open in ADR-0013 (fork 6) — what's its near-term status?
 - Combat tuning carries a hard constraint: preserve the DPS/timer check so unkillable ≠ auto-win.
 - New tuning knobs: the `levelBonus` rate and avg-vs-sum choice (tracked with the other combat numbers).
 - Utility remains a known gap in the sim until its kit is designed — recruitable, but mechanically plain.
+
+---
+
+## ADR-0015 — Combat math v1: formulas + first-pass constants
+**Date:** 2026-07-05 · **Status:** Accepted
+
+**Context.** ADR-0013 fixed the sim's *shape* (seeded action-timeline auto-battle) and ADR-0014 refined
+rewards, but both left the *numbers* — how each stat maps to damage/mitigation/healing, the timeline
+cadence, the reward curves, the enemy tier template — as open tuning. Those can't be truly *balanced*
+until the sim exists to run fights against, but the sim can't be *written* without the formula shapes.
+So this ADR records **Combat Math v1**: the formula shapes plus deliberate **first-pass constants** —
+enough to build the sim. Every constant is expected to be refined by simulating; this is the current
+model, recorded so we can revisit rather than re-derive. **Not final balance.**
+
+**Decision.** Constants live at the top of the (pending) pure module `src/lib/combat.ts`; "tuning" later
+= editing them.
+
+**A. Power routing (stats → combat numbers).** The registry has `attack`/`strength`/`agility` as separate
+stats, and ADR-0009 routes primaries to Attack; so:
+- Physical power `pAtk = attack + strength + agility`; Magic power `mAtk = spellPower + intelligence`;
+  Heal power `hPow = healingPower + intelligence` (all coefficients 1.0 first-pass).
+- **Behavior rule** (the one genuine model choice, not just a number): a **Healer** heals; **everyone
+  else attacks with `max(pAtk, mAtk)`**, damage type = physical if `pAtk ≥ mAtk` else magic. → attack
+  type is *emergent* from stats (a warrior swings physical, a mage casts) with no per-character authoring.
+
+**B. Hit pipeline** — one attack resolves in order `dodge → crit → armor DR (minus pen) → block`:
+- Dodge: `dodge%` chance → fully avoided (0 dmg).
+- Crit: `critChance%` chance → damage × `(1.5 + critDamage/100)` (base +50%, the stat adds).
+- Armor DR curve: `DR = effDef / (effDef + K)`, **`K = 100`**; `effDef = max(0, defense − armorPen)`.
+  Magic hits use `resistance` in place of `defense`.
+- Block: `block%` chance → that hit × `0.5`.
+
+**C. Timeline.** `attackInterval = BASE_INTERVAL × REF_SPEED / (speed × (1 + haste/100))`, with
+**`BASE_INTERVAL = 3s`, `REF_SPEED = 10`** (speed 10 / no haste → acts every 3s).
+
+**D. Healing.** A heal action restores `hPow` to the **lowest-HP% ally** (incl. self) below full;
+`healingCrit%` chance → ×2. If all allies are full, the healer attacks instead (no dead turns).
+
+**E. Threat (makes the Tank tank).** `threat += damageDealt × roleMult`, **Tank ×4, everyone else ×1**;
+enemies target the **highest-threat** living member.
+
+**F. Reward margin + level bonus** (feeding the ADR-0012/0014 pipeline):
+- **`marginBonus = survivingHP% × 0.5`** (`Σ endHP ÷ Σ maxHP`) → up to +50% for a flawless clear,
+  ~0 for a bloody one.
+- **`levelBonus = avgPartyLevel × 0.004`** (average, not sum; +20% at avg L50; hard-capped by the L50 ceiling).
+
+**G. Enemy tier template** (generates enemy stats from `tier` + `archetype` — the ADR-0013 template hook):
+- Tier-1 base (= the seeded Rotting Ghoul): HP 120 · atk 12 · def 5 · speed 10.
+- Per-tier growth: every stat × **1.4^(tier−1)**.
+- Archetype mods: **tank** ×2 HP / ×1.5 def / ×0.6 atk · **caster** magic-dmg / ×1.2 atk / ×0.8 HP ·
+  **swarm** ×0.4 HP / ×0.7 atk · **boss** ×5 HP / ×1.5 atk.
+
+**Alternatives considered.**
+- *Subtractive damage / evasion-as-defense* — already rejected in ADR-0009/0013; kept the DR curve.
+- *Per-character authored attack type* — rejected in A: `max(pAtk, mAtk)` makes it emergent, less to author.
+- *Sum party levels for the level bonus* — rejected: double-counts the party-size axis (ADR-0014).
+- *Balancing the numbers now* — deferred: not meaningful without the sim; these are first-pass.
+
+**Consequences.**
+- The sim module `src/lib/combat.ts` is now buildable: a pure, seeded, unit-tested function taking party
+  effective stats + an encounter → `{ outcome, endingHP[], survivingHPpct }`. Constants are a header block.
+- Balance is expected to move — treat every number here as provisional and revise this ADR (or supersede)
+  once fights can be simulated. The *shapes* (A–G) are the stable part; the constants are the soft part.
+- Depth stats (crit/dodge/block/armorPen/regen/healingCrit) now all have a concrete effect, closing the
+  ADR-0009 "effects deferred" gap for v1.
