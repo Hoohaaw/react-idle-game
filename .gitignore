@@ -34,3 +34,6 @@ dist-ssr
 
 # Local-only TODO review files (advisory, not shared)
 todo-reviews/
+
+# Local-only screenshots (verification captures, not shared)
+screenshots/
