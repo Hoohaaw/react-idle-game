@@ -1,17 +1,18 @@
-import { useState } from 'react'
 import { Avatar } from '@/components/atoms/Avatar'
 import { ProgressBar } from '@/components/atoms/ProgressBar'
 import { PrimaryButton } from '@/components/atoms/Button'
 import { useNow } from '@/hooks/useNow'
 import { formatRemaining } from '@/lib/time'
 
-export function ActiveMissionCard({ name, partySize, durationSec, startedSecAgo, onClaim }: { name: string; partySize: number; durationSec: number; startedSecAgo: number; onClaim?: () => void }) {
-  const [endsAt] = useState(() => Date.now() + (durationSec - startedSecAgo) * 1000)
-  const [startAt] = useState(() => Date.now() - startedSecAgo * 1000)
+// An in-progress mission (maps to a mission_runs row). `startedAt`/`endsAt` are absolute epoch ms —
+// pass the row's started_at/ends_at directly. The countdown reconstructs from those, so it's
+// offline-safe: a mission that finished while away simply shows "Ready" on return.
+export function ActiveMissionCard({ name, partySize, startedAt, endsAt, onClaim }: { name: string; partySize: number; startedAt: number; endsAt: number; onClaim?: () => void }) {
   const now = useNow()
   const remaining = Math.max(0, endsAt - now)
   const done = remaining <= 0
-  const pct = Math.min(100, Math.max(0, ((now - startAt) / (durationSec * 1000)) * 100))
+  const total = Math.max(1, endsAt - startedAt)
+  const pct = Math.min(100, Math.max(0, ((now - startedAt) / total) * 100))
   return (
     <div style={{
       width: 250, borderRadius: 8, border: `3px solid ${done ? 'var(--color-success)' : 'var(--color-gold-mid)'}`,
