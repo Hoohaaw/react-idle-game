@@ -36,6 +36,7 @@ the history is the point.
 | [0014](#adr-0014--capped-level-power-bonus-unkillable-comps-intended-utility-built-now) | Capped level power bonus, unkillable comps intended, Utility built now | 2026-07-04 | Accepted |
 | [0015](#adr-0015--combat-math-v1--formulas--first-pass-constants) | Combat math v1: formulas + first-pass constants | 2026-07-05 | Accepted |
 | [0016](#adr-0016--mission-claim-wiring-shared-pure-engine--atomic-claim_mission-rpc) | Mission-claim wiring: shared pure engine + atomic claim_mission RPC | 2026-07-05 | Accepted |
+| [0017](#adr-0017--mission-claim-v1-gear-in-the-sim-survivor-xp-item-rarity-scaling-mission-start) | Mission-claim v1: gear in the sim, survivor XP, item rarity scaling, mission-start | 2026-07-05 | Accepted |
 
 ---
 
@@ -698,3 +699,70 @@ and cannot run in SQL, so the split is: the **Edge Function computes**, a **sing
   break the function deploy.
 - The loss path is symmetric and cheap: on a loss the same RPC persists damage (`current_hp`) and frees the
   party by deleting the run, granting nothing — no loot/currency/xp writes.
+
+## ADR-0017 — Mission-claim v1: gear in the sim, survivor XP, item rarity scaling, mission-start
+**Date:** 2026-07-05 · **Status:** Accepted
+
+**Context.** Building the mission-claim resolver (ADR-0016 wiring) forced several gameplay decisions that
+weren't written down anywhere. Recorded here with the first-pass numbers (tunable, like the combat
+constants). Depends on ADR-0016 (shared engine + `claim_mission`/`start_mission` RPCs).
+
+**Decision.**
+
+**A. Effective stats include EQUIPPED GEAR (v1).** The sim consumes `effectiveStats = level baselines +
+blessing bonuses + equipped-item bonuses`, all stacked with the existing `{flat, pct}` rule
+(`src/lib/stats.ts`). Gear is not deferred — a character fights with what they wield.
+
+**B. Item rarity scaling = STEEP ×2 per step (first-pass).** `itemDef.statBonuses` are the **base
+(Common)** values; the equipped rarity multiplies EACH bonus (flat and pct) by
+`Common 1 · Uncommon 2 · Rare 4 · Epic 8 · Legendary 16` (`RARITY_MULT`). So a base +10 attack item gives
++10 / +20 / +40 / +80 / +160. Provisional; tune alongside the combat constants and loot odds.
+
+**C. XP goes to SURVIVORS only, full `baseXp` each.** On a win, every party member with **ending HP > 0**
+gains the mission's **full `baseXp`** (not split across the party), then scaled by the reward pipeline.
+A character downed mid-fight (ending HP = 0) earns NO XP even though the party won — surviving matters.
+Coins/resources/loot are player-wallet rewards and don't depend on individual survival.
+
+**D. Reward pipeline wiring.** `finalReward = base × (1+marginBonus) × (1+levelBonus) × (1+partyBonus) ×
+(1+transcendenceBonus)` (ADR-0012/0014), applied to coins, resources, AND per-survivor XP. Concrete
+rates used: `marginBonus = survivingHP% × 0.5`, `levelBonus = avgPartyLevel × 0.004`,
+`partyBonus = (partySize−1) × 0.10`, `transcendenceBonus = transcendence_count × 0.10`. Loot is rolled
+independently per item (own dropChance + own weighted rarity roll), seeded off the run id — NOT scaled by
+the multipliers.
+
+**E. Persistence + loss path.** Each character's ending HP is written to `player_characters.current_hp`
+on EVERY claim (win or loss). A loss grants nothing (no XP/coins/loot) but still persists damage and frees
+the party (deletes the run). Characters enter the fight at their carried-in `current_hp` (null = full).
+
+**F. Scope: also built mission-start.** `mission-start` (dispatch) is a sibling Edge Function + the
+`start_mission` RPC: it validates the party (owned / not-downed / not-busy across missions+gathering /
+size 1–3) under a row lock and sets `ends_at = now + missionDef.durationSeconds` (the client is not
+trusted for duration). Party composition / role-slot entry requirements remain deferred.
+
+**Security + deployment notes (learned building this).**
+- **SECURITY DEFINER lockdown.** Supabase's default privileges auto-grant `EXECUTE` on new `public`
+  functions to `anon` + `authenticated`, so `REVOKE ... FROM public` is NOT enough — a signed-in user
+  could otherwise call `claim_mission` via `/rest/v1/rpc` with an arbitrary `p_player` and mint state.
+  Both RPCs `REVOKE ... FROM public, anon, authenticated` and `GRANT EXECUTE ... TO service_role` only.
+  Verified: a client call returns `403 permission denied` (advisors clean).
+- **Cross-boundary bundling (confirms ADR-0016 A).** An Edge Function importing `../../../src/lib/*.ts`
+  deploys via the **Supabase CLI** (`supabase functions deploy`), which bundles the import graph from disk
+  (it uploaded `combat/stats/statDefinitions/leveling/roles.ts` alongside the function). The MCP
+  `deploy_edge_function` takes an explicit file list and does NOT walk cross-dir imports — use the CLI for
+  these. The shared `src/lib` cluster must stay Deno-safe (uses `.ts` import extensions; no browser/node
+  deps).
+
+**Alternatives considered.**
+- *Defer gear to v2* — rejected: chosen to include gear now (the item schema + stacking shape already exist).
+- *Split baseXp across the party / reward downed characters* — rejected per the decisions above (full XP,
+  survivors only).
+- *Gentle/linear rarity curve* — rejected for a steep ×2 (bigger chase incentive); revisit during balance.
+
+**Consequences.**
+- Verified end-to-end on hosted: dispatch → wait → claim resolved a real fight (win, 20s, survivingHP 53%),
+  granting scaled gold/resources + a loot roll + survivor XP + persisted HP, all through the atomic RPC;
+  the double-claim guard and the RPC lockdown both hold.
+- Establishes the reusable pattern: pure `src/lib` logic imported by app + Edge Functions; multi-write
+  mutations behind a `SECURITY DEFINER` RPC that owns concurrency; deploy engine-consuming functions via CLI.
+- All first-pass numbers (rarity ×2, the four reward rates) are provisional — revise here (or supersede)
+  once balance work begins.

@@ -170,7 +170,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_mission: {
+        Args: {
+          p_char_updates: Json
+          p_currencies: Json
+          p_loot: Json
+          p_player: string
+          p_resources: Json
+          p_run_id: string
+        }
+        Returns: Json
+      }
+      start_mission: {
+        Args: {
+          p_duration_seconds: number
+          p_mission_def_id: string
+          p_party: string[]
+          p_player: string
+        }
+        Returns: {
+          ends_at: string
+          id: string
+          mission_def_id: string
+          party: string[]
+          player_id: string
+          started_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "mission_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never

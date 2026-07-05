@@ -12,7 +12,7 @@
 //   - Gear bonuses — wait on the Sanity item schema. They'll plug into the same {flat, pct} bonus
 //     shape that blessings already use, so no rework is needed when they arrive.
 
-import { STAT_DEFS } from './statDefinitions'
+import { STAT_DEFS } from './statDefinitions.ts'
 
 // ---- Input shapes -----------------------------------------------------------------------------
 // Lean, structurally matching the Sanity characterDef (minus Sanity's _key/_type wrappers). The
@@ -119,6 +119,90 @@ export function collectBlessingBonuses(
   return out
 }
 
+// ---- Layer 2b: equipped-gear bonuses ----------------------------------------------------------
+
+/**
+ * Per-rarity multiplier on an item's BASE (Common) stat bonuses (first-pass, ADR-0017). Authored
+ * `itemDef.statBonuses` are the Common values; a rarer copy of the same item multiplies EACH bonus
+ * (flat and pct) by this factor. Steep ×2 per step — provisional like the combat constants.
+ */
+export const RARITY_MULT: Record<string, number> = {
+  Common: 1,
+  Uncommon: 2,
+  Rare: 4,
+  Epic: 8,
+  Legendary: 16,
+}
+
+/** A single equip-time stat bonus authored on an item (base/Common values). */
+export type ItemStatDef = { stat: string; kind: 'flat' | 'pct'; value: number }
+
+/** The bits of an item definition the engine needs to total gear bonuses. */
+export type ItemDefBonuses = { statBonuses?: ItemStatDef[] }
+
+/** One equipped slot on the player row: which item, at what rolled rarity. */
+export type EquippedItem = { itemDefId: string; rarity: string }
+
+/**
+ * Total the {flat, pct} bonus each stat gets from a character's EQUIPPED gear. `equipped` is the
+ * `{ slot: { itemDefId, rarity } }` map stored on the player row; `itemDefs` supplies each referenced
+ * item's base statBonuses. Every bonus is scaled by RARITY_MULT[rarity] (ADR-0017). Unknown items are
+ * skipped; an unknown rarity falls back to ×1.
+ */
+export function collectGearBonuses(
+  equipped: Record<string, EquippedItem>,
+  itemDefs: Record<string, ItemDefBonuses>,
+): Record<string, StatBonus> {
+  const out: Record<string, StatBonus> = {}
+  for (const slot of Object.values(equipped)) {
+    const def = slot && itemDefs[slot.itemDefId]
+    if (!def?.statBonuses) continue
+    const mult = RARITY_MULT[slot.rarity] ?? 1
+    for (const s of def.statBonuses) {
+      const bonus = (out[s.stat] ??= { flat: 0, pct: 0 })
+      const amount = s.value * mult
+      if (s.kind === 'flat') bonus.flat += amount
+      else bonus.pct += amount
+    }
+  }
+  return out
+}
+
+/** Merge several {stat: {flat, pct}} bonus maps into one, summing flat and pct per stat. */
+export function mergeBonuses(...maps: Record<string, StatBonus>[]): Record<string, StatBonus> {
+  const out: Record<string, StatBonus> = {}
+  for (const map of maps) {
+    for (const [stat, b] of Object.entries(map)) {
+      const bonus = (out[stat] ??= { flat: 0, pct: 0 })
+      bonus.flat += b.flat
+      bonus.pct += b.pct
+    }
+  }
+  return out
+}
+
+/**
+ * A character's EFFECTIVE stats: level baselines + blessing bonuses + equipped-gear bonuses, stacked
+ * with the {flat, pct} rule. This is the single computation the combat sim consumes on BOTH the client
+ * (replay) and the server (resolve) — ADR-0016.
+ */
+export function effectiveStats(input: {
+  level: number
+  baseStats: StatValue[]
+  growth: StatGrowth[]
+  blessingAllocations: Record<string, number>
+  blessingNodes: BlessingNodeDef[]
+  equipped: Record<string, EquippedItem>
+  itemDefs: Record<string, ItemDefBonuses>
+}): StatMap {
+  const baselines = computeBaselines(input.level, input.baseStats, input.growth)
+  const bonuses = mergeBonuses(
+    collectBlessingBonuses(input.blessingAllocations, input.blessingNodes),
+    collectGearBonuses(input.equipped, input.itemDefs),
+  )
+  return applyBonuses(baselines, bonuses)
+}
+
 // ---- Layer 3: stat-derived reward bonus -------------------------------------------------------
 
 /** Reward multiplier contribution per point of a reward-contributing stat (0.1% — decided). */
@@ -149,23 +233,26 @@ export function statRewardBonus(effective: StatMap): number {
 
 /** Multiplicative reward modifiers, each a fraction (0.2 = +20%). Missing = 0. */
 export type RewardModifiers = {
-  statBonus?: number
+  marginBonus?: number
+  levelBonus?: number
   partyBonus?: number
   transcendenceBonus?: number
 }
 
 /**
- * The reward pipeline:
+ * The reward pipeline (ADR-0012/0014), applied on a WIN only:
  *
- *   final = base × (1 + statBonus) × (1 + partyBonus) × (1 + transcendenceBonus)
+ *   final = base × (1 + marginBonus) × (1 + levelBonus) × (1 + partyBonus) × (1 + transcendenceBonus)
  *
- * The modifier VALUES (party-size, transcendence) are tuning numbers that live with their systems
- * and are passed in here — this function only combines them. Returns a raw number; callers round
- * for the specific reward type (e.g. coins are integers).
+ * Each modifier is an INDEPENDENT multiplier (not summed into one pool). `marginBonus` (combat
+ * decisiveness) and `levelBonus` (avg party level) come from the combat result via the helpers in
+ * `combat.ts`; party-size and transcendence are their systems' tuning numbers. Returns a raw number;
+ * callers round for the specific reward type (coins/resources/XP are integers).
  */
 export function finalReward(base: number, mods: RewardModifiers = {}): number {
-  const stat = 1 + (mods.statBonus ?? 0)
+  const margin = 1 + (mods.marginBonus ?? 0)
+  const level = 1 + (mods.levelBonus ?? 0)
   const party = 1 + (mods.partyBonus ?? 0)
   const transcendence = 1 + (mods.transcendenceBonus ?? 0)
-  return base * stat * party * transcendence
+  return base * margin * level * party * transcendence
 }

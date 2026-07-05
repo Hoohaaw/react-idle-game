@@ -13,7 +13,7 @@
 // Determinism: given the same inputs + seed the result is identical, so the server is authoritative
 // and the client can replay `log` as the visual fight without being trusted for the outcome.
 
-import type { StatMap } from './stats'
+import type { StatMap } from './stats.ts'
 
 // ---- Tuning (ADR-0015 — first-pass; refine against simulated fights) --------------------------
 
@@ -99,7 +99,7 @@ export type CombatResult = {
 
 // ---- Seeded RNG (xmur3 hash → mulberry32) ------------------------------------------------------
 
-function makeRng(seed: string): () => number {
+export function makeRng(seed: string): () => number {
   let h = 1779033703 ^ seed.length
   for (let i = 0; i < seed.length; i++) {
     h = Math.imul(h ^ seed.charCodeAt(i), 3432918353)
