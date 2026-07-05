@@ -32,6 +32,9 @@ the history is the point.
 | [0010](#adr-0010--feature-based-modules-alongside-atomic-design--branch-per-task-workflow) | Feature-based modules alongside atomic design + branch-per-task workflow | 2026-06-15 | Accepted |
 | [0011](#adr-0011--leveling-gentlesteep-xp-curve-pure-helper-no-client-facing-endpoint) | Leveling: gentle→steep XP curve, pure helper, no client-facing endpoint | 2026-06-30 | Accepted |
 | [0012](#adr-0012--combat-resolution--reward-model-auto-battle-sim-at-claim-win-gates-margin-scales) | Combat resolution & reward model: auto-battle sim at claim, win-gates/margin-scales | 2026-06-30 | Accepted |
+| [0013](#adr-0013--combat-sim-v1--seeded-action-timeline-auto-battle-passive-stats-only) | Combat sim v1: seeded action-timeline auto-battle, passive stats only | 2026-07-04 | Accepted |
+| [0014](#adr-0014--capped-level-power-bonus-unkillable-comps-intended-utility-built-now) | Capped level power bonus, unkillable comps intended, Utility built now | 2026-07-04 | Accepted |
+| [0015](#adr-0015--combat-math-v1--formulas--first-pass-constants) | Combat math v1: formulas + first-pass constants | 2026-07-05 | Accepted |
 
 ---
 
@@ -454,3 +457,176 @@ This was the foundational open question blocking the mission-claim Edge Function
   project-undecided. This ADR fixes the *model*, not the numbers.
 - The `reward:true` flag / reward-eligible stat set (ADR-0007/0009) loses its role as a per-point reward
   multiplier; whether it survives in any form under outcome-derived margin is a follow-up question.
+
+---
+
+## ADR-0013 — Combat sim v1: seeded action-timeline auto-battle, passive stats only
+**Date:** 2026-07-04 · **Status:** Accepted
+
+**Context.** ADR-0012 fixed *that* mission claim resolves via a deterministic auto-battle sim and *how
+rewards attach to it*, but left the sim's internals as tuning. Before writing the resolver we needed the
+sim's **shape** pinned — the parts that change how it's built, as opposed to coefficients we can rebalance
+later. A shrinking constraint: **active abilities are deferred** (project-character-development), so v1 is
+a *passive-stat* auto-battle — roles express through stat routing + simple built-in behaviors, not skill
+kits.
+
+**Decision (the architectural forks).**
+1. **Seeded RNG, not expected-value.** Real rolls (crit/dodge/block), seeded by the `mission_run` id →
+   deterministic & auditable on the server, but with genuine variance so a near-threshold mission is a
+   real gamble (and can upset). Rejected pure expected-value: it makes combat a solved calculator with no
+   tension. Preview win-% (when built) = a quick Monte-Carlo of the seeded sim.
+2. **Action-timeline (ATB-style) tick model.** Each combatant's next action fires at
+   `interval / (speed · haste)`, so **speed and haste are first-class** (both are `reward:true` core
+   stats). Extends cleanly to cooldowns when abilities land. Rejected fixed-rounds (speed/haste matter
+   less).
+3. **Simplified enemy stat block, encounter = 1–N enemies.** Enemies do NOT mirror the 23-stat character
+   registry; they get a lean block (HP, attack, defense, resistance, attack-speed, damage-type). Authored
+   per-tier template + per-mission overrides to cap authoring cost. (Exact enemy stat list = its own TODO.)
+4. **Threat-lite targeting — the Tank actually tanks.** Enemies prefer the highest-threat target; Tanks
+   generate more threat (role weight + Defense/Health). Without this the Tank role is inert. Cheapest thing
+   that makes an entire role function.
+5. **Armor / DR-curve damage formula.** `DR% = def/(def + K)`, `dmg = power × (1 − DR)`; same family for
+   magic via Resistance; ArmorPen lowers effective def. Rejected subtractive (`power − defense`) — breaks
+   at idle scale. (The curve constant `K` and coefficients = TODO/tuning.)
+6. **Role behaviors in a passive v1:** Tank → threat + HP + DR; Damage → deals; Healer → auto-heals the
+   lowest-HP ally each action (HealingPower/HealingCrit). **Utility's passive expression is deliberately
+   left OPEN** (its identity is buffs/debuffs = abilities; leaning toward one authored party aura, but not
+   decided). **Shields, status effects, buffs/debuffs beyond a static aura → deferred to v2.** The sim
+   skeleton builds without Utility resolved.
+7. **Margin metric = surviving party HP%** — `Σ ending HP ÷ Σ max HP` across the party (a death drags it
+   down naturally). Falls straight out of the sim and ties reward to the persistent-damage loop. Rejected
+   clear-speed and surplus-power (both need extra bookkeeping; survival is free and thematically aligned).
+8. **Fight termination = max round/time cap; hitting it is a LOSS.** Guarantees the loop exits (two tanky
+   sides can't stalemate forever); a party that can't secure the kill in the allotted fight fails, same as
+   a wipe.
+
+**Persistence.** Store **absolute `current_hp`** on `player_characters` (nullable = full), clamped to
+`[0, maxHp]` on read (robust when gear/level shifts max HP — a stored fraction or "damage taken" gets weird
+on a gear swap). **0 HP = "downed": cannot be dispatched until healed** → the failure consequence + the
+infirmary sink. **No out-of-combat regen** (HealthRegen is in-combat only; recovery = infirmary or an
+in-combat healer). Characters **carry their damage into the next fight**.
+
+**Consequences.**
+- **The `reward:true` flag is now fully vestigial for missions.** With margin = surviving-HP%, reward sums
+  stat points *nowhere* (`win → base × marginHP% × party × transcendence`). The 9-stat reward set
+  (ADR-0007/0009) has no economic job left; retire or repurpose it when next touched.
+- Mission-claim's build order is now unblocked and mechanical: (a) `player_characters.current_hp` migration,
+  (b) enemy/encounter schema in Sanity, (c) the sim module (pure, seeded, unit-testable) + the tuning
+  coefficients, then (d) wire it into the claim Edge Function alongside loot + `applyXp` + HP persistence.
+- Still open (tracked in project-undecided): Utility's passive expression (fork 6), and all tuning —
+  the DR constant `K`, stat→power coefficients, crit/dodge/block base values, heal coefficients, the
+  margin%→bonus curve, and the concrete enemy stat list.
+
+> **Refined by ADR-0014:** a capped level-based power bonus is added to the reward pipeline (the
+> `reward:true` flag stays retired, not "vestigial pending repurpose"); unkillable comps are confirmed an
+> intended build under timeout=loss; Utility characters are built now with combat function deferred (fork 6).
+
+---
+
+## ADR-0014 — Capped level power bonus, unkillable comps intended, Utility built now
+**Date:** 2026-07-04 · **Status:** Accepted
+
+**Context.** Pinning the sim (ADR-0013) surfaced three follow-ups. (1) ADR-0012 had retired the flat
+per-point `statBonus` in favor of margin-only reward — but we want *some* payoff for fielding powerful
+characters, without reopening the runaway-economy risk that killed the flat model. (2) Should
+"unkillable" party comps be possible under `timeout = loss`? (3) Utility's passive expression was left
+open in ADR-0013 (fork 6) — what's its near-term status?
+
+**Decision.**
+1. **Add a capped, level-based power bonus to the reward pipeline** (win-gated, participating characters
+   only):
+   `final = base × (1 + marginHP%) × (1 + levelBonus) × (1 + partySizeBonus) × (1 + transcendenceBonus)`.
+   `levelBonus` is derived from participating characters' **levels**, leaning **average party level**
+   (not sum — sum would double-count the party-size axis that `partySizeBonus` already covers). Because
+   level is **hard-capped at 50**, the bonus has a fixed ceiling and **cannot run away with gear
+   inflation** — which is exactly why it's safe where the old stat-sum term wasn't. This *refines*
+   ADR-0012 (margin was the only stat-derived scaler) and **confirms the `reward:true` flag stays
+   retired**: we read level, never summed stats. It also gives leveling (ADR-0011) a direct economic
+   payoff beyond unlocking content, reinforcing the core loop. Rate + avg-vs-sum = tuning.
+   - *Rejected:* reviving the `reward:true` flag / summed-stat term (includes gear → uncapped →
+     reintroduces the ADR-0012 runaway risk); and margin-only (drops the progression payoff we want).
+2. **Unkillable comps are an intended, permitted build.** `timeout = loss` (ADR-0013) stands, so an
+   unkillable-but-low-DPS comp **times out → loss** (no reward, ~no injury) — not an auto-win.
+   "Unkillable" (sustain ≥ incoming; the DR curve asymptotes toward but never reaches 100%, so it
+   requires heal/mitigation *throughput*, not just armor) is a legitimate build whose payoff is
+   **zero-injury safe farming** — but it only pays out when paired with enough DPS to beat the clock. It
+   doesn't break difficulty gating because defensive investment costs DPS. This is a **tuning constraint**
+   (enemy HP/damage scaling must keep the DPS/timer check meaningful), not a rule change.
+3. **Utility characters are built now; their combat function is determined later.** Fork 6 stays open by
+   choice: Utility heroes are authored/recruitable, but in sim v1 they fight as **generic combatants**
+   (their stats apply; no distinct role behavior) until their passive/active kit is designed. Not a build
+   blocker.
+
+**Consequences.**
+- Reward pipeline gains one **bounded** multiplier; leveling now has a direct economic payoff (synergy
+  with ADR-0011).
+- The `reward:true` flag / 9-stat reward set stays retired for missions (level replaces the intent);
+  revisit only if a non-mission use appears.
+- Combat tuning carries a hard constraint: preserve the DPS/timer check so unkillable ≠ auto-win.
+- New tuning knobs: the `levelBonus` rate and avg-vs-sum choice (tracked with the other combat numbers).
+- Utility remains a known gap in the sim until its kit is designed — recruitable, but mechanically plain.
+
+---
+
+## ADR-0015 — Combat math v1: formulas + first-pass constants
+**Date:** 2026-07-05 · **Status:** Accepted
+
+**Context.** ADR-0013 fixed the sim's *shape* (seeded action-timeline auto-battle) and ADR-0014 refined
+rewards, but both left the *numbers* — how each stat maps to damage/mitigation/healing, the timeline
+cadence, the reward curves, the enemy tier template — as open tuning. Those can't be truly *balanced*
+until the sim exists to run fights against, but the sim can't be *written* without the formula shapes.
+So this ADR records **Combat Math v1**: the formula shapes plus deliberate **first-pass constants** —
+enough to build the sim. Every constant is expected to be refined by simulating; this is the current
+model, recorded so we can revisit rather than re-derive. **Not final balance.**
+
+**Decision.** Constants live at the top of the (pending) pure module `src/lib/combat.ts`; "tuning" later
+= editing them.
+
+**A. Power routing (stats → combat numbers).** The registry has `attack`/`strength`/`agility` as separate
+stats, and ADR-0009 routes primaries to Attack; so:
+- Physical power `pAtk = attack + strength + agility`; Magic power `mAtk = spellPower + intelligence`;
+  Heal power `hPow = healingPower + intelligence` (all coefficients 1.0 first-pass).
+- **Behavior rule** (the one genuine model choice, not just a number): a **Healer** heals; **everyone
+  else attacks with `max(pAtk, mAtk)`**, damage type = physical if `pAtk ≥ mAtk` else magic. → attack
+  type is *emergent* from stats (a warrior swings physical, a mage casts) with no per-character authoring.
+
+**B. Hit pipeline** — one attack resolves in order `dodge → crit → armor DR (minus pen) → block`:
+- Dodge: `dodge%` chance → fully avoided (0 dmg).
+- Crit: `critChance%` chance → damage × `(1.5 + critDamage/100)` (base +50%, the stat adds).
+- Armor DR curve: `DR = effDef / (effDef + K)`, **`K = 100`**; `effDef = max(0, defense − armorPen)`.
+  Magic hits use `resistance` in place of `defense`.
+- Block: `block%` chance → that hit × `0.5`.
+
+**C. Timeline.** `attackInterval = BASE_INTERVAL × REF_SPEED / (speed × (1 + haste/100))`, with
+**`BASE_INTERVAL = 3s`, `REF_SPEED = 10`** (speed 10 / no haste → acts every 3s).
+
+**D. Healing.** A heal action restores `hPow` to the **lowest-HP% ally** (incl. self) below full;
+`healingCrit%` chance → ×2. If all allies are full, the healer attacks instead (no dead turns).
+
+**E. Threat (makes the Tank tank).** `threat += damageDealt × roleMult`, **Tank ×4, everyone else ×1**;
+enemies target the **highest-threat** living member.
+
+**F. Reward margin + level bonus** (feeding the ADR-0012/0014 pipeline):
+- **`marginBonus = survivingHP% × 0.5`** (`Σ endHP ÷ Σ maxHP`) → up to +50% for a flawless clear,
+  ~0 for a bloody one.
+- **`levelBonus = avgPartyLevel × 0.004`** (average, not sum; +20% at avg L50; hard-capped by the L50 ceiling).
+
+**G. Enemy tier template** (generates enemy stats from `tier` + `archetype` — the ADR-0013 template hook):
+- Tier-1 base (= the seeded Rotting Ghoul): HP 120 · atk 12 · def 5 · speed 10.
+- Per-tier growth: every stat × **1.4^(tier−1)**.
+- Archetype mods: **tank** ×2 HP / ×1.5 def / ×0.6 atk · **caster** magic-dmg / ×1.2 atk / ×0.8 HP ·
+  **swarm** ×0.4 HP / ×0.7 atk · **boss** ×5 HP / ×1.5 atk.
+
+**Alternatives considered.**
+- *Subtractive damage / evasion-as-defense* — already rejected in ADR-0009/0013; kept the DR curve.
+- *Per-character authored attack type* — rejected in A: `max(pAtk, mAtk)` makes it emergent, less to author.
+- *Sum party levels for the level bonus* — rejected: double-counts the party-size axis (ADR-0014).
+- *Balancing the numbers now* — deferred: not meaningful without the sim; these are first-pass.
+
+**Consequences.**
+- The sim module `src/lib/combat.ts` is now buildable: a pure, seeded, unit-tested function taking party
+  effective stats + an encounter → `{ outcome, endingHP[], survivingHPpct }`. Constants are a header block.
+- Balance is expected to move — treat every number here as provisional and revise this ADR (or supersede)
+  once fights can be simulated. The *shapes* (A–G) are the stable part; the constants are the soft part.
+- Depth stats (crit/dodge/block/armorPen/regen/healingCrit) now all have a concrete effect, closing the
+  ADR-0009 "effects deferred" gap for v1.
