@@ -24,7 +24,7 @@ import { ClassBadge } from '../components/atoms/ClassBadge'
 import { GameHeader } from '../components/organisms/GameHeader'
 import type { MissionDrops } from '../types/loot'
 import { LootTable } from '../components/organisms/LootTable'
-import { MissionDispatch, ClaimReward, MissionCard, ActiveMissionCard } from '@/features/missions'
+import { MissionDispatch, ClaimReward, SAMPLE_CLAIM_LOSS, MissionCard, ActiveMissionCard } from '@/features/missions'
 import { Modal } from '../components/organisms/Modal'
 import { MineCard } from '../components/molecules/MineCard'
 import { ActiveGatherCard } from '../components/molecules/ActiveGatherCard'
@@ -395,8 +395,11 @@ export default function DesignPage() {
       </Section>
 
       {/* ── CLAIM REWARD ─────────────────────── */}
-      <Section title="Claim Reward (Mission Complete)">
-        <ClaimReward />
+      <Section title="Claim Reward (Win / Loss)">
+        <Row>
+          <ClaimReward />
+          <ClaimReward result={SAMPLE_CLAIM_LOSS} />
+        </Row>
       </Section>
 
       {/* ── MISSION CARDS ────────────────────── */}

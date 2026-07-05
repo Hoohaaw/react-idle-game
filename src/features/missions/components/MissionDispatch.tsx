@@ -31,6 +31,7 @@ const DISPATCH_ROSTER: RosterChar[] = [
   { id: 'r4', name: 'Sally Whitemane', class: 'Priest', level: 15, statTotal: 120 },
 ]
 const MAX_PARTY = 3
+const TRANSCENDENCE_COUNT = 1 // player-wide (mock) — each transcendence adds +10% to all rewards
 
 function InfoStat({ label, value }: { label: string; value: string }) {
   return (
@@ -41,6 +42,15 @@ function InfoStat({ label, value }: { label: string; value: string }) {
     }}>
       <p style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{label}</p>
       <p style={{ color: 'var(--color-text-gold)', fontSize: '15px', fontWeight: 'bold', textShadow: '0 0 6px rgba(232,192,80,0.3)' }}>{value}</p>
+    </div>
+  )
+}
+
+function RewardRow({ label, pct }: { label: string; pct: number }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>{label}</span>
+      <span style={{ color: 'var(--color-text-gold)', fontSize: '12px', fontWeight: 'bold' }}>+{pct.toFixed(1)}%</span>
     </div>
   )
 }
@@ -95,11 +105,14 @@ export function MissionDispatch() {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : (prev.length >= MAX_PARTY ? prev : [...prev, id]))
 
   const party = DISPATCH_ROSTER.filter(c => selected.includes(c.id))
-  const combinedStat = party.reduce((sum, c) => sum + c.statTotal, 0)
-  const statBonus = combinedStat * 0.1                    // % from summed stat points (0.1%/pt)
-  const partyBonus = Math.max(0, party.length - 1) * 10   // % from party size (+10% per extra char)
-  // Multiplicative: each bonus is its own independent multiplier.
-  const totalPct = ((1 + statBonus / 100) * (1 + partyBonus / 100) - 1) * 100
+  // Reward pipeline (ADR-0012/0017), win-gated. Only the multipliers KNOWN before the fight are shown
+  // here; the combat margin (up to +50%) depends on how much HP the party keeps, so it's a range.
+  const avgLevel = party.length ? party.reduce((sum, c) => sum + c.level, 0) / party.length : 0
+  const levelBonus = avgLevel * 0.4                        // % — levelBonus = avgPartyLevel × 0.004
+  const partyBonus = Math.max(0, party.length - 1) * 10    // % — (partySize − 1) × 10%
+  const transcendenceBonus = TRANSCENDENCE_COUNT * 10      // % — transcendence_count × 10%
+  const knownPct = ((1 + levelBonus / 100) * (1 + partyBonus / 100) * (1 + transcendenceBonus / 100) - 1) * 100
+  const MARGIN_MAX = 50                                    // combat margin caps at +50% (a flawless win)
 
   return (
     <div style={{
@@ -172,22 +185,24 @@ export function MissionDispatch() {
 
         <div style={{ margin: '0 0 14px' }}><GoldDivider /></div>
 
-        {/* Reward breakdown (multiplicative) */}
+        {/* Reward breakdown — win-gated pipeline (ADR-0012/0017): known multipliers + a margin range */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Stat bonus</span>
-            <span style={{ color: 'var(--color-text-gold)', fontSize: '12px', fontWeight: 'bold' }}>+{statBonus.toFixed(1)}%</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>
-              Party size{party.length > 0 ? ` (×${party.length})` : ''}
-            </span>
-            <span style={{ color: 'var(--color-text-gold)', fontSize: '12px', fontWeight: 'bold' }}>+{partyBonus.toFixed(1)}%</span>
-          </div>
+          <RewardRow label={`Level bonus (avg Lv ${avgLevel ? avgLevel.toFixed(0) : '—'})`} pct={levelBonus} />
+          <RewardRow label={`Party size${party.length > 0 ? ` (×${party.length})` : ''}`} pct={partyBonus} />
+          {transcendenceBonus > 0 && <RewardRow label={`Transcendence (×${TRANSCENDENCE_COUNT})`} pct={transcendenceBonus} />}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '7px', borderTop: '1px solid var(--color-gold-dark)' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Total rewards</span>
-            <span style={{ color: 'var(--color-success)', fontSize: '16px', fontWeight: 'bold', textShadow: '0 0 8px rgba(74,140,63,0.4)' }}>+{totalPct.toFixed(1)}%</span>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Guaranteed multipliers</span>
+            <span style={{ color: 'var(--color-text-gold)', fontSize: '13px', fontWeight: 'bold' }}>+{knownPct.toFixed(1)}%</span>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>
+              Combat margin <span style={{ fontStyle: 'italic', opacity: 0.75 }}>(win-dependent)</span>
+            </span>
+            <span style={{ color: 'var(--color-success)', fontSize: '14px', fontWeight: 'bold', textShadow: '0 0 8px rgba(74,140,63,0.4)' }}>+0 – {MARGIN_MAX}%</span>
+          </div>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', fontStyle: 'italic', marginTop: '2px', lineHeight: 1.4 }}>
+            Rewards are granted only on a win. The combat margin scales with how much HP the party keeps.
+          </p>
         </div>
         <PrimaryButton fullWidth disabled={selected.length === 0}>
           {selected.length === 0 ? 'Select a character' : `Send Party (${selected.length})`}
