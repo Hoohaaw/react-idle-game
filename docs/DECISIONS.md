@@ -35,6 +35,7 @@ the history is the point.
 | [0013](#adr-0013--combat-sim-v1--seeded-action-timeline-auto-battle-passive-stats-only) | Combat sim v1: seeded action-timeline auto-battle, passive stats only | 2026-07-04 | Accepted |
 | [0014](#adr-0014--capped-level-power-bonus-unkillable-comps-intended-utility-built-now) | Capped level power bonus, unkillable comps intended, Utility built now | 2026-07-04 | Accepted |
 | [0015](#adr-0015--combat-math-v1--formulas--first-pass-constants) | Combat math v1: formulas + first-pass constants | 2026-07-05 | Accepted |
+| [0016](#adr-0016--mission-claim-wiring-shared-pure-engine--atomic-claim_mission-rpc) | Mission-claim wiring: shared pure engine + atomic claim_mission RPC | 2026-07-05 | Accepted |
 
 ---
 
