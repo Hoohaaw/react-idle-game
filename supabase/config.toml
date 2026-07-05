@@ -390,6 +390,15 @@ deno_version = 2
 [functions.recruit]
 verify_jwt = true
 
+# mission-start: dispatch a party (validates auth + party via start_mission RPC).
+[functions.mission-start]
+verify_jwt = true
+
+# mission-claim: the combat resolver — runs the sim and applies rewards via claim_mission RPC.
+# Imports the pure engine from src/lib directly (ADR-0016), so it must be bundled from disk.
+[functions.mission-claim]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

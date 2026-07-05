@@ -6,9 +6,15 @@ import {
   collectBlessingBonuses,
   statRewardBonus,
   finalReward,
+  collectGearBonuses,
+  mergeBonuses,
+  effectiveStats,
+  RARITY_MULT,
   REWARD_BONUS_PER_STAT_POINT,
   type StatGrowth,
   type BlessingNodeDef,
+  type ItemDefBonuses,
+  type EquippedItem,
 } from './stats'
 
 describe('baselineForStat', () => {
@@ -129,15 +135,73 @@ describe('statRewardBonus', () => {
   })
 })
 
+describe('collectGearBonuses', () => {
+  const itemDefs: Record<string, ItemDefBonuses> = {
+    'iron-sword': { statBonuses: [{ stat: 'attack', kind: 'flat', value: 10 }] },
+    'ruby-ring': { statBonuses: [{ stat: 'attack', kind: 'pct', value: 5 }, { stat: 'health', kind: 'flat', value: 20 }] },
+  }
+
+  it('scales each base bonus by the equipped rarity (ADR-0017 ×2/step)', () => {
+    const equipped: Record<string, EquippedItem> = { weapon: { itemDefId: 'iron-sword', rarity: 'Epic' } }
+    // Epic ×8 → base +10 attack becomes +80.
+    expect(collectGearBonuses(equipped, itemDefs).attack).toEqual({ flat: 80, pct: 0 })
+  })
+
+  it('accumulates flat and pct across slots at their own rarities', () => {
+    const equipped: Record<string, EquippedItem> = {
+      weapon: { itemDefId: 'iron-sword', rarity: 'Common' }, // attack +10 flat
+      ring: { itemDefId: 'ruby-ring', rarity: 'Rare' }, // ×4 → attack +20% pct, health +80 flat
+    }
+    const out = collectGearBonuses(equipped, itemDefs)
+    expect(out.attack).toEqual({ flat: 10, pct: 20 })
+    expect(out.health).toEqual({ flat: 80, pct: 0 })
+  })
+
+  it('skips unknown items and falls back to ×1 for an unknown rarity', () => {
+    expect(collectGearBonuses({ weapon: { itemDefId: 'ghost', rarity: 'Epic' } }, itemDefs)).toEqual({})
+    const out = collectGearBonuses({ weapon: { itemDefId: 'iron-sword', rarity: 'Mythic' } }, itemDefs)
+    expect(out.attack).toEqual({ flat: 10, pct: 0 }) // ×1 fallback
+  })
+
+  it('exposes the full rarity ladder', () => {
+    expect(RARITY_MULT).toEqual({ Common: 1, Uncommon: 2, Rare: 4, Epic: 8, Legendary: 16 })
+  })
+})
+
+describe('mergeBonuses', () => {
+  it('sums flat and pct per stat across maps', () => {
+    const a = { attack: { flat: 5, pct: 10 } }
+    const b = { attack: { flat: 3, pct: 0 }, health: { flat: 50, pct: 0 } }
+    expect(mergeBonuses(a, b)).toEqual({ attack: { flat: 8, pct: 10 }, health: { flat: 50, pct: 0 } })
+  })
+})
+
+describe('effectiveStats', () => {
+  it('stacks level baselines + blessings + gear into one effective map', () => {
+    const out = effectiveStats({
+      level: 5,
+      baseStats: [{ stat: 'attack', value: 10 }, { stat: 'health', value: 100 }],
+      growth: [{ stat: 'attack', perLevel: 5 }], // → baseline attack 30
+      blessingAllocations: { might: 2 },
+      blessingNodes: [{ nodeId: 'might', effects: [{ stat: 'attack', kind: 'pct', perRank: 10 }] }], // +20% pct
+      equipped: { weapon: { itemDefId: 'sword', rarity: 'Uncommon' } }, // ×2 → +10 flat attack
+      itemDefs: { sword: { statBonuses: [{ stat: 'attack', kind: 'flat', value: 5 }] } },
+    })
+    // attack: baseline 30 + gear flat 10 + 30×20% = 46
+    expect(out.attack).toBeCloseTo(46)
+    expect(out.health).toBe(100)
+  })
+})
+
 describe('finalReward', () => {
-  it('multiplies the base by each (1 + modifier)', () => {
-    const out = finalReward(100, { statBonus: 0.15, partyBonus: 0.2, transcendenceBonus: 0.1 })
-    expect(out).toBeCloseTo(100 * 1.15 * 1.2 * 1.1) // 151.8
+  it('multiplies the base by each (1 + modifier) — margin × level × party × transcendence', () => {
+    const out = finalReward(100, { marginBonus: 0.15, levelBonus: 0.2, partyBonus: 0.2, transcendenceBonus: 0.1 })
+    expect(out).toBeCloseTo(100 * 1.15 * 1.2 * 1.2 * 1.1)
   })
 
   it('treats missing modifiers as 0 (no change)', () => {
     expect(finalReward(100)).toBe(100)
-    expect(finalReward(100, { statBonus: 0.5 })).toBe(150)
+    expect(finalReward(100, { marginBonus: 0.5 })).toBe(150)
   })
 })
 
