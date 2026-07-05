@@ -35,6 +35,7 @@ the history is the point.
 | [0013](#adr-0013--combat-sim-v1--seeded-action-timeline-auto-battle-passive-stats-only) | Combat sim v1: seeded action-timeline auto-battle, passive stats only | 2026-07-04 | Accepted |
 | [0014](#adr-0014--capped-level-power-bonus-unkillable-comps-intended-utility-built-now) | Capped level power bonus, unkillable comps intended, Utility built now | 2026-07-04 | Accepted |
 | [0015](#adr-0015--combat-math-v1--formulas--first-pass-constants) | Combat math v1: formulas + first-pass constants | 2026-07-05 | Accepted |
+| [0016](#adr-0016--mission-claim-wiring-shared-pure-engine--atomic-claim_mission-rpc) | Mission-claim wiring: shared pure engine + atomic claim_mission RPC | 2026-07-05 | Accepted |
 | [0017](#adr-0017--mission-claim-v1-gear-in-the-sim-survivor-xp-item-rarity-scaling-mission-start) | Mission-claim v1: gear in the sim, survivor XP, item rarity scaling, mission-start | 2026-07-05 | Accepted |
 
 ---
@@ -631,6 +632,73 @@ enemies target the **highest-threat** living member.
   once fights can be simulated. The *shapes* (A–G) are the stable part; the constants are the soft part.
 - Depth stats (crit/dodge/block/armorPen/regen/healingCrit) now all have a concrete effect, closing the
   ADR-0009 "effects deferred" gap for v1.
+
+## ADR-0016 — Mission-claim wiring: shared pure engine + atomic `claim_mission` RPC
+**Date:** 2026-07-05 · **Status:** Accepted
+
+**Context.** Every piece the mission-claim resolver needs now exists on `master`: the seeded sim
+(`src/lib/combat.ts`, ADR-0013/0015), the reward helpers `marginBonus`/`levelRewardBonus`, the stat
+engine (`src/lib/stats.ts`, ADR-0002), leveling (`src/lib/leveling.ts`, ADR-0011), `player_characters.
+current_hp` persistence (ADR-0013), and the authored content layer (`missionDef`/`itemDef`/`lootDrop`).
+The claim is the **assembly** of all of it — the single server-authoritative write that resolves a
+mission (ADR-0003, ADR-0012). Before writing it, two structural questions had no answer:
+1. **How does the Deno Edge Function consume the pure engine?** It lives in `src/lib` (app/Vite land);
+   Edge Functions are Deno and until now hand-rolled everything in `supabase/functions/_shared/`.
+2. **How do we keep the claim atomic?** It performs 4+ writes (loot inserts, currency/resource bumps,
+   level/xp/HP updates, delete the run). `supabase-js` issues these as separate statements — a mid-way
+   failure would half-pay a reward or double-grant on retry.
+
+**Decision.**
+
+**A. Share the pure engine by importing `src/lib` directly — no copy, no move.** The combat/stats/
+leveling cluster (`combat.ts` → `stats.ts` → `statDefinitions.ts`, plus `leveling.ts`) is already a
+**self-contained, dependency-free** set of pure functions (no React/Vite/node/browser imports). The claim
+function imports them across the repo boundary by relative path (`../../../src/lib/combat.ts`); Deno
+bundles them at deploy. **Single source of truth** — the sim the client may replay and the sim the server
+resolves with are the *same code*. **Standing constraint:** these four modules MUST stay Deno-safe (no
+node/browser/`@/` imports); a violation breaks the deploy. (Verify the cross-boundary bundle works on the
+first `supabase functions deploy` — if the CLI balks at paths outside `supabase/`, fall back to a
+tsconfig/deno path alias, NOT to copying.)
+
+**B. Compute in TypeScript, then apply through one atomic `claim_mission` Postgres RPC.** The sim is TS
+and cannot run in SQL, so the split is: the **Edge Function computes**, a **single RPC writes**.
+- *Edge Function* (service role): authenticate → load the `mission_runs` row (owner check, `now() >=
+  ends_at`) → fetch the `missionDef` + `encounterDef` + each party member's `characterDef` from Sanity →
+  compute each character's **effective stats** (compute-on-read, incl. blessings/equipped) → run
+  `simulateCombat({ party, encounter, seed: <mission_run id> })` → on a win, roll the loot table
+  (independent per-item, ADR loot model) and compute `finalReward(base × marginBonus × levelBonus × party
+  × transcendence)`, per-character `applyXp`, and per-character ending HP. This yields a plain **result
+  payload**.
+- *`claim_mission` RPC* (`SECURITY DEFINER`, owned by the service role; NOT granted to `authenticated` —
+  clients can't call it): takes `(run_id, payload)` and does **all writes in one transaction**. The
+  **double-claim guard lives here**: `DELETE FROM mission_runs WHERE id = run_id AND now() >= ends_at`
+  and check the row count — 0 rows ⇒ already claimed or not ready ⇒ raise/abort the whole tx. Then insert
+  loot rows, bump `profiles` currencies/resources, and update each `player_characters` level/xp/current_hp.
+  Commit atomically.
+- **Trust boundary:** the Edge Function is trusted (service role, ADR-0003), so the RPC *applies* the
+  computed numbers rather than re-deriving them; the one invariant the RPC must own itself is
+  **concurrency** — the atomic delete-with-rowcount is what makes a double-claim (two inflight requests,
+  or a retry) impossible.
+
+**Alternatives considered.**
+- *Copy the engine into `_shared`* — rejected: two copies of the sim drift; the client-replay/server-resolve
+  determinism guarantee (ADR-0013) dies the moment they diverge.
+- *Move the engine to a neutral `packages/engine`* — rejected for now: churns every `@/lib/...` import site
+  in the app for no functional gain; revisit only if `src/lib` ever needs a non-Deno-safe dependency.
+- *Sequential `supabase-js` writes with compensation logic* — rejected: not atomic; a failure between
+  writes half-pays, and hand-rolled rollback is exactly what a transaction gives for free.
+- *Do everything (including the fight) in SQL/plpgsql* — rejected: the sim is non-trivial seeded TS; porting
+  it to plpgsql duplicates ADR-0015 in a second language and forfeits the shared-code determinism of (A).
+
+**Consequences.**
+- Unblocks building the `mission-claim` Edge Function + the `claim_mission` migration as the next task.
+- Establishes a reusable pattern: **pure logic in `src/lib` (Deno-safe) is imported by both the app and Edge
+  Functions; multi-write mutations go through a `SECURITY DEFINER` RPC that owns the concurrency guard.**
+- Adds a maintenance rule: the `src/lib` engine modules are now a shared contract — keep them pure. A lint
+  guard or a comment banner on those files is worth adding so a future `@/`-style import doesn't silently
+  break the function deploy.
+- The loss path is symmetric and cheap: on a loss the same RPC persists damage (`current_hp`) and frees the
+  party by deleting the run, granting nothing — no loot/currency/xp writes.
 
 ## ADR-0017 — Mission-claim v1: gear in the sim, survivor XP, item rarity scaling, mission-start
 **Date:** 2026-07-05 · **Status:** Accepted
