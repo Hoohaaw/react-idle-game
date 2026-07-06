@@ -2,10 +2,10 @@ import { StatusTag } from '@/components/atoms/StatusTag'
 import { IconSlot } from '@/components/atoms/IconSlot'
 import { PrimaryButton } from '@/components/atoms/Button'
 
-// A selectable available mission (maps to a Sanity missionDef). `coins`/`xp` are the BASE rewards
+// A selectable available mission (maps to a Sanity missionDef). `gold`/`xp` are the BASE rewards
 // before the win-gated multipliers; `dropCount` = number of loot-table entries. `stage` is a display
 // tag for ordering/difficulty.
-export function MissionCard({ name, stage, coins, xp, duration, dropCount, locked, onSend }: { name: string; stage?: number; coins: number; xp: number; duration: string; dropCount: number; locked?: boolean; onSend?: () => void }) {
+export function MissionCard({ name, stage, gold, xp, duration, dropCount, locked, onSend }: { name: string; stage?: number; gold: number; xp: number; duration: string; dropCount: number; locked?: boolean; onSend?: () => void }) {
   return (
     <div style={{
       width: 250, borderRadius: 8,
@@ -28,7 +28,7 @@ export function MissionCard({ name, stage, coins, xp, duration, dropCount, locke
       <div style={{ padding: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <IconSlot size={16} /><span style={{ color: 'var(--color-text-gold)', fontSize: 13, fontWeight: 'bold' }}>{coins}</span>
+            <IconSlot size={16} /><span style={{ color: 'var(--color-text-gold)', fontSize: 13, fontWeight: 'bold' }}>{gold}</span>
           </span>
           <span style={{ color: 'var(--color-xp)', fontSize: 12, fontWeight: 'bold' }}>{xp} XP</span>
           <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>⏱ {duration}</span>

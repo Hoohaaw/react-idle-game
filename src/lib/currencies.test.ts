@@ -18,10 +18,10 @@ describe('CURRENCY_DEFS', () => {
     expect(new Set(keys).size).toBe(keys.length)
   })
 
-  it('contains the coins currency', () => {
-    const coins = CURRENCY_DEFS.find(d => d.key === 'coins')
-    expect(coins).toBeDefined()
-    expect(coins!.label).toBe('Coins')
+  it('contains the gold currency', () => {
+    const gold = CURRENCY_DEFS.find(d => d.key === 'gold')
+    expect(gold).toBeDefined()
+    expect(gold!.label).toBe('Gold')
   })
 })
 
@@ -34,8 +34,8 @@ describe('CURRENCY_KEYS', () => {
     expect(CURRENCY_KEYS).toHaveLength(CURRENCY_DEFS.length)
   })
 
-  it('includes "coins"', () => {
-    expect(CURRENCY_KEYS).toContain('coins')
+  it('includes "gold"', () => {
+    expect(CURRENCY_KEYS).toContain('gold')
   })
 })
 
@@ -50,7 +50,7 @@ describe('CURRENCY_LABELS', () => {
     expect(Object.keys(CURRENCY_LABELS)).toHaveLength(CURRENCY_DEFS.length)
   })
 
-  it('maps "coins" to "Coins"', () => {
-    expect(CURRENCY_LABELS['coins']).toBe('Coins')
+  it('maps "gold" to "Gold"', () => {
+    expect(CURRENCY_LABELS['gold']).toBe('Gold')
   })
 })

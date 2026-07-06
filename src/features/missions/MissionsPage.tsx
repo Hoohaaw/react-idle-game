@@ -74,7 +74,7 @@ function buildClaimResult(
     durationSeconds: resp.durationSeconds,
     survivingHpPct: resp.survivingHpPct,
     party,
-    baseCoins: mission?.baseCoins ?? 0,
+    baseGold: mission?.baseGold ?? 0,
     resources: Object.entries(resp.rewards.resources).map(([code, value]) => ({ label: code, value })),
     loot,
     bonuses,
@@ -171,7 +171,7 @@ export default function MissionsPage() {
               <MissionCard
                 key={m.missionKey}
                 name={m.name}
-                coins={m.baseCoins}
+                gold={m.baseGold}
                 xp={m.baseXp}
                 duration={fmtDuration(m.durationSeconds)}
                 dropCount={m.loot.length}
