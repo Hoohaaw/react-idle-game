@@ -18,7 +18,7 @@ export type GameMission = {
   description: string
   durationSeconds: number
   baseXp: number
-  baseCoins: number
+  baseGold: number
   resources: { code: string; amount: number }[]
   loot: MissionLootView[]
 }
@@ -64,7 +64,7 @@ export async function fetchMissions(): Promise<GameMission[]> {
       description: m.description ?? '',
       durationSeconds: m.durationSeconds,
       baseXp: m.baseXp ?? 0,
-      baseCoins: rewards.filter((r) => r.kind === 'currency').reduce((s, r) => s + r.amount, 0),
+      baseGold: rewards.filter((r) => r.kind === 'currency').reduce((s, r) => s + r.amount, 0),
       resources: rewards.filter((r) => r.kind === 'resource').map((r) => ({ code: r.code, amount: r.amount })),
       loot: (m.loot ?? [])
         .filter((l): l is Required<Pick<typeof l, 'itemKey'>> & typeof l => Boolean(l.itemKey))

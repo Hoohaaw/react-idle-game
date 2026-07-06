@@ -36,11 +36,11 @@ const REASON_TEXT: Record<ClaimResultView['reason'], string> = {
 export function ClaimReward({ result = SAMPLE_CLAIM_WIN, onDone }: { result?: ClaimResultView; onDone?: () => void }) {
   const win = result.outcome === 'win'
   const multiplier = result.bonuses.reduce((m, b) => m * (1 + b.pct / 100), 1)
-  const finalCoins = Math.round(result.baseCoins * multiplier)
+  const finalGold = Math.round(result.baseGold * multiplier)
   // Cumulative coin value after each bonus is applied (the transparency trail).
-  const coinSteps = result.bonuses.map((b, i) => ({
+  const goldSteps = result.bonuses.map((b, i) => ({
     ...b,
-    value: Math.round(result.bonuses.slice(0, i + 1).reduce((acc, x) => acc * (1 + x.pct / 100), result.baseCoins)),
+    value: Math.round(result.bonuses.slice(0, i + 1).reduce((acc, x) => acc * (1 + x.pct / 100), result.baseGold)),
   }))
   const labelStyle: CSSProperties = { color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }
   const accent = win ? 'var(--color-gold-light)' : '#e0635c'
@@ -105,8 +105,8 @@ export function ClaimReward({ result = SAMPLE_CLAIM_WIN, onDone }: { result?: Cl
             <SectionLabel>Rewards</SectionLabel>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
               <IconSlot size={18} />
-              <span style={{ color: 'var(--color-text-gold)', fontSize: '18px', fontWeight: 'bold', textShadow: '0 0 8px rgba(232,192,80,0.4)' }}>+{finalCoins}</span>
-              <span style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>coins</span>
+              <span style={{ color: 'var(--color-text-gold)', fontSize: '18px', fontWeight: 'bold', textShadow: '0 0 8px rgba(232,192,80,0.4)' }}>+{finalGold}</span>
+              <span style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>gold</span>
             </div>
             {result.resources.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
@@ -133,18 +133,18 @@ export function ClaimReward({ result = SAMPLE_CLAIM_WIN, onDone }: { result?: Cl
             <SectionLabel>How it was calculated</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={labelStyle}>Base coins</span>
-                <span style={{ color: 'var(--color-text-primary)', fontSize: '12px' }}>{result.baseCoins}</span>
+                <span style={labelStyle}>Base gold</span>
+                <span style={{ color: 'var(--color-text-primary)', fontSize: '12px' }}>{result.baseGold}</span>
               </div>
-              {coinSteps.map(s => (
+              {goldSteps.map(s => (
                 <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={labelStyle}>× {s.label} ({s.detail}) <span style={{ color: 'var(--color-success)' }}>+{s.pct}%</span></span>
                   <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>→ {s.value}</span>
                 </div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '6px', borderTop: '1px solid var(--color-gold-dark)' }}>
-                <span style={labelStyle}>Total coins (×{multiplier.toFixed(2)})</span>
-                <span style={{ color: 'var(--color-text-gold)', fontSize: '14px', fontWeight: 'bold' }}>{finalCoins}</span>
+                <span style={labelStyle}>Total gold (×{multiplier.toFixed(2)})</span>
+                <span style={{ color: 'var(--color-text-gold)', fontSize: '14px', fontWeight: 'bold' }}>{finalGold}</span>
               </div>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', fontStyle: 'italic', marginTop: '4px' }}>
                 Resources & each survivor's XP use the same ×{multiplier.toFixed(2)}. Loot rolled independently per item.

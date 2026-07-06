@@ -13,7 +13,7 @@ export type CurrencyDef = {
 }
 
 export const CURRENCY_DEFS: CurrencyDef[] = [
-  { key: 'coins', label: 'Coins' },
+  { key: 'gold', label: 'Gold' },
 ]
 
 export const CURRENCY_KEYS: string[] = CURRENCY_DEFS.map((c) => c.key)

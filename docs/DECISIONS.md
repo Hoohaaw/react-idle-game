@@ -766,3 +766,47 @@ trusted for duration). Party composition / role-slot entry requirements remain d
   mutations behind a `SECURITY DEFINER` RPC that owns concurrency; deploy engine-consuming functions via CLI.
 - All first-pass numbers (rarity ×2, the four reward rates) are provisional — revise here (or supersede)
   once balance work begins.
+
+---
+
+## ADR-0018 — Wallet display: currency is `gold`, header reads the live wallet, mission resources mine-only
+**Date:** 2026-07-06 · **Status:** Accepted
+
+**Context.** The claim path already credits `profiles.currencies` / `profiles.resources` atomically
+(ADR-0016/0017), but nothing on the client read the wallet: `GameHeader` showed hardcoded mock chips
+(`142 Cu`, `1420` coins, …). Auditing the two authored missions surfaced code/registry mismatches that
+would make credited balances *invisible*: both rewarded a currency coded `gold` while the registry key
+was `coins`, and Crypt Clearing rewarded a `bone` resource absent from the resource registry (which is
+the 9 mine materials, Wood…Platinum).
+
+**Decision.**
+
+**A. The primary currency is `gold`.** Renamed the currency registry key `coins → gold` (label `Gold`),
+matching what the authored missions already used, and relabelled user-facing currency text to "gold".
+Internal identifiers were renamed to match (`baseCoins→baseGold`, `finalCoins→finalGold`,
+`coinSteps→goldSteps`, `MissionCard` prop `coins→gold`); the generic `CoinDisplay` atom keeps its name
+(it renders a gold-coin icon + amount). Note the intentional namespace overlap: the
+currency key `gold` (in `profiles.currencies`) is distinct from the ore resource `Gold` (in
+`profiles.resources`) — different JSONB columns, no data collision.
+
+**B. The header reads the live wallet.** New `src/services/profile.ts` (`fetchProfile`, SELECT-only on
+`profiles` — RLS owner-read) + `src/hooks/useProfile.ts` (query key `['profile']`, already invalidated by
+`useClaimMission`). `GameHeader` now renders the player's real `gold` and resource balances; no client
+write path (ADR-0003 intact).
+
+**C. Header shows only non-zero resources.** Gold is always shown; a `ResourceChip` appears per resource
+the player owns (`balance > 0`), iterated in registry order (`Object.keys(RESOURCE_COLOR)`). Scales as the
+registry grows; an empty early-game wallet shows just gold. Unknown wallet keys (e.g. a legacy `bone`
+balance) are simply not displayed.
+
+**D. Missions grant mine resources only (for now).** Rewritten Crypt Clearing's `bone` reward as `Iron`
+(a registry material, fits the crypt/rusted-blade theme). Non-mine "monster material" resources are
+deferred until a materials system is designed; until then mission resource rewards must use a resource
+registry key.
+
+**Consequences.**
+- The header is now account-accurate and refreshes on claim. Adding a currency/resource remains a
+  one-line registry change (JSONB wallet, no migration).
+- Missions actually surface resource flow to the player (Crypt Clearing → Iron → header chip).
+- Deferred: short-form resource labels (currently full names), a dedicated wallet/inventory currency panel
+  beyond the header, and the monster-materials resource category.

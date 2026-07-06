@@ -24,7 +24,7 @@ export type ClaimResultView = {
   survivingHpPct: number
   party: ClaimMember[]
   // Win-only payout (ignored on a loss):
-  baseCoins: number
+  baseGold: number
   resources: { label: string; value: number }[]
   loot: { name: string; slot: string; rarity: string }[]
   bonuses: ClaimBonus[] // margin, level, party, transcendence
@@ -43,7 +43,7 @@ export const SAMPLE_CLAIM_WIN: ClaimResultView = {
     // Death Knight authored as Damage = per-character role override (ADR-0008).
     { name: 'Alexandros Mograine', class: 'Death Knight', level: 24, role: 'damage', endingHp: 0, maxHp: 260, xpGained: 0 },
   ],
-  baseCoins: 100,
+  baseGold: 100,
   resources: [{ label: 'Cu', value: 20 }, { label: 'Wd', value: 13 }, { label: 'St', value: 8 }],
   loot: [
     { name: 'Coif', slot: 'Head', rarity: 'Uncommon' },
@@ -68,7 +68,7 @@ export const SAMPLE_CLAIM_LOSS: ClaimResultView = {
     { name: 'Lyra Swift', class: 'Rogue', level: 12, endingHp: 22, maxHp: 140, xpGained: 0 },
     { name: 'Sally Whitemane', class: 'Priest', level: 15, endingHp: 0, maxHp: 180, xpGained: 0 },
   ],
-  baseCoins: 0,
+  baseGold: 0,
   resources: [],
   loot: [],
   bonuses: [],

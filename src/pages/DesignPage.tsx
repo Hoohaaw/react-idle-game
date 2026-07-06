@@ -304,7 +304,7 @@ export default function DesignPage() {
       <Section title="Inline Alerts">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <Alert variant="success">Mission complete — rewards claimed.</Alert>
-          <Alert variant="error">Not enough coins to recruit this character.</Alert>
+          <Alert variant="error">Not enough gold to recruit this character.</Alert>
           <Alert variant="warning">Your inventory is almost full.</Alert>
           <Alert variant="info">Shop restocks in 2h 14m.</Alert>
         </div>
@@ -359,7 +359,7 @@ export default function DesignPage() {
         <Row>
           <Panel title="Mission Card">
             <p style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Goblin Camp — Stage 3</p>
-            <p style={{ color: 'var(--color-text-primary)', fontSize: '14px', marginTop: '8px' }}>Reward: 120 coins · 3:00</p>
+            <p style={{ color: 'var(--color-text-primary)', fontSize: '14px', marginTop: '8px' }}>Reward: 120 gold · 3:00</p>
           </Panel>
           <Panel title="Character">
             <p style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Rogue · Level 7</p>
@@ -408,7 +408,7 @@ export default function DesignPage() {
       {/* ── MISSION CARDS ────────────────────── */}
       <Section title="Mission Cards (Dashboard)">
         <Row>
-          <MissionCard name="Goblin Outpost" stage={3} coins={100} xp={120} duration="3:00" dropCount={3} onSend={() => setModal('dispatch')} />
+          <MissionCard name="Goblin Outpost" stage={3} gold={100} xp={120} duration="3:00" dropCount={3} onSend={() => setModal('dispatch')} />
           <ActiveMissionCard name="Frozen Pass" partySize={2} startedAt={DEMO_T0 - 45_000} endsAt={DEMO_T0 + 45_000} />
           <ActiveMissionCard name="Goblin Outpost" partySize={3} startedAt={DEMO_T0 - 30_000} endsAt={DEMO_T0} onClaim={() => setModal('claim')} />
         </Row>

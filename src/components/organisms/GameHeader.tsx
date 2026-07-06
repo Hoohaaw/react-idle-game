@@ -3,6 +3,13 @@ import { ResourceChip } from '../atoms/ResourceChip'
 import { CoinDisplay } from '../atoms/CoinDisplay'
 import { useAuthStore } from '@/stores/authStore'
 import { signOut } from '@/services/auth'
+import { useProfile } from '@/hooks/useProfile'
+import { CURRENCY_KEYS } from '@/lib/currencies'
+import { RESOURCE_COLOR } from '@/lib/resources'
+
+// Registry-driven display order for the resource strip (mine resources, in registry order).
+const RESOURCE_ORDER = Object.keys(RESOURCE_COLOR)
+const PRIMARY_CURRENCY = CURRENCY_KEYS[0] // 'gold'
 
 const NAV = [
   { label: 'Missions', to: '/missions' },
@@ -18,14 +25,6 @@ const NAV = [
   { label: 'Transcendence', to: '/transcendence' },
   { label: 'Statistics', to: '/statistics' },
   { label: 'Design', to: '/design' }, // dev-only — remove before production
-]
-
-// Mock values for now — wired to a resources store/hook later.
-const HEADER_ORES = [
-  { label: 'Cu', value: 142 }, { label: 'Ag', value: 28 }, { label: 'Au', value: 5 }, { label: 'Pt', value: 0 },
-]
-const HEADER_MATERIALS = [
-  { label: 'Wd', value: 300 }, { label: 'Co', value: 64 }, { label: 'St', value: 120 }, { label: 'Br', value: 12 }, { label: 'Fe', value: 88 },
 ]
 
 function HeaderDivider() {
@@ -61,6 +60,13 @@ function UserMenu() {
 }
 
 export function GameHeader() {
+  const { data: profile } = useProfile()
+  const gold = profile?.currencies?.[PRIMARY_CURRENCY] ?? 0
+  // Registry order, but only resources the player actually owns (>0) — ADR-0018.
+  const ownedResources = RESOURCE_ORDER
+    .map((key) => ({ label: key, value: profile?.resources?.[key] ?? 0 }))
+    .filter((r) => r.value > 0)
+
   return (
     <header style={{
       position: 'sticky',
@@ -118,11 +124,9 @@ export function GameHeader() {
         background: 'linear-gradient(180deg, #0c0203 0%, #140405 100%)',
         boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.6)',
       }}>
-        {HEADER_ORES.map(r => <ResourceChip key={r.label} label={r.label} value={r.value} />)}
-        <HeaderDivider />
-        {HEADER_MATERIALS.map(r => <ResourceChip key={r.label} label={r.label} value={r.value} />)}
-        <HeaderDivider />
-        <CoinDisplay amount={1420} />
+        {ownedResources.map(r => <ResourceChip key={r.label} label={r.label} value={r.value} />)}
+        {ownedResources.length > 0 && <HeaderDivider />}
+        <CoinDisplay amount={gold} />
       </div>
     </header>
   )
