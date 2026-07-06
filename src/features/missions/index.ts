@@ -11,6 +11,5 @@ export { MissionDispatch } from './components/MissionDispatch'
 export { ClaimReward } from './components/ClaimReward'
 export { SAMPLE_CLAIM_WIN, SAMPLE_CLAIM_LOSS, type ClaimResultView } from './components/claimSamples'
 
-// Shared roster read (owned characters ⨯ defs ⨯ items → name/role/level + effective maxHp + busy).
-// Used by the infirmary too; promote to @/hooks if a third consumer appears.
-export { useRoster, type RosterMember } from './hooks'
+// The shared roster read now lives in @/hooks/useRoster (three consumers: missions, infirmary, gather) —
+// import it from there, not through this barrel.

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useRoster, type RosterMember } from '@/features/missions'
+import { useRoster, type RosterMember } from '@/hooks/useRoster'
 import { healCharacter } from '@/services/heal'
 import { RoleBadge } from '@/components/atoms/RoleBadge'
 import { PrimaryButton } from '@/components/atoms/Button'

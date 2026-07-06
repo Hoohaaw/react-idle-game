@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Avatar } from '../atoms/Avatar'
 import { IconSlot } from '../atoms/IconSlot'
 import { ProgressBar } from '../atoms/ProgressBar'
-import { PrimaryButton, DangerButton } from '../atoms/Button'
+import { PrimaryButton, SecondaryButton, DangerButton } from '../atoms/Button'
 import { StatusTag } from '../atoms/StatusTag'
 import { BonusTag } from '../atoms/BonusTag'
 import { useNow } from '../../hooks/useNow'
@@ -12,10 +12,10 @@ import { resourceHeaderStyle, mineRate } from '../../lib/resources'
 // A mine yields a fixed amount of one resource every interval while a character is
 // assigned, repeating indefinitely (uncapped, auto-banked). The timer loops toward
 // the next tick; the banked counter is what has accrued this session.
-export function MineCard({ resource, tier, intervalSec, yieldPerTick, gatherer, assignedSecAgo, bonus, onAssign, onStop }: {
+export function MineCard({ resource, tier, intervalSec, yieldPerTick, gatherer, assignedSecAgo, bonus, onAssign, onCollect, onStop }: {
   resource: string; tier: string; intervalSec: number; yieldPerTick: number
   gatherer?: string; assignedSecAgo?: number; bonus?: string
-  onAssign?: () => void; onStop?: () => void
+  onAssign?: () => void; onCollect?: () => void; onStop?: () => void
 }) {
   const active = assignedSecAgo !== undefined
   const [assignedAt] = useState(() => Date.now() - (assignedSecAgo ?? 0) * 1000)
@@ -76,7 +76,10 @@ export function MineCard({ resource, tier, intervalSec, yieldPerTick, gatherer, 
                 fontFamily: '"Consolas", ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', fontSize: 13,
                 color: 'var(--color-text-gold)',
               }}>⏱ {formatRemaining(remainingMs)}</span>
-              <DangerButton onClick={onStop}>Stop</DangerButton>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {onCollect && <SecondaryButton onClick={onCollect}>Collect</SecondaryButton>}
+                <DangerButton onClick={onStop}>Stop</DangerButton>
+              </div>
             </div>
           </>
         ) : (
