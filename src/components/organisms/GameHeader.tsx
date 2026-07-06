@@ -7,6 +7,7 @@ import { signOut } from '@/services/auth'
 const NAV = [
   { label: 'Missions', to: '/missions' },
   { label: 'Team', to: '/team' },
+  { label: 'Infirmary', to: '/infirmary' },
   { label: 'Mines', to: '/mines' },
   { label: 'Upgrading', to: '/upgrading' },
   { label: 'Shop', to: '/shop' },

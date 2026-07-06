@@ -24,7 +24,7 @@ import { ClassBadge } from '../components/atoms/ClassBadge'
 import { GameHeader } from '../components/organisms/GameHeader'
 import type { MissionDrops } from '../types/loot'
 import { LootTable } from '../components/organisms/LootTable'
-import { MissionDispatch, ClaimReward, MissionCard, ActiveMissionCard } from '@/features/missions'
+import { MissionDispatch, ClaimReward, SAMPLE_CLAIM_LOSS, MissionCard, ActiveMissionCard } from '@/features/missions'
 import { Modal } from '../components/organisms/Modal'
 import { MineCard } from '../components/molecules/MineCard'
 import { ActiveGatherCard } from '../components/molecules/ActiveGatherCard'
@@ -32,6 +32,9 @@ import { CharacterCard } from '../components/organisms/CharacterCard'
 import { useNow } from '../hooks/useNow'
 import { formatRemaining } from '../lib/time'
 import { resourceHeaderStyle } from '../lib/resources'
+
+// Frozen once at module load so the demo ActiveMissionCard countdowns are stable across re-renders.
+const DEMO_T0 = Date.now()
 
 export default function DesignPage() {
   const [modal, setModal] = useState<null | 'claim' | 'dispatch'>(null)
@@ -395,16 +398,19 @@ export default function DesignPage() {
       </Section>
 
       {/* ── CLAIM REWARD ─────────────────────── */}
-      <Section title="Claim Reward (Mission Complete)">
-        <ClaimReward />
+      <Section title="Claim Reward (Win / Loss)">
+        <Row>
+          <ClaimReward />
+          <ClaimReward result={SAMPLE_CLAIM_LOSS} />
+        </Row>
       </Section>
 
       {/* ── MISSION CARDS ────────────────────── */}
       <Section title="Mission Cards (Dashboard)">
         <Row>
-          <MissionCard name="Goblin Outpost" stage={3} coins={100} duration="3:00" dropCount={3} onSend={() => setModal('dispatch')} />
-          <ActiveMissionCard name="Frozen Pass" partySize={2} durationSec={90} startedSecAgo={45} />
-          <ActiveMissionCard name="Goblin Outpost" partySize={3} durationSec={30} startedSecAgo={30} onClaim={() => setModal('claim')} />
+          <MissionCard name="Goblin Outpost" stage={3} coins={100} xp={120} duration="3:00" dropCount={3} onSend={() => setModal('dispatch')} />
+          <ActiveMissionCard name="Frozen Pass" partySize={2} startedAt={DEMO_T0 - 45_000} endsAt={DEMO_T0 + 45_000} />
+          <ActiveMissionCard name="Goblin Outpost" partySize={3} startedAt={DEMO_T0 - 30_000} endsAt={DEMO_T0} onClaim={() => setModal('claim')} />
         </Row>
       </Section>
 

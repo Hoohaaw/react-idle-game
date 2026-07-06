@@ -399,6 +399,10 @@ verify_jwt = true
 [functions.mission-claim]
 verify_jwt = true
 
+# heal: fully restore a character's HP (infirmary; sets current_hp = null).
+[functions.heal]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

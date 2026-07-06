@@ -4,32 +4,15 @@ import { GoldDivider } from '@/components/atoms/GoldDivider'
 import { PrimaryButton } from '@/components/atoms/Button'
 import { SectionLabel } from '@/components/molecules/SectionLabel'
 import { RarityChancePill } from '@/components/molecules/RarityChancePill'
-import type { DropItem } from '@/types/loot'
 import { RoleBadge } from '@/components/atoms/RoleBadge'
-import { resolveRole, type CharacterRole } from '@/lib/roles'
+import { resolveRole } from '@/lib/roles'
+import {
+  SAMPLE_DISPATCH_MISSION,
+  SAMPLE_DISPATCH_ROSTER,
+  type DispatchMission,
+  type DispatchChar,
+} from './dispatchSamples'
 
-// Mock data for the prototype — replaced by real mission + roster data later.
-const DISPATCH_MISSION: { name: string; stage: number; description: string; duration: string; xpPerChar: number; loot: DropItem[] } = {
-  name: 'Goblin Outpost',
-  stage: 3,
-  description: 'A ramshackle camp of goblin raiders harassing the eastern road. Clear them out and claim whatever they have hoarded away.',
-  duration: '3:00',
-  xpPerChar: 120,
-  loot: [
-    { name: 'Coif', slot: 'Head', chances: [{ rarity: 'Common', chance: 90 }, { rarity: 'Uncommon', chance: 15 }] },
-    { name: 'Tattered Cloak', slot: 'Chest', chances: [{ rarity: 'Common', chance: 80 }, { rarity: 'Uncommon', chance: 10 }] },
-    { name: 'Bent Dagger', slot: 'Weapon', chances: [{ rarity: 'Common', chance: 70 }, { rarity: 'Uncommon', chance: 6 }] },
-  ],
-}
-
-type RosterChar = { id: string; name: string; class: string; level: number; statTotal: number; busy?: boolean; role?: CharacterRole }
-const DISPATCH_ROSTER: RosterChar[] = [
-  { id: 'r1', name: 'Lyra Swift', class: 'Rogue', level: 12, statTotal: 95 },
-  // Demo of ADR-0008: a Death Knight (tank by class) authored as a Damage dealer.
-  { id: 'r2', name: 'Alexandros Mograine', class: 'Death Knight', level: 24, statTotal: 180, role: 'damage' },
-  { id: 'r3', name: 'Fandral Staghelm', class: 'Druid', level: 9, statTotal: 70, busy: true },
-  { id: 'r4', name: 'Sally Whitemane', class: 'Priest', level: 15, statTotal: 120 },
-]
 const MAX_PARTY = 3
 
 function InfoStat({ label, value }: { label: string; value: string }) {
@@ -45,7 +28,17 @@ function InfoStat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function CharacterTile({ char, selected, disabled, onToggle }: { char: RosterChar; selected: boolean; disabled?: boolean; onToggle: () => void }) {
+function RewardRow({ label, pct }: { label: string; pct: number }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>{label}</span>
+      <span style={{ color: 'var(--color-text-gold)', fontSize: '12px', fontWeight: 'bold' }}>+{pct.toFixed(1)}%</span>
+    </div>
+  )
+}
+
+function CharacterTile({ char, selected, disabled, onToggle }: { char: DispatchChar; selected: boolean; disabled?: boolean; onToggle: () => void }) {
+  const note = char.busy ?? (char.downed ? 'Downed' : null)
   return (
     <button
       type="button"
@@ -73,9 +66,9 @@ function CharacterTile({ char, selected, disabled, onToggle }: { char: RosterCha
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ color: 'var(--color-text-primary)', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{char.name}</p>
         <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '0.5px' }}>
-          {char.class} · Lv {char.level}{char.busy ? ' · On mission' : ` · ${char.statTotal} pts`}
+          {char.charClass} · Lv {char.level}{note ? ` · ${note}` : ''}
         </p>
-        <div style={{ marginTop: '5px' }}><RoleBadge role={resolveRole(char.class, char.role)} size="sm" /></div>
+        <div style={{ marginTop: '5px' }}><RoleBadge role={resolveRole(char.charClass, char.role)} size="sm" /></div>
       </div>
       <span style={{
         width: 18, height: 18, flexShrink: 0, borderRadius: '50%',
@@ -89,17 +82,34 @@ function CharacterTile({ char, selected, disabled, onToggle }: { char: RosterCha
   )
 }
 
-export function MissionDispatch() {
-  const [selected, setSelected] = useState<string[]>(['r2'])
+export function MissionDispatch({
+  mission = SAMPLE_DISPATCH_MISSION,
+  roster = SAMPLE_DISPATCH_ROSTER,
+  transcendenceCount = 1,
+  pending = false,
+  error = null,
+  onDispatch,
+}: {
+  mission?: DispatchMission
+  roster?: DispatchChar[]
+  transcendenceCount?: number
+  pending?: boolean
+  error?: string | null
+  onDispatch?: (party: string[]) => void
+}) {
+  const [selected, setSelected] = useState<string[]>([])
   const toggle = (id: string) =>
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : (prev.length >= MAX_PARTY ? prev : [...prev, id]))
 
-  const party = DISPATCH_ROSTER.filter(c => selected.includes(c.id))
-  const combinedStat = party.reduce((sum, c) => sum + c.statTotal, 0)
-  const statBonus = combinedStat * 0.1                    // % from summed stat points (0.1%/pt)
-  const partyBonus = Math.max(0, party.length - 1) * 10   // % from party size (+10% per extra char)
-  // Multiplicative: each bonus is its own independent multiplier.
-  const totalPct = ((1 + statBonus / 100) * (1 + partyBonus / 100) - 1) * 100
+  const party = roster.filter(c => selected.includes(c.id))
+  // Reward pipeline (ADR-0012/0017), win-gated. Only the multipliers KNOWN before the fight are shown
+  // here; the combat margin (up to +50%) depends on how much HP the party keeps, so it's a range.
+  const avgLevel = party.length ? party.reduce((sum, c) => sum + c.level, 0) / party.length : 0
+  const levelBonus = avgLevel * 0.4                        // % — levelBonus = avgPartyLevel × 0.004
+  const partyBonus = Math.max(0, party.length - 1) * 10    // % — (partySize − 1) × 10%
+  const transcendenceBonus = transcendenceCount * 10       // % — transcendence_count × 10%
+  const knownPct = ((1 + levelBonus / 100) * (1 + partyBonus / 100) * (1 + transcendenceBonus / 100) - 1) * 100
+  const MARGIN_MAX = 50                                    // combat margin caps at +50% (a flawless win)
 
   return (
     <div style={{
@@ -114,27 +124,29 @@ export function MissionDispatch() {
         padding: '12px 16px', borderBottom: '2px solid var(--color-gold-dark)',
         background: 'linear-gradient(180deg, rgba(200,145,42,0.15) 0%, rgba(200,145,42,0.04) 100%)',
       }}>
-        <p style={{ color: 'var(--color-gold-light)', fontSize: '17px', fontWeight: 'bold', letterSpacing: '0.5px', textShadow: '0 0 12px rgba(240,208,96,0.4)' }}>{DISPATCH_MISSION.name}</p>
-        <span style={{
-          color: 'var(--color-text-gold)', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase',
-          whiteSpace: 'nowrap', border: '1px solid var(--color-gold-dark)', borderRadius: '3px', padding: '3px 7px',
-        }}>Stage {DISPATCH_MISSION.stage}</span>
+        <p style={{ color: 'var(--color-gold-light)', fontSize: '17px', fontWeight: 'bold', letterSpacing: '0.5px', textShadow: '0 0 12px rgba(240,208,96,0.4)' }}>{mission.name}</p>
+        {mission.stage != null && (
+          <span style={{
+            color: 'var(--color-text-gold)', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase',
+            whiteSpace: 'nowrap', border: '1px solid var(--color-gold-dark)', borderRadius: '3px', padding: '3px 7px',
+          }}>Stage {mission.stage}</span>
+        )}
       </div>
 
       <div style={{ padding: '16px' }}>
         {/* Description */}
-        <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', lineHeight: 1.5, fontStyle: 'italic', marginBottom: '16px' }}>{DISPATCH_MISSION.description}</p>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', lineHeight: 1.5, fontStyle: 'italic', marginBottom: '16px' }}>{mission.description}</p>
 
         {/* Time + XP */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '18px' }}>
-          <InfoStat label="Duration" value={DISPATCH_MISSION.duration} />
-          <InfoStat label="XP each" value={`~${DISPATCH_MISSION.xpPerChar}`} />
+          <InfoStat label="Duration" value={mission.duration} />
+          <InfoStat label="Base XP" value={`${mission.baseXp}`} />
         </div>
 
         {/* Potential loot */}
         <SectionLabel>Potential Loot</SectionLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '18px' }}>
-          {DISPATCH_MISSION.loot.map(item => (
+          {mission.loot.map(item => (
             <div key={item.name} className="atom-heavy" style={{
               display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '4px',
               border: '2px solid var(--color-gold-dark)', background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
@@ -156,41 +168,52 @@ export function MissionDispatch() {
         {/* Party selection */}
         <SectionLabel>Select Party — {selected.length}/{MAX_PARTY}</SectionLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
-          {DISPATCH_ROSTER.map(c => {
+          {roster.map(c => {
             const isSelected = selected.includes(c.id)
+            const unavailable = Boolean(c.busy) || Boolean(c.downed)
             return (
               <CharacterTile
                 key={c.id}
                 char={c}
                 selected={isSelected}
-                disabled={c.busy || (!isSelected && selected.length >= MAX_PARTY)}
+                disabled={unavailable || (!isSelected && selected.length >= MAX_PARTY)}
                 onToggle={() => toggle(c.id)}
               />
             )
           })}
+          {roster.length === 0 && (
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', fontStyle: 'italic', textAlign: 'center', padding: '8px 0' }}>
+              No available characters — recruit or free up your party.
+            </p>
+          )}
         </div>
 
         <div style={{ margin: '0 0 14px' }}><GoldDivider /></div>
 
-        {/* Reward breakdown (multiplicative) */}
+        {/* Reward breakdown — win-gated pipeline (ADR-0012/0017): known multipliers + a margin range */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Stat bonus</span>
-            <span style={{ color: 'var(--color-text-gold)', fontSize: '12px', fontWeight: 'bold' }}>+{statBonus.toFixed(1)}%</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>
-              Party size{party.length > 0 ? ` (×${party.length})` : ''}
-            </span>
-            <span style={{ color: 'var(--color-text-gold)', fontSize: '12px', fontWeight: 'bold' }}>+{partyBonus.toFixed(1)}%</span>
-          </div>
+          <RewardRow label={`Level bonus (avg Lv ${avgLevel ? avgLevel.toFixed(0) : '—'})`} pct={levelBonus} />
+          <RewardRow label={`Party size${party.length > 0 ? ` (×${party.length})` : ''}`} pct={partyBonus} />
+          {transcendenceBonus > 0 && <RewardRow label={`Transcendence (×${transcendenceCount})`} pct={transcendenceBonus} />}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '7px', borderTop: '1px solid var(--color-gold-dark)' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Total rewards</span>
-            <span style={{ color: 'var(--color-success)', fontSize: '16px', fontWeight: 'bold', textShadow: '0 0 8px rgba(74,140,63,0.4)' }}>+{totalPct.toFixed(1)}%</span>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Guaranteed multipliers</span>
+            <span style={{ color: 'var(--color-text-gold)', fontSize: '13px', fontWeight: 'bold' }}>+{knownPct.toFixed(1)}%</span>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>
+              Combat margin <span style={{ fontStyle: 'italic', opacity: 0.75 }}>(win-dependent)</span>
+            </span>
+            <span style={{ color: 'var(--color-success)', fontSize: '14px', fontWeight: 'bold', textShadow: '0 0 8px rgba(74,140,63,0.4)' }}>+0 – {MARGIN_MAX}%</span>
+          </div>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', fontStyle: 'italic', marginTop: '2px', lineHeight: 1.4 }}>
+            Rewards are granted only on a win. The combat margin scales with how much HP the party keeps.
+          </p>
         </div>
-        <PrimaryButton fullWidth disabled={selected.length === 0}>
-          {selected.length === 0 ? 'Select a character' : `Send Party (${selected.length})`}
+        {error && (
+          <p style={{ color: '#e0635c', fontSize: '11px', textAlign: 'center', marginBottom: '8px' }}>{error}</p>
+        )}
+        <PrimaryButton fullWidth disabled={selected.length === 0 || pending} onClick={() => onDispatch?.(selected)}>
+          {pending ? 'Sending…' : selected.length === 0 ? 'Select a character' : `Send Party (${selected.length})`}
         </PrimaryButton>
       </div>
     </div>

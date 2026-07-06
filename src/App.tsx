@@ -3,6 +3,7 @@ import { GameLayout } from './components/templates/GameLayout'
 import { RequireAuth } from '@/features/auth'
 import DesignPage from './pages/DesignPage'
 import { MissionsPage } from '@/features/missions'
+import { InfirmaryPage } from '@/features/infirmary'
 import TeamPage from './pages/TeamPage'
 import MinesPage from './pages/MinesPage'
 import UpgradingPage from './pages/UpgradingPage'
@@ -25,6 +26,7 @@ export default function App() {
         {/* Game pages — share the global header via GameLayout */}
         <Route element={<GameLayout />}>
           <Route path="/missions" element={<MissionsPage />} />
+          <Route path="/infirmary" element={<InfirmaryPage />} />
           <Route path="/team" element={<TeamPage />} />
           <Route path="/mines" element={<MinesPage />} />
           <Route path="/upgrading" element={<UpgradingPage />} />

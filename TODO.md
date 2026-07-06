@@ -10,6 +10,20 @@ full picture, so a review (even an unattended one) can give a *qualified* propos
 > plain-language definition + technical description + how-to. **Advisory only; it never implements.**
 > See memory `feedback-todo-schedule-workflow`.
 
+## ✅ Milestone — mission→combat→claim→heal loop LIVE (2026-07-05)
+The core gameplay cycle is built, deployed (hosted), and browser-verified end-to-end. See
+[ARCHITECTURE.md §5.3](./docs/ARCHITECTURE.md#53-the-mission--combat--claim--heal-loop--built--verified-hosted)
+and ADRs 0012–0017. Done since the sections below were written:
+- **Backend hosted** (`nqaitmbwmuwpnpqatsfs`): auth, `recruit`, `mission-start`, `mission-claim`,
+  `heal` Edge Functions; `start_mission`/`claim_mission` atomic RPCs; `player_characters.current_hp`.
+- **Combat**: sim (`src/lib/combat.ts`) + gear-aware stat/reward engine; mission/item/loot Sanity schema.
+- **UI (PR #14, open)**: MissionsPage (dispatch + active runs + claim) + InfirmaryPage, wired live;
+  `/design` keeps mock prototypes.
+
+**Next in this flow (not yet built):** heal cost/rate/capacity; feed real `transcendence_count`
+(profile hook); gather start/claim loop; transcendence flow; balance combat constants + loot odds;
+character sprite art. Older open items below may be stale — trust the milestone + ARCHITECTURE.md §5.3.
+
 ## Backend (Supabase)
 - [ ] First Edge Function (recruit / level-up) — the server-authoritative write path
   `↳ context: project-data-architecture, project-tech-stack · supabase/functions/, src/lib/supabase.ts`

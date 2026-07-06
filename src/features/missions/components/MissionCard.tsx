@@ -2,7 +2,10 @@ import { StatusTag } from '@/components/atoms/StatusTag'
 import { IconSlot } from '@/components/atoms/IconSlot'
 import { PrimaryButton } from '@/components/atoms/Button'
 
-export function MissionCard({ name, stage, coins, duration, dropCount, locked, onSend }: { name: string; stage: number; coins: number; duration: string; dropCount: number; locked?: boolean; onSend?: () => void }) {
+// A selectable available mission (maps to a Sanity missionDef). `coins`/`xp` are the BASE rewards
+// before the win-gated multipliers; `dropCount` = number of loot-table entries. `stage` is a display
+// tag for ordering/difficulty.
+export function MissionCard({ name, stage, coins, xp, duration, dropCount, locked, onSend }: { name: string; stage?: number; coins: number; xp: number; duration: string; dropCount: number; locked?: boolean; onSend?: () => void }) {
   return (
     <div style={{
       width: 250, borderRadius: 8,
@@ -18,18 +21,23 @@ export function MissionCard({ name, stage, coins, duration, dropCount, locked, o
         background: 'linear-gradient(180deg, rgba(200,145,42,0.15) 0%, rgba(200,145,42,0.04) 100%)',
       }}>
         <span style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.4)' }}>{name}</span>
-        {locked ? <StatusTag tone="locked">Locked</StatusTag> : <StatusTag tone="neutral">Stage {stage}</StatusTag>}
+        {locked
+          ? <StatusTag tone="locked">Locked</StatusTag>
+          : stage != null ? <StatusTag tone="neutral">Stage {stage}</StatusTag> : null}
       </div>
       <div style={{ padding: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <IconSlot size={16} /><span style={{ color: 'var(--color-text-gold)', fontSize: 13, fontWeight: 'bold' }}>{coins}</span>
           </span>
+          <span style={{ color: 'var(--color-xp)', fontSize: 12, fontWeight: 'bold' }}>{xp} XP</span>
           <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>⏱ {duration}</span>
         </div>
-        <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 12, fontStyle: 'italic' }}>{dropCount} possible drops</p>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 12, fontStyle: 'italic' }}>
+          {dropCount} possible drop{dropCount === 1 ? '' : 's'} · base rewards, before win bonuses
+        </p>
         {locked
-          ? <p style={{ color: 'var(--color-text-muted)', fontSize: 12, textAlign: 'center', padding: '9px 0' }}>🔒 Requires stage {stage}</p>
+          ? <p style={{ color: 'var(--color-text-muted)', fontSize: 12, textAlign: 'center', padding: '9px 0' }}>🔒 {stage != null ? `Requires stage ${stage}` : 'Locked'}</p>
           : <PrimaryButton fullWidth onClick={onSend}>Send Party</PrimaryButton>}
       </div>
     </div>

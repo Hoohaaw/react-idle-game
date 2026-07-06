@@ -162,6 +162,63 @@ GRANTs.** `*_def_id` columns are Sanity/config keys (loose refs validated server
 A character is in **at most one** activity at a time — enforced in Edge Functions (gather also has a
 per-table UNIQUE).
 
+> **Update (2026-07-05):** the backend is now **hosted** (project `nqaitmbwmuwpnpqatsfs`), not just local.
+> `player_characters` gained **`current_hp`** (int, nullable = full, `0` = downed; clamped `[0, maxHp]`
+> on read — [ADR-0013](./DECISIONS.md#adr-0013--combat-sim-v1--seeded-action-timeline-auto-battle-passive-stats-only)).
+
+---
+
+## 5.3 The mission → combat → claim → heal loop — **Built & verified (hosted)**
+
+The full gameplay cycle works end-to-end (verified in-browser 2026-07-05). ADRs
+[0012](./DECISIONS.md#adr-0012--combat-resolution--reward-model-auto-battle-sim-at-claim-win-gates-margin-scales)–[0017](./DECISIONS.md#adr-0017--mission-claim-v1-gear-in-the-sim-survivor-xp-item-rarity-scaling-mission-start).
+
+**The loop:** dispatch a party → real-world wait timer → **claim** (a seeded auto-battle sim resolves
+the fight) → on a win: scaled coins/resources + independent loot rolls + survivor XP; win or lose:
+per-character ending HP persists → damaged/**downed** characters recover at the **infirmary** → repeat.
+
+**Pieces:**
+- **Combat sim** — `src/lib/combat.ts`: pure, seeded (by `mission_run` id), action-timeline auto-battle
+  → `{ outcome, endingHp[], survivingHpPct }`. Deterministic, so the client can replay it. Constants in
+  a `COMBAT` header block (ADR-0015, first-pass). Unit-tested (`combat.test.ts`).
+- **Stat engine** — `src/lib/stats.ts`: `effectiveStats()` = level baselines + blessings + **gear**
+  (`RARITY_MULT` ×2/step, ADR-0017); `finalReward` = `base × (1+margin)(1+level)(1+party)(1+transcendence)`.
+- **RPCs** (`supabase/migrations/…_mission_rpcs.sql`, SECURITY DEFINER, service-role only):
+  `start_mission` (validate party owned/not-downed/not-busy/size, row-locked → insert run) and
+  `claim_mission` (apply the resolved outcome in one transaction; the **double-claim guard** = atomic
+  conditional `DELETE … WHERE now() ≥ ends_at` lives inside it).
+- **Edge Functions** (server-authoritative, ADR-0003):
+  - `mission-start` — resolves the authored duration from Sanity → `start_mission`.
+  - `mission-claim` — the resolver: fetch defs → effective stats (w/ gear) → run the sim → survivor XP +
+    scaled rewards + loot rolls → `claim_mission`. **Imports the pure `src/lib` engine directly** (ADR-0016);
+    deploy via the **Supabase CLI** (bundles cross-dir imports from disk — the MCP deploy won't).
+  - `heal` — infirmary: sets `current_hp = null` (= full). First-pass: instant + free.
+- **Content (Sanity)** — `missionDef` (encounter ref + `durationSeconds` + `baseXp` + `rewards[]` +
+  `loot[]`), `itemDef` (equip slot + base stat bonuses), `enemyDef`/`encounterDef`, `characterDef`.
+  All **drafts** for now ([content drafts-only]).
+- **App** — `src/services/{missions,items,heal,recruit,playerCharacters,characters}.ts`;
+  `src/features/missions/hooks.ts` (`useMissions`/`useMissionRuns`/`useRoster` + start/claim mutations);
+  pages `features/missions/MissionsPage` (dispatch + active runs + claim) and
+  `features/infirmary/InfirmaryPage` (heal). `/design` keeps unauthed mock prototypes; the live loop is
+  behind `RequireAuth` on `/missions` + `/infirmary`.
+
+**Reward specifics (ADR-0017):** XP → **survivors only, full `baseXp` each**, then scaled. Rates:
+`margin = survHP%×0.5`, `level = avgPartyLvl×0.004`, `party = (size−1)×0.10`, `transcendence = count×0.10`.
+Item rarity scaling **×2/step** (Common…Legendary = 1/2/4/8/16). All **first-pass, tunable**.
+
+**Failure path:** a lost fight (`party-wiped` / `timeout`) is fully surfaced — `ClaimReward` renders a
+**Defeat** variant (no rewards, reason line, per-character `DOWNED` HP bars, "heal at the infirmary"
+prompt); its footer button closes the modal via `onDone`. Both variants preview on `/design`. A character
+can also fall on a **win** (party wins with a member at 0 HP → Victory header, `DOWNED` bar). To exercise
+the loss path there's a deliberately brutal **test mission "Trial of Ruin"** (Sanity draft: `mission.trial-of-ruin`
+→ `enemy.bone-colossus`, HP 2000 / atk 45, 3s wait) — a guaranteed party-wipe for a low-level party
+(verified 200/200 seeds). Kept as a permanent testing aid, not shipping content.
+
+**First-pass / deferred:** infirmary heal-rate/cost/capacity (currently instant+free); `transcendence_count`
+not yet fed to dispatch/claim (passing `0` — needs a profile hook); no gather/transcendence loops yet;
+combat constants + loot odds unbalanced; character sprite art (avatars are placeholders); foregrounding a
+death on a *win* (currently only a small `DOWNED` bar under the Victory header).
+
 ---
 
 ## 6. Core engineering principles
