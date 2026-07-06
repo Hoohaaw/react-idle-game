@@ -206,9 +206,18 @@ per-character ending HP persists → damaged/**downed** characters recover at th
 `margin = survHP%×0.5`, `level = avgPartyLvl×0.004`, `party = (size−1)×0.10`, `transcendence = count×0.10`.
 Item rarity scaling **×2/step** (Common…Legendary = 1/2/4/8/16). All **first-pass, tunable**.
 
+**Failure path:** a lost fight (`party-wiped` / `timeout`) is fully surfaced — `ClaimReward` renders a
+**Defeat** variant (no rewards, reason line, per-character `DOWNED` HP bars, "heal at the infirmary"
+prompt); its footer button closes the modal via `onDone`. Both variants preview on `/design`. A character
+can also fall on a **win** (party wins with a member at 0 HP → Victory header, `DOWNED` bar). To exercise
+the loss path there's a deliberately brutal **test mission "Trial of Ruin"** (Sanity draft: `mission.trial-of-ruin`
+→ `enemy.bone-colossus`, HP 2000 / atk 45, 3s wait) — a guaranteed party-wipe for a low-level party
+(verified 200/200 seeds). Kept as a permanent testing aid, not shipping content.
+
 **First-pass / deferred:** infirmary heal-rate/cost/capacity (currently instant+free); `transcendence_count`
 not yet fed to dispatch/claim (passing `0` — needs a profile hook); no gather/transcendence loops yet;
-combat constants + loot odds unbalanced; character sprite art (avatars are placeholders).
+combat constants + loot odds unbalanced; character sprite art (avatars are placeholders); foregrounding a
+death on a *win* (currently only a small `DOWNED` bar under the Victory header).
 
 ---
 

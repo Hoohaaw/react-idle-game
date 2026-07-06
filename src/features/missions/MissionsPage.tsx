@@ -198,7 +198,7 @@ export default function MissionsPage() {
 
       {/* Claim modal */}
       <Modal open={claimResult != null} onClose={() => setClaimResult(null)}>
-        {claimResult && <ClaimReward result={claimResult} />}
+        {claimResult && <ClaimReward result={claimResult} onDone={() => setClaimResult(null)} />}
       </Modal>
     </div>
   )

@@ -33,7 +33,7 @@ const REASON_TEXT: Record<ClaimResultView['reason'], string> = {
   timeout: 'Ran out of time',
 }
 
-export function ClaimReward({ result = SAMPLE_CLAIM_WIN }: { result?: ClaimResultView }) {
+export function ClaimReward({ result = SAMPLE_CLAIM_WIN, onDone }: { result?: ClaimResultView; onDone?: () => void }) {
   const win = result.outcome === 'win'
   const multiplier = result.bonuses.reduce((m, b) => m * (1 + b.pct / 100), 1)
   const finalCoins = Math.round(result.baseCoins * multiplier)
@@ -167,7 +167,7 @@ export function ClaimReward({ result = SAMPLE_CLAIM_WIN }: { result?: ClaimResul
 
         <div style={{ margin: '16px 0 12px' }}><GoldDivider /></div>
 
-        <PrimaryButton fullWidth>{win ? 'Claim Rewards' : 'Return to Base'}</PrimaryButton>
+        <PrimaryButton fullWidth onClick={onDone}>{win ? 'Claim Rewards' : 'Return to Base'}</PrimaryButton>
       </div>
     </div>
   )
