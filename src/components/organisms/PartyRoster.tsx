@@ -10,7 +10,7 @@ export type RosterCharacter = {
   name: string
   charClass: string
   level: number
-  activity: 'idle' | 'mission' | 'gather'
+  activity: 'idle' | 'mission' | 'gather' | 'infirmary'
   detail?: string // mission name or resource being gathered
   role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
 }
@@ -35,8 +35,14 @@ export function PartyRoster({ characters, selectedId, onSelect }: {
 
 function RosterRow({ char, selected, onSelect }: { char: RosterCharacter; selected: boolean; onSelect: (id: string) => void }) {
   const free = char.activity === 'idle'
-  const status = free ? 'Available' : char.activity === 'mission' ? 'On Mission' : 'Gathering'
-  const detailIcon = char.activity === 'mission' ? '⚔' : char.activity === 'gather' ? '⛏' : ''
+  const status = free
+    ? 'Available'
+    : char.activity === 'mission'
+      ? 'On Mission'
+      : char.activity === 'gather'
+        ? 'Gathering'
+        : 'In Infirmary'
+  const detailIcon = char.activity === 'mission' ? '⚔' : char.activity === 'gather' ? '⛏' : char.activity === 'infirmary' ? '✚' : ''
   const borderColor = selected ? 'var(--color-gold-light)' : free ? 'var(--color-gold-mid)' : 'var(--color-gold-dark)'
 
   return (

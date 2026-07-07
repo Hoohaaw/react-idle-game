@@ -977,3 +977,13 @@ expedition runs.
   (first-pass, tune like ADR-0015); still to define: the **stabilize formula** and **upgrade costs**.
 - Open questions list shrinks: infirmary mechanics → RESOLVED; remaining tuning (stabilize formula,
   upgrade cost table) joins the constants-balancing bucket.
+
+**Addendum (2026-07-08, implementation).** Built as `feature/infirmary`. Remaining first-pass constants
+set (tune like ADR-0015): **stabilize = ceil(charLevel × 30s ÷ infirmaryLevel)**; **upgrade costs** are a
+PROVISIONAL gold+resource table living in `src/lib/infirmary.ts` (L2 100g+50 Wood → L5 2000g+600 Wood+
+400 Copper+250 Iron), to be retuned with the gather-economy pass. Implementation notes: admissions live in
+`infirmary_admissions` (one row per admitted character, `admitted_at` + `hp_at_admission` only — HP is
+derived); RPCs `admit_infirmary` / `discharge_infirmary` / `upgrade_infirmary`; `start_mission` and
+`start_gather` gained an in-infirmary busy check; an upgrade atomically SETTLES active admissions
+(healing chars bank derived HP; stabilizing chars keep their elapsed fraction of the shorter window).
+The placeholder instant-heal `heal` Edge Function is removed.

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMissionRuns } from '@/services/missions'
 import { fetchOwnedCharacters, fetchGatherCharacterIds } from '@/services/playerCharacters'
+import { fetchAdmissions } from '@/services/infirmary'
 import { fetchItemDefBonuses } from '@/services/items'
 import { fetchCharacterDefs } from '@/services/characters'
 import { effectiveStats } from '@/lib/stats'
@@ -26,6 +27,9 @@ function useItemDefs() {
 function useGatherCharacterIds() {
   return useQuery({ queryKey: ['gatherCharacterIds'], queryFn: fetchGatherCharacterIds })
 }
+function useInfirmaryAdmissions() {
+  return useQuery({ queryKey: ['infirmaryAdmissions'], queryFn: fetchAdmissions })
+}
 function useCharacterDefs() {
   return useQuery({ queryKey: ['characterDefs'], queryFn: fetchCharacterDefs })
 }
@@ -43,7 +47,7 @@ export type RosterMember = {
   xp: number
   maxHp: number
   currentHp: number | null
-  busy: 'mission' | 'gathering' | null
+  busy: 'mission' | 'gathering' | 'infirmary' | null
 }
 
 export function useRoster() {
@@ -52,12 +56,14 @@ export function useRoster() {
   const items = useItemDefs()
   const runs = useMissionRuns()
   const gather = useGatherCharacterIds()
+  const admissions = useInfirmaryAdmissions()
 
   const roster = useMemo<RosterMember[]>(() => {
     if (!owned.data || !defs.data || !items.data) return []
     const defByKey = new Map(defs.data.map((d) => [d.charKey, d]))
     const onMission = new Set((runs.data ?? []).flatMap((r) => r.party))
     const gathering = new Set(gather.data ?? [])
+    const admitted = new Set((admissions.data ?? []).map((a) => a.player_character_id))
 
     return owned.data.flatMap((c) => {
       const def = defByKey.get(c.characterDefId)
@@ -80,10 +86,16 @@ export function useRoster() {
         xp: c.xp,
         maxHp: Math.max(1, Math.round(stats.health ?? 0)),
         currentHp: c.currentHp,
-        busy: gathering.has(c.id) ? 'gathering' : onMission.has(c.id) ? 'mission' : null,
+        busy: gathering.has(c.id)
+          ? 'gathering'
+          : onMission.has(c.id)
+            ? 'mission'
+            : admitted.has(c.id)
+              ? 'infirmary'
+              : null,
       }]
     })
-  }, [owned.data, defs.data, items.data, runs.data, gather.data])
+  }, [owned.data, defs.data, items.data, runs.data, gather.data, admissions.data])
 
   return {
     roster,

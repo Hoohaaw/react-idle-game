@@ -399,8 +399,16 @@ verify_jwt = true
 [functions.mission-claim]
 verify_jwt = true
 
-# heal: fully restore a character's HP (infirmary; sets current_hp = null).
-[functions.heal]
+# infirmary-admit / -discharge / -upgrade: the infirmary loop (ADR-0021) — admit a damaged
+# character to a bed, settle a heal on discharge, buy the next infirmary level. All import the
+# shared engine from src/lib (bundled from disk like mission-claim).
+[functions.infirmary-admit]
+verify_jwt = true
+
+[functions.infirmary-discharge]
+verify_jwt = true
+
+[functions.infirmary-upgrade]
 verify_jwt = true
 
 [analytics]
