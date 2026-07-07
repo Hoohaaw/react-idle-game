@@ -197,7 +197,8 @@ per-character ending HP persists → damaged/**downed** characters recover at th
   `loot[]`), `itemDef` (equip slot + base stat bonuses), `enemyDef`/`encounterDef`, `characterDef`.
   All **drafts** for now ([content drafts-only]).
 - **App** — `src/services/{missions,items,heal,recruit,playerCharacters,characters}.ts`;
-  `src/features/missions/hooks.ts` (`useMissions`/`useMissionRuns`/`useRoster` + start/claim mutations);
+  `src/features/missions/hooks.ts` (`useMissions` + start/claim mutations) with the shared
+  `useRoster`/`useMissionRuns` promoted to `@/hooks/useRoster` (used by missions, infirmary, gather);
   pages `features/missions/MissionsPage` (dispatch + active runs + claim) and
   `features/infirmary/InfirmaryPage` (heal). `/design` keeps unauthed mock prototypes; the live loop is
   behind `RequireAuth` on `/missions` + `/infirmary`.
@@ -215,9 +216,29 @@ the loss path there's a deliberately brutal **test mission "Trial of Ruin"** (Sa
 (verified 200/200 seeds). Kept as a permanent testing aid, not shipping content.
 
 **First-pass / deferred:** infirmary heal-rate/cost/capacity (currently instant+free); `transcendence_count`
-not yet fed to dispatch/claim (passing `0` — needs a profile hook); no gather/transcendence loops yet;
+not yet fed to dispatch/claim (passing `0` — needs a profile hook); no transcendence loop yet;
 combat constants + loot odds unbalanced; character sprite art (avatars are placeholders); foregrounding a
 death on a *win* (currently only a small `DOWNED` bar under the Victory header).
+
+## 5.4 The gathering loop — **Built & verified (hosted)**
+
+The mines are the continuous resource *faucet*, mirroring the mission server pattern. See
+[ADR-0019](./DECISIONS.md#adr-0019--gathering-loop-continuous-accrual-code-registry-mine-config-startcollect-rpcs).
+
+- **Config (`src/lib/gather.ts`)** — a pure, Deno-safe registry: `MINE_DEFS` (9 mines, `intervalSec`/
+  `yieldPerTick`, `resourceKey` = full resource-registry names) + `accrue(elapsedMs, interval, yield) →
+  { gained, consumedSec }`. Single source of truth, imported by client **and** Edge Functions.
+- **RPCs** (`…_gather_rpcs.sql`, SECURITY DEFINER, service-role only): `start_gather` (validate character
+  owned/not-downed/not-busy/**one-gatherer-per-node**, row-locked → insert) and `collect_gather` (credit
+  `p_gained` into `profiles.resources`, advance `last_collected_at`, delete on stop — atomic).
+- **Edge Functions** — `gather-start` (assign) and `gather-collect` (compute accrual via `gather.ts` →
+  `collect_gather`; `stop:true` = collect + free). Config is code, so no Sanity fetch; deploy via the
+  Supabase CLI (bundles `src/lib/gather.ts`).
+- **App** — `src/services/gather.ts` + `features/gather/` (`GatherPage` composes the shared `MineCard`/
+  `ActiveGatherCard` against real assignments + `useRoster`; `MineCard` gained an optional `onCollect`).
+  Continuous, uncapped, offline-safe: only whole ticks pay out, the sub-tick remainder carries over.
+- **Deferred:** gather **specialization** (blessing speed/yield bonuses — the ⚡ `BonusTag` stays visual),
+  offline caps, multiple gatherers per node, interval/yield rebalance.
 
 ---
 

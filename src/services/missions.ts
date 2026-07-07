@@ -1,7 +1,7 @@
-import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { sanity } from './sanity'
 import type { Tables } from '@/types/database.types'
+import { invokeError } from './_invoke'
 
 // The Missions data layer:
 //  - AUTHORED content (missions + their loot tables) is read from Sanity (drafts perspective).
@@ -92,14 +92,6 @@ export async function fetchMissionRuns(): Promise<MissionRun[]> {
 }
 
 // ---- Writes via Edge Functions ----------------------------------------------------------------
-
-async function invokeError(error: unknown, fallback: string): Promise<never> {
-  if (error instanceof FunctionsHttpError) {
-    const body = await error.context.json().catch(() => null)
-    throw new Error(body?.error ?? fallback)
-  }
-  throw error
-}
 
 export async function startMission(missionDefId: string, party: string[]): Promise<MissionRun> {
   const { data, error } = await supabase.functions.invoke('mission-start', {

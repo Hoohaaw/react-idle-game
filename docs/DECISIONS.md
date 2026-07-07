@@ -810,3 +810,59 @@ registry key.
 - Missions actually surface resource flow to the player (Crypt Clearing → Iron → header chip).
 - Deferred: short-form resource labels (currently full names), a dedicated wallet/inventory currency panel
   beyond the header, and the monster-materials resource category.
+
+---
+
+## ADR-0019 — Gathering loop: continuous accrual, code-registry mine config, start/collect RPCs
+**Date:** 2026-07-07 · **Status:** Accepted
+
+**Context.** The Mines were the game's main resource *faucet* but entirely mock (`src/pages/MinesPage.tsx`
+was local state over hardcoded data). The `gather_assignments` table already existed
+(20260612180001_activities.sql) and its comment specified the model: a character continuously gathers a
+resource; an Edge Function credits `floor((now − last_collected_at)/interval) × yield_per_tick` on
+collect/stop and advances `last_collected_at` by the consumed ticks (remainder carries over). This ADR wires
+that end to end, reusing the mission server pattern (ADR-0016/0017).
+
+**Decision.**
+
+**A. Mine config lives in code (`src/lib/gather.ts`), not Sanity.** A pure, Deno-safe registry (`MINE_DEFS`
+= 9 mines with `intervalSec`/`yieldPerTick`, seeded from the carried GATHER_CONFIG values; `resourceKey` =
+full resource-registry names so credited wallet keys line up) + a pure `accrue(elapsedMs, interval, yield)
+→ { gained, consumedSec }`. Imported by BOTH the client (display) and the Edge Functions (accrual) — single
+source of truth, like `combat.ts`. Chosen over a Sanity `mineDef` schema: less machinery, pairs with the
+resource registry, and these are balance constants that tune in one tested file.
+
+**B. Continuous, uncapped, offline-safe accrual.** Only whole ticks pay out; the sub-tick remainder is
+preserved by advancing `last_collected_at` by exactly `consumedSec` (a value derived from the OLD timestamp,
+never `now()` → no read/apply race). A mine left running while the player is away banks the whole elapsed
+time on next collect. No offline cap in v1.
+
+**C. Two `SECURITY DEFINER` RPCs (service-role only), mirroring the mission RPCs.** `start_gather` validates
+the character (owned / not-downed / not on a mission / not already gathering / **one gatherer per resource
+node** — v1, matches the UI) under a row lock and inserts. `collect_gather` credits `p_gained` into
+`profiles.resources[resource]`, sets `last_collected_at = p_new_last_collected_at`, and (if `p_stop`) deletes
+the assignment to free the character — atomic. The accrual math runs in TS (`gather.ts`) and is passed in;
+the RPC owns atomicity, not the game rule. Two Edge Functions (`gather-start`, `gather-collect`) provide the
+auth shell + accrual; neither needs Sanity (config is code); deployed via the Supabase CLI (bundles
+`src/lib/gather.ts`).
+
+**D. Client: migrated Mines to `src/features/gather/`** (ADR-0010 "migrate when next touched") — `GatherPage`
+composes the shared `MineCard`/`ActiveGatherCard` molecules against real `gather_assignments` + `useRoster`.
+Added an optional `onCollect` to `MineCard` (a Collect button that banks without stopping; Stop = collect +
+free). Cards key on `last_collected_at` so the banked-since-collect display resets on collect.
+
+**E. Promoted `useRoster` (+ its sub-hooks) to `@/hooks/useRoster`.** Three consumers now (missions,
+infirmary, gather) — features share it from `@/hooks` rather than reaching through the missions barrel.
+
+**Verification (hosted, end-to-end).** Throwaway user + character: `gather-start` created an assignment;
+a second assign returned "already gathering"; a direct client `rpc('start_gather')` returned **403**
+(lockdown holds). Backdated 100s → `gather-collect` banked exactly 5 Wood ticks (**+20**, wallet `{Wood:20}`),
+advanced `last_collected_at` keeping the remainder, assignment persisted; `stop:true` banked the remainder
+(**+8 → 28**) and deleted the assignment (character freed). Advisors clean.
+
+**Consequences.**
+- Resources now flow from BOTH missions and mines into the wallet the header displays.
+- Adding a mine/resource stays a one-line code change (registry + JSONB wallet, no migration).
+- Deferred (unchanged): gather **specialization** (blessing speed/yield bonuses, resource specialists — the
+  ⚡ BonusTag stays visual), offline caps, multiple gatherers per node, and rebalancing the interval/yield
+  values for the continuous model.

@@ -4,8 +4,8 @@ import { RequireAuth } from '@/features/auth'
 import DesignPage from './pages/DesignPage'
 import { MissionsPage } from '@/features/missions'
 import { InfirmaryPage } from '@/features/infirmary'
+import { GatherPage } from '@/features/gather'
 import TeamPage from './pages/TeamPage'
-import MinesPage from './pages/MinesPage'
 import UpgradingPage from './pages/UpgradingPage'
 import ShopPage from './pages/ShopPage'
 import InventoryPage from './pages/InventoryPage'
@@ -28,7 +28,7 @@ export default function App() {
           <Route path="/missions" element={<MissionsPage />} />
           <Route path="/infirmary" element={<InfirmaryPage />} />
           <Route path="/team" element={<TeamPage />} />
-          <Route path="/mines" element={<MinesPage />} />
+          <Route path="/mines" element={<GatherPage />} />
           <Route path="/upgrading" element={<UpgradingPage />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/inventory" element={<InventoryPage />} />
