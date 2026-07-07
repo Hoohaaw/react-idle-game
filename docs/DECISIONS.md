@@ -916,3 +916,54 @@ ahead of implementation, so intermediate systems are shaped for it rather than r
   expedition reward model vs. the mission pipeline (margin/level bonuses per encounter or per run?), and how
   infirmary economics price a failed deep run.
 - No implementation work is scheduled by this ADR; the mission-claim/core-loop roadmap is unchanged.
+
+---
+
+## ADR-0021 — Infirmary v1: leveled recovery building (beds + HP/s), stabilize phase for downed characters
+**Date:** 2026-07-07 · **Status:** Accepted (design; implementation after the core claim loop)
+
+**Context.** HP persists between missions and there is no out-of-combat regen (ADR-0013); a character at
+0 HP is downed. That design deliberately created stakes but left the recovery mechanism as an open question
+("infirmary mechanics"). Separately, the economy has a known resource-sink gap: gathered resources (ADR-0019)
+flow in with nothing to spend them on. ADR-0020 also gave the infirmary a future job: pricing failed deep
+expedition runs.
+
+**Decision. The infirmary is a player-level building that heals admitted characters over real time.**
+
+- **A. Leveling.** The infirmary has a level. Each level grants more **beds** (concurrent admission slots)
+  and a higher **HP/s regen rate per bed** (flat per bed, not shared). Level-ups cost
+  **gold + gathered resources** — this is the first real resource sink.
+- **B. Healing is compute-on-read (ADR-0002), settled server-side (ADR-0003).** Admission stores
+  `admitted_at` + HP at admission; current HP = `min(maxHp, hpAtAdmission + regenRate × elapsed)`. No tick
+  loop or cron. The client renders the projection live; the authoritative value is written only when an
+  **Edge Function** settles it (discharge, or any action that needs real HP). Admit / discharge / upgrade
+  are all Edge Function writes; beds cap enforced server-side.
+- **C. Downed characters stabilize first.** A character admitted at 0 HP enters a **stabilize phase**
+  (no regen) before healing begins. Stabilize duration **scales with the character's level** and is
+  **reduced by infirmary level** — death stays meaningful at endgame and upgrading visibly helps. After
+  stabilize, regen runs normally from 0 (no free HP chunk; full recovery = stabilize time + full heal time).
+- **D. Admission is exclusive.** An admitted character is unavailable — a new **In Infirmary** state in the
+  shared roster availability model (alongside Available / On Mission / Gathering). Early discharge is
+  allowed (partial heal, settled at discharge).
+- **E. UI contract.** The infirmary page shows the **entire roster** with current HP; per character a
+  projection of what admission gives ("full in 14m", downed → "stabilize 8m, then heal 22m"); occupied
+  beds with live progress; and an **upgrade panel** showing current → next level (beds, HP/s, stabilize
+  reduction) with the resource cost, greyed until affordable.
+
+**Alternatives considered.**
+- *Slow passive regen everywhere* — rejected: erases the stakes ADR-0013 built; healing becomes waiting, not
+  a system.
+- *Consumable healing items as the primary mechanism* — rejected for v1: crafting isn't built, and
+  consumable pressure punishes exactly the failed-run moment. Possible later complement (crafted salves
+  speeding infirmary time).
+- *Pay-gold instant heal* — rejected: undermines the time cost that makes failure matter; revisit only if
+  wait times test as hostile.
+
+**Consequences.**
+- Gathered resources gain their first sink; infirmary economics become a knob for pricing failed
+  expeditions later (ADR-0020).
+- Needs (implementation, not scheduled by this ADR): an `infirmary_level` on the player row, admission
+  state (columns or a small table), three Edge Function actions, and level curves (beds/level, HP/s/level,
+  stabilize formula, upgrade costs) — first-pass constants to be tuned like ADR-0015.
+- Open questions list shrinks: infirmary mechanics → RESOLVED; remaining tuning (curve values) joins the
+  constants-balancing bucket.
