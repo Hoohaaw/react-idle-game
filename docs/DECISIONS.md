@@ -866,3 +866,53 @@ advanced `last_collected_at` keeping the remainder, assignment persisted; `stop:
 - Deferred (unchanged): gather **specialization** (blessing speed/yield bonuses, resource specialists — the
   ⚡ BonusTag stays visual), offline caps, multiple gatherers per node, and rebalancing the interval/yield
   values for the continuous model.
+
+---
+
+## ADR-0020 — Genre direction: idle + roguelike hybrid (run-based "expeditions" as the retention layer)
+**Date:** 2026-07-07 · **Status:** Accepted (direction; implementation deferred)
+
+**Context.** The game to date is a pure idle/incremental RPG. Pure idle has a known retention weakness:
+between prestige resets the mid-game flattens into a progress line with no session-level goal, and in this
+genre retention *is* distribution (community word-of-mouth is the only channel an indie has). The market's
+current answer is the **roguelike-idle hybrid** — run-based variance for session engagement layered on idle
+accumulation for return visits (Capybara Go: $100M in <3 months; The Tower; Legend of Mushroom; the
+run-based-incremental wave on Steam). Meanwhile this codebase has, without aiming at it, already built the
+hard prerequisites: a **seeded, deterministic auto-battle sim** (ADR-0013/0015 — a run seed is a mission_run
+seed), **missions can fail + HP persists + downed-at-0** (run stakes exist), and **transcendence** as
+macro-prestige with room below it for run-scoped micro-progression.
+
+**Decision. The game's genre goal is an idle/incremental RPG WITH a roguelike run layer.** Recorded now,
+ahead of implementation, so intermediate systems are shaped for it rather than refactored into it.
+
+- **A. The idle loop stays the spine.** Missions, gathering, leveling, blessings, transcendence remain the
+  core contract: low-attention, always-progressing. The roguelike layer is an **opt-in session mode**, never
+  a gate on core progression — the audience chose an idle game because it respects their attention.
+- **B. The run shape (design target, not yet built): "expeditions".** Pick a party → chain N seeded
+  encounters → between encounters choose 1-of-3 **run-scoped boons** (temporary buffs/relics; they never
+  touch permanent progression, so no conflict with compute-on-read or the blessing trees) → **push-your-luck
+  depth**: deeper = better loot, but damage persists (`current_hp`) and a downed character is a real cost —
+  this is what finally gives the open infirmary question a job.
+- **C. Standing constraint on the combat/claim stack (the actionable part today):** the resolver is shaped
+  around **an encounter, not a mission** — a mission = 1 encounter resolved at claim; an expedition = N
+  encounters with choices between them. Server-authoritative choice points are Edge Function round-trips
+  (discrete, low-frequency — fine under ADR-0003); the seeded sim permits client-side preview with server
+  verify. Boons/relics are authored content → Sanity, same definition/instance split as everything else.
+- **D. Sequencing:** design on paper now; **build only after the core idle loop is shipped and playable**.
+  Content variety (the boon pool) is the real scope cost for a solo dev, not the code.
+
+**Alternatives considered.**
+- *Stay pure idle* — rejected: retention-limited at exactly the mid-game point where word-of-mouth is won or
+  lost; the hybrid is also the clearest differentiator vs. Melvor-style skilling loops.
+- *Full roguelike pivot* — rejected: breaks the low-attention contract with the idle audience; wrong game.
+- *Mobile gacha-idle live-ops model (the Capybara Go business)* — rejected: demands UA budget + live-ops
+  teams a solo dev doesn't have; we borrow its retention mechanic, not its monetization machine.
+
+**Consequences.**
+- The genre goal is now on record: **idle + roguelike**. Memory and docs state it even though no roguelike
+  feature exists yet; new-system design should check itself against B/C (e.g. the claim resolver's
+  encounter-vs-mission shape) before building.
+- New open questions join the undecided list: boon/relic design + pool size, run length & entry cost,
+  expedition reward model vs. the mission pipeline (margin/level bonuses per encounter or per run?), and how
+  infirmary economics price a failed deep run.
+- No implementation work is scheduled by this ADR; the mission-claim/core-loop roadmap is unchanged.
