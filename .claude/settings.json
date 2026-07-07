@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -10,7 +10,41 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/test-before-commit.sh"
+            "command": "bash .claude/hooks/guard-sanity-publish.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-commit-safety.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/test-before-commit.sh",
+            "timeout": 420,
+            "statusMessage": "Running lint, type-check and tests before commit..."
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__Sanity__publish_documents",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-sanity-publish.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/remind-migration-rls.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/warn-large-component.sh"
           }
         ]
       }
