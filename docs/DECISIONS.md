@@ -930,9 +930,19 @@ expedition runs.
 
 **Decision. The infirmary is a player-level building that heals admitted characters over real time.**
 
-- **A. Leveling.** The infirmary has a level. Each level grants more **beds** (concurrent admission slots)
-  and a higher **HP/s regen rate per bed** (flat per bed, not shared). Level-ups cost
-  **gold + gathered resources** — this is the first real resource sink.
+- **A. Leveling.** The infirmary has a level, **max level 5**. Each level grants more **beds** (concurrent
+  admission slots) and a higher **HP/s regen rate per bed** (flat per bed, not shared). Level-ups cost
+  **gold + gathered resources** — this is the first real resource sink. First-pass curve (beds = level):
+
+  | Level | Beds | HP/s per bed |
+  |---|---|---|
+  | 1 | 1 | 10 |
+  | 2 | 2 | 25 |
+  | 3 | 3 | 50 |
+  | 4 | 4 | 75 |
+  | 5 | 5 | 100 |
+
+  Upgrade **costs are deliberately not set yet** (need the gather-economy values first).
 - **B. Healing is compute-on-read (ADR-0002), settled server-side (ADR-0003).** Admission stores
   `admitted_at` + HP at admission; current HP = `min(maxHp, hpAtAdmission + regenRate × elapsed)`. No tick
   loop or cron. The client renders the projection live; the authoritative value is written only when an
@@ -963,7 +973,7 @@ expedition runs.
 - Gathered resources gain their first sink; infirmary economics become a knob for pricing failed
   expeditions later (ADR-0020).
 - Needs (implementation, not scheduled by this ADR): an `infirmary_level` on the player row, admission
-  state (columns or a small table), three Edge Function actions, and level curves (beds/level, HP/s/level,
-  stabilize formula, upgrade costs) — first-pass constants to be tuned like ADR-0015.
-- Open questions list shrinks: infirmary mechanics → RESOLVED; remaining tuning (curve values) joins the
-  constants-balancing bucket.
+  state (columns or a small table), and three Edge Function actions. Beds/HP-per-level are set above
+  (first-pass, tune like ADR-0015); still to define: the **stabilize formula** and **upgrade costs**.
+- Open questions list shrinks: infirmary mechanics → RESOLVED; remaining tuning (stabilize formula,
+  upgrade cost table) joins the constants-balancing bucket.
