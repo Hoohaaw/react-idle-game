@@ -3,14 +3,18 @@ import { Avatar } from '../atoms/Avatar'
 import { IconSlot } from '../atoms/IconSlot'
 import { ProgressBar } from '../atoms/ProgressBar'
 import { BonusTag } from '../atoms/BonusTag'
+import { DangerButton } from '../atoms/Button'
 import { useNow } from '../../hooks/useNow'
 import { formatRemaining } from '../../lib/time'
 import { resourceHeaderStyle } from '../../lib/resources'
 
 // Compact summary of one active gather (collector feed) — shows the resource, the
-// assigned character, the running banked total, and a looping countdown/bar to the next tick.
-export function ActiveGatherCard({ resource, gatherer, intervalSec, yieldPerTick, assignedSecAgo, bonus }: {
+// assigned character, the running banked total, and a looping countdown/bar to the next
+// tick. `onStop` cancels the gather (the server banks everything accrued, then frees
+// the character — same action as the mine card's Stop).
+export function ActiveGatherCard({ resource, gatherer, intervalSec, yieldPerTick, assignedSecAgo, bonus, onStop }: {
   resource: string; gatherer: string; intervalSec: number; yieldPerTick: number; assignedSecAgo: number; bonus?: string
+  onStop?: () => void
 }) {
   const [assignedAt] = useState(() => Date.now() - assignedSecAgo * 1000)
   const now = useNow()
@@ -58,6 +62,12 @@ export function ActiveGatherCard({ resource, gatherer, intervalSec, yieldPerTick
 
         {/* Looping progress to next tick */}
         <ProgressBar value={pct} label="" color="#c9922a" />
+
+        {onStop && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <DangerButton onClick={onStop}>Stop</DangerButton>
+          </div>
+        )}
       </div>
     </div>
   )

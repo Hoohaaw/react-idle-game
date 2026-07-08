@@ -81,6 +81,7 @@ export default function GatherPage() {
                 intervalSec={mine.intervalSec}
                 yieldPerTick={mine.yieldPerTick}
                 assignedSecAgo={secSince(assignment.last_collected_at)}
+                onStop={() => collectG.mutate({ assignmentId: assignment.id, stop: true })}
               />
             ))}
           </div>
