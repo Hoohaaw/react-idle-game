@@ -46,7 +46,8 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, rol
   return (
     <div style={{
       display: 'flex',
-      maxWidth: '760px',
+      width: '760px',
+      maxWidth: '100%',
       borderRadius: '8px',
       border: '3px solid var(--color-gold-mid)',
       background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
@@ -154,8 +155,10 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, rol
           ))}
         </div>
 
-        {/* Tab content */}
-        <div style={{ flex: 1, padding: '16px' }}>
+        {/* Tab content — fixed height so switching tabs never resizes the card; taller
+            content (e.g. many authored stats) scrolls instead. Tooltips portal to <body>,
+            so the scroll container can't clip them. */}
+        <div style={{ padding: '16px', height: '460px', overflowY: 'auto' }}>
           {tab === 'equipped' && <GearSlotGrid {...(gear ?? { slots: {} })} />}
           {tab === 'talents'  && <TalentsTab />}
           {tab === 'stats'    && <CharacterStats baseStats={baseStats} growth={growth} level={level} breakdown={statBreakdown} />}

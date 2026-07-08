@@ -203,19 +203,15 @@ body {
 }
 
 /* ── Tooltip ─────────────────────────────────────────── */
+/* The box is PORTALED to <body> and positioned (fixed, viewport-clamped) by the Tooltip
+   atom — CSS keeps only the look. --tooltip-arrow-left keeps the arrow on the trigger's
+   centre even when the box is clamped at a viewport edge. */
 .tooltip-wrap {
   position: relative;
-  z-index: 1;
-}
-.tooltip-wrap:hover {
-  z-index: 9999;
 }
 .tooltip-box {
   pointer-events: none;
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
   z-index: 9999;
   width: 220px;
   padding: 12px 14px;
@@ -228,16 +224,23 @@ body {
     inset 0 2px 6px rgba(0,0,0,0.6),
     0 0 20px rgba(200,140,30,0.2),
     0 8px 24px rgba(0,0,0,0.8);
-  /* Arrow */
+  /* Arrow (points down at the trigger when the box opens above it) */
   &::after {
     content: '';
     position: absolute;
     top: 100%;
-    left: 50%;
+    left: var(--tooltip-arrow-left, 50%);
     transform: translateX(-50%);
     border: 7px solid transparent;
     border-top-color: var(--color-gold-mid);
   }
+}
+/* Flipped variant: the box opens BELOW the trigger, arrow points up */
+.tooltip-box--below::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--color-gold-mid);
 }
 
 /* ── Header nav links ────────────────────────────────── */
