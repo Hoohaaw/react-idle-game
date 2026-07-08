@@ -9,6 +9,7 @@ import {
   collectGearBonuses,
   mergeBonuses,
   effectiveStats,
+  effectiveStatBreakdown,
   RARITY_MULT,
   REWARD_BONUS_PER_STAT_POINT,
   type StatGrowth,
@@ -202,6 +203,202 @@ describe('finalReward', () => {
   it('treats missing modifiers as 0 (no change)', () => {
     expect(finalReward(100)).toBe(100)
     expect(finalReward(100, { marginBonus: 0.5 })).toBe(150)
+  })
+})
+
+describe('effectiveStatBreakdown', () => {
+  // Shared base character data reused across cases
+  const baseStats = [{ stat: 'attack', value: 10 }, { stat: 'health', value: 100 }]
+  const growth: StatGrowth[] = [{ stat: 'attack', perLevel: 5 }]
+  const noGear: Record<string, EquippedItem> = {}
+  const noItemDefs: Record<string, ItemDefBonuses> = {}
+  const noAllocations: Record<string, number> = {}
+  const noNodes: BlessingNodeDef[] = []
+
+  it('base-only character: items and blessings are 0, total equals base for every stat', () => {
+    const breakdown = effectiveStatBreakdown({
+      level: 5,
+      baseStats,
+      growth,
+      blessingAllocations: noAllocations,
+      blessingNodes: noNodes,
+      equipped: noGear,
+      itemDefs: noItemDefs,
+    })
+    // attack baseline at level 5: 10 + 5×4 = 30
+    expect(breakdown.attack).toEqual({ base: 30, items: 0, blessings: 0, total: 30 })
+    // health has no growth → baseline stays at 100
+    expect(breakdown.health).toEqual({ base: 100, items: 0, blessings: 0, total: 100 })
+  })
+
+  it('gear flat bonus lands in items (Common rarity, ×1)', () => {
+    const equipped: Record<string, EquippedItem> = { weapon: { itemDefId: 'sword', rarity: 'Common' } }
+    const itemDefs: Record<string, ItemDefBonuses> = {
+      sword: { statBonuses: [{ stat: 'attack', kind: 'flat', value: 5 }] },
+    }
+    const breakdown = effectiveStatBreakdown({
+      level: 1,
+      baseStats: [{ stat: 'attack', value: 10 }],
+      growth: [],
+      blessingAllocations: noAllocations,
+      blessingNodes: noNodes,
+      equipped,
+      itemDefs,
+    })
+    // baseline at level 1 = 10; gear +5 flat at Common (×1)
+    expect(breakdown.attack.base).toBe(10)
+    expect(breakdown.attack.items).toBe(5)
+    expect(breakdown.attack.blessings).toBe(0)
+    expect(breakdown.attack.total).toBe(15)
+  })
+
+  it('rarity scaling: same flat bonus at Uncommon (×2) doubles items contribution', () => {
+    const itemDefs: Record<string, ItemDefBonuses> = {
+      sword: { statBonuses: [{ stat: 'attack', kind: 'flat', value: 5 }] },
+    }
+    const commonBreakdown = effectiveStatBreakdown({
+      level: 1,
+      baseStats: [{ stat: 'attack', value: 10 }],
+      growth: [],
+      blessingAllocations: noAllocations,
+      blessingNodes: noNodes,
+      equipped: { weapon: { itemDefId: 'sword', rarity: 'Common' } },
+      itemDefs,
+    })
+    const uncommonBreakdown = effectiveStatBreakdown({
+      level: 1,
+      baseStats: [{ stat: 'attack', value: 10 }],
+      growth: [],
+      blessingAllocations: noAllocations,
+      blessingNodes: noNodes,
+      equipped: { weapon: { itemDefId: 'sword', rarity: 'Uncommon' } },
+      itemDefs,
+    })
+    // Common items = 5×1 = 5; Uncommon items = 5×2 = 10
+    expect(uncommonBreakdown.attack.items).toBe(commonBreakdown.attack.items * RARITY_MULT.Uncommon)
+  })
+
+  it('gear pct bonus computes against the baseline (not against flats)', () => {
+    // health baseline = 100; +5% pct → items contribution = 100 × 5/100 = 5
+    const equipped: Record<string, EquippedItem> = { ring: { itemDefId: 'ring', rarity: 'Common' } }
+    const itemDefs: Record<string, ItemDefBonuses> = {
+      ring: { statBonuses: [{ stat: 'health', kind: 'pct', value: 5 }] },
+    }
+    const breakdown = effectiveStatBreakdown({
+      level: 1,
+      baseStats: [{ stat: 'health', value: 100 }],
+      growth: [],
+      blessingAllocations: noAllocations,
+      blessingNodes: noNodes,
+      equipped,
+      itemDefs,
+    })
+    expect(breakdown.health.base).toBe(100)
+    expect(breakdown.health.items).toBe(5) // 100 × 5/100
+    expect(breakdown.health.total).toBe(105)
+  })
+
+  it('blessing flat bonus lands in blessings', () => {
+    const nodes: BlessingNodeDef[] = [
+      { nodeId: 'might', effects: [{ stat: 'attack', kind: 'flat', perRank: 3 }] },
+    ]
+    const breakdown = effectiveStatBreakdown({
+      level: 1,
+      baseStats: [{ stat: 'attack', value: 10 }],
+      growth: [],
+      blessingAllocations: { might: 4 },
+      blessingNodes: nodes,
+      equipped: noGear,
+      itemDefs: noItemDefs,
+    })
+    // attack baseline = 10; blessing flat = 3×4 = 12
+    expect(breakdown.attack.blessings).toBe(12)
+    expect(breakdown.attack.items).toBe(0)
+    expect(breakdown.attack.total).toBe(22)
+  })
+
+  it('blessing pct bonus computes against the baseline', () => {
+    // attack baseline at level 1 = 10; +20% pct from blessing → blessings = 10 × 20/100 = 2
+    const nodes: BlessingNodeDef[] = [
+      { nodeId: 'power', effects: [{ stat: 'attack', kind: 'pct', perRank: 10 }] },
+    ]
+    const breakdown = effectiveStatBreakdown({
+      level: 1,
+      baseStats: [{ stat: 'attack', value: 10 }],
+      growth: [],
+      blessingAllocations: { power: 2 },
+      blessingNodes: nodes,
+      equipped: noGear,
+      itemDefs: noItemDefs,
+    })
+    expect(breakdown.attack.blessings).toBeCloseTo(2) // 10 × 20/100
+    expect(breakdown.attack.total).toBeCloseTo(12)
+  })
+
+  it('total === base + items + blessings for every stat AND matches effectiveStats (the invariant)', () => {
+    // Mixed fixture: gear + blessings + a stat that only exists in gear (no baseline)
+    const nodes: BlessingNodeDef[] = [
+      { nodeId: 'might', effects: [{ stat: 'attack', kind: 'pct', perRank: 10 }] },
+      { nodeId: 'vitality', effects: [{ stat: 'health', kind: 'flat', perRank: 20 }] },
+    ]
+    const equipped: Record<string, EquippedItem> = {
+      weapon: { itemDefId: 'sword', rarity: 'Uncommon' }, // ×2 → attack +10 flat
+      ring: { itemDefId: 'ring', rarity: 'Rare' },        // ×4 → gatherSpeed +8 flat (gear-only stat)
+    }
+    const itemDefs: Record<string, ItemDefBonuses> = {
+      sword: { statBonuses: [{ stat: 'attack', kind: 'flat', value: 5 }] },
+      ring: { statBonuses: [{ stat: 'gatherSpeed', kind: 'flat', value: 2 }] },
+    }
+    const input = {
+      level: 5,
+      baseStats,                               // attack 10, health 100
+      growth,                                  // attack perLevel 5 → baseline 30 at level 5
+      blessingAllocations: { might: 2, vitality: 1 },
+      blessingNodes: nodes,
+      equipped,
+      itemDefs,
+    }
+
+    const breakdown = effectiveStatBreakdown(input)
+    const effective = effectiveStats(input)
+
+    for (const stat of Object.keys(breakdown)) {
+      const { base, items, blessings, total } = breakdown[stat]
+      // invariant 1: total decomposition
+      expect(total).toBeCloseTo(base + items + blessings, 10)
+      // invariant 2: matches effectiveStats output
+      expect(total).toBeCloseTo(effective[stat] ?? 0, 10)
+    }
+  })
+
+  it('a stat present only in gear appears in the result with base 0 and pct contribution 0', () => {
+    // gatherSpeed has no baseline → base = 0; a pct bonus on a 0 baseline contributes 0
+    const equipped: Record<string, EquippedItem> = {
+      ring: { itemDefId: 'ring', rarity: 'Common' },
+    }
+    const itemDefs: Record<string, ItemDefBonuses> = {
+      ring: { statBonuses: [
+        { stat: 'gatherSpeed', kind: 'flat', value: 7 },
+        { stat: 'gatherYield', kind: 'pct', value: 50 }, // 50% of 0 baseline = 0
+      ]},
+    }
+    const breakdown = effectiveStatBreakdown({
+      level: 1,
+      baseStats: [],
+      growth: [],
+      blessingAllocations: noAllocations,
+      blessingNodes: noNodes,
+      equipped,
+      itemDefs,
+    })
+    // flat-only gear stat
+    expect(breakdown.gatherSpeed.base).toBe(0)
+    expect(breakdown.gatherSpeed.items).toBe(7)
+    expect(breakdown.gatherSpeed.total).toBe(7)
+    // pct against 0 baseline → items = 0
+    expect(breakdown.gatherYield.base).toBe(0)
+    expect(breakdown.gatherYield.items).toBe(0)
+    expect(breakdown.gatherYield.total).toBe(0)
   })
 })
 

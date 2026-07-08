@@ -203,6 +203,39 @@ export function effectiveStats(input: {
   return applyBonuses(baselines, bonuses)
 }
 
+/** Per-stat, per-source contributions to an effective stat (the sheet's breakdown tooltip). */
+export type StatSourceBreakdown = { base: number; items: number; blessings: number; total: number }
+
+/**
+ * effectiveStats, decomposed by source. Because percentages apply to the BASELINE (never to other
+ * flats), each source's contribution is independent: `flat + baseline × pct/100`. Invariant:
+ * `total = base + items + blessings` and equals effectiveStats' value for every stat.
+ */
+export function effectiveStatBreakdown(input: {
+  level: number
+  baseStats: StatValue[]
+  growth: StatGrowth[]
+  blessingAllocations: Record<string, number>
+  blessingNodes: BlessingNodeDef[]
+  equipped: Record<string, EquippedItem>
+  itemDefs: Record<string, ItemDefBonuses>
+}): Record<string, StatSourceBreakdown> {
+  const baselines = computeBaselines(input.level, input.baseStats, input.growth)
+  const blessing = collectBlessingBonuses(input.blessingAllocations, input.blessingNodes)
+  const gear = collectGearBonuses(input.equipped, input.itemDefs)
+
+  const keys = new Set([...Object.keys(baselines), ...Object.keys(blessing), ...Object.keys(gear)])
+  const out: Record<string, StatSourceBreakdown> = {}
+  for (const stat of keys) {
+    const base = baselines[stat] ?? 0
+    const contribution = (b?: StatBonus) => (b ? b.flat + (base * b.pct) / 100 : 0)
+    const items = contribution(gear[stat])
+    const blessings = contribution(blessing[stat])
+    out[stat] = { base, items, blessings, total: base + items + blessings }
+  }
+  return out
+}
+
 // ---- Layer 3: stat-derived reward bonus -------------------------------------------------------
 
 /** Reward multiplier contribution per point of a reward-contributing stat (0.1% — decided). */
