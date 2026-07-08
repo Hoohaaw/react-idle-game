@@ -49,6 +49,7 @@ export type RosterMember = {
   maxHp: number
   currentHp: number | null
   equipped: Record<string, EquippedItem>
+  blessings: Record<string, number>
   busy: 'mission' | 'gathering' | 'infirmary' | null
 }
 
@@ -90,6 +91,7 @@ export function useRoster() {
         maxHp: Math.max(1, Math.round(stats.health ?? 0)),
         currentHp: c.currentHp,
         equipped: c.equipped,
+        blessings: c.blessings,
         busy: gathering.has(c.id)
           ? 'gathering'
           : onMission.has(c.id)

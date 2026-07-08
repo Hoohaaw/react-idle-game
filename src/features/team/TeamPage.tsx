@@ -10,6 +10,7 @@ import { usePlayerCharacters } from '@/hooks/usePlayerCharacters'
 import { useRecruit } from '@/hooks/useRecruit'
 import { useRoster, useItemDefs, type RosterMember } from '@/hooks/useRoster'
 import { xpToNext } from '@/lib/leveling'
+import { effectiveStatBreakdown } from '@/lib/stats'
 import type { GearSlotKey } from '@/lib/equipment'
 import { PrimaryButton } from '@/components/atoms/Button'
 import { Alert } from '@/components/atoms/Alert'
@@ -101,6 +102,15 @@ export default function TeamPage() {
                 onSlotClick: setPickerSlot,
                 disabledReason: openInstance.busy ? BUSY_REASON[openInstance.busy] : null,
               } : undefined}
+              statBreakdown={openInstance ? effectiveStatBreakdown({
+                level: openInstance.level,
+                baseStats: openMember.baseStats,
+                growth: openMember.growth,
+                blessingAllocations: openInstance.blessings,
+                blessingNodes: openMember.blessingNodes,
+                equipped: openInstance.equipped,
+                itemDefs: itemDefs.data ?? {},
+              }) : undefined}
             />
             {!recruitedIds?.includes(openMember.charKey) && (
               <RecruitAction charKey={openMember.charKey} name={openMember.name} />

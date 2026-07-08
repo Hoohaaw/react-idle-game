@@ -1,21 +1,20 @@
 import { useState, type ComponentProps } from 'react'
 import { LevelBadge } from '../atoms/LevelBadge'
 import { ProgressBar } from '../atoms/ProgressBar'
-import { StatPill } from '../atoms/StatPill'
-import { GoldDivider } from '../atoms/GoldDivider'
 import { Tooltip } from '../atoms/Tooltip'
 import { RoleBadge } from '../atoms/RoleBadge'
 import { ClassBadge } from '../atoms/ClassBadge'
 import { GearSlotGrid } from './GearSlotGrid'
+import { CharacterStats } from './CharacterStats'
 import { resolveRole, type CharacterRole } from '../../lib/roles'
-import { computeBaselines, type StatValue, type StatGrowth } from '../../lib/stats'
-import { STAT_DEFS } from '../../lib/statDefinitions'
+import type { StatValue, StatGrowth, StatSourceBreakdown } from '../../lib/stats'
 
 // The full character sheet: portrait + identity + XP on the left, and Equipped /
-// Talents / Stats tabs on the right. Identity + XP + gear are per-character (props;
-// the Equipped tab renders real gear when a recruited instance supplies `gear` —
-// ADR-0022); Talents are still shared mock data until blessings are wired. Extracted
-// from the /design prototype when the Team page was built. See [[project-party-roster]].
+// Talents / Stats tabs on the right. Identity + XP + gear + stats are per-character
+// (props; the Equipped tab renders real gear and the Stats tab a real per-source
+// breakdown when a recruited instance supplies them — ADR-0022); Talents are still
+// shared mock data until blessings are wired. Extracted from the /design prototype
+// when the Team page was built. See [[project-party-roster]].
 
 type CharTab = 'equipped' | 'talents' | 'stats'
 
@@ -28,9 +27,7 @@ const MOCK_BLESSINGS = [
   { row: 6, unlocked: false, slots: [{ name: 'Apocalypse',    pts: 0, max: 1 }, { name: 'Soul Reaper', pts: 0, max: 1 }, { name: 'Oblivion',   pts: 0, max: 1 }] },
 ]
 
-type StatBreakdown = { label: string; base: number; items: number; blessings: number; upgrades: number }
-
-export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, role: roleProp, baseStats = [], growth = [], gear }: {
+export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, role: roleProp, baseStats = [], growth = [], gear, statBreakdown }: {
   name: string
   charClass: string
   level: number
@@ -40,6 +37,7 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, rol
   baseStats?: StatValue[]
   growth?: StatGrowth[]
   gear?: ComponentProps<typeof GearSlotGrid> // recruited instance's gear; omitted = empty preview grid
+  statBreakdown?: Record<string, StatSourceBreakdown> // recruited instance's effective stats by source; omitted = def baselines (preview)
 }) {
   const [tab, setTab] = useState<CharTab>('equipped')
   const role = resolveRole(charClass, roleProp)
@@ -160,7 +158,7 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, rol
         <div style={{ flex: 1, padding: '16px' }}>
           {tab === 'equipped' && <GearSlotGrid {...(gear ?? { slots: {} })} />}
           {tab === 'talents'  && <TalentsTab />}
-          {tab === 'stats'    && <StatsTab baseStats={baseStats} growth={growth} level={level} />}
+          {tab === 'stats'    && <CharacterStats baseStats={baseStats} growth={growth} level={level} breakdown={statBreakdown} />}
         </div>
       </div>
     </div>
@@ -225,86 +223,6 @@ function TalentsTab() {
       {!MOCK_BLESSINGS[0].unlocked && (
         <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', textAlign: 'center', marginTop: '8px' }}>Spend 5 points in the previous row to unlock</p>
       )}
-    </div>
-  )
-}
-
-function StatBreakdownTooltip({ stat }: { stat: StatBreakdown }) {
-  const total = stat.base + stat.items + stat.blessings + stat.upgrades
-  const sources = [
-    { label: 'Base',      value: stat.base,      color: 'var(--color-text-primary)' },
-    { label: 'Items',     value: stat.items,      color: '#5b9bd5' },
-    { label: 'Blessings', value: stat.blessings,  color: '#b06fd4' },
-    { label: 'Upgrades',  value: stat.upgrades,   color: '#4caf6e' },
-  ].filter(s => s.value > 0)
-
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '10px' }}>
-        <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase' }}>{stat.label}</span>
-        <span style={{ color: 'var(--color-gold-light)', fontSize: '22px', fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.5)' }}>{total}</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        {sources.map(s => (
-          <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '24px' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>{s.label}</span>
-            <span style={{ color: s.color, fontSize: '13px', fontWeight: 'bold' }}>
-              {s.label === 'Base' ? s.value : `+${s.value}`}
-            </span>
-          </div>
-        ))}
-      </div>
-      {/* Divider + total row */}
-      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--color-gold-dark)', display: 'flex', justifyContent: 'space-between' }}>
-        <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Total</span>
-        <span style={{ color: 'var(--color-text-gold)', fontSize: '13px', fontWeight: 'bold' }}>{total}</span>
-      </div>
-    </div>
-  )
-}
-
-const STAT_CATEGORIES = ['offensive', 'defensive', 'support', 'misc'] as const
-
-function StatsTab({ baseStats, growth, level }: { baseStats: StatValue[]; growth: StatGrowth[]; level: number }) {
-  // Compute-on-read baselines from the authored def (src/lib/stats.ts). Items/Blessings/Upgrades are
-  // 0 until gear + the player's blessing allocation exist (those arrive with the Supabase/instance step).
-  const baselines = computeBaselines(level, baseStats, growth)
-  const groups = STAT_CATEGORIES
-    .map(category => ({
-      category,
-      stats: STAT_DEFS.filter(d => d.category === category && baselines[d.key] !== undefined),
-    }))
-    .filter(g => g.stats.length > 0)
-
-  if (groups.length === 0) {
-    return (
-      <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', fontStyle: 'italic' }}>
-        No stats authored for this character.
-      </p>
-    )
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {groups.map(({ category, stats }) => (
-        <div key={category}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{category}</span>
-            <GoldDivider />
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {stats.map(d => {
-              const value = baselines[d.key] ?? 0
-              const breakdown: StatBreakdown = { label: d.label, base: value, items: 0, blessings: 0, upgrades: 0 }
-              return (
-                <Tooltip key={d.key} content={<StatBreakdownTooltip stat={breakdown} />}>
-                  <StatPill label={d.label} value={value} />
-                </Tooltip>
-              )
-            })}
-          </div>
-        </div>
-      ))}
     </div>
   )
 }
