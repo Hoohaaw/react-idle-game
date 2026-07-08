@@ -411,6 +411,15 @@ verify_jwt = true
 [functions.infirmary-upgrade]
 verify_jwt = true
 
+# gear-equip / gear-unequip: equip loot onto a character slot / return it to inventory
+# (ADR-0022) via the atomic equip_item/unequip_item RPCs. gear-equip validates the item's
+# authored slot against Sanity; both import the slot model from src/lib (bundled from disk).
+[functions.gear-equip]
+verify_jwt = true
+
+[functions.gear-unequip]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

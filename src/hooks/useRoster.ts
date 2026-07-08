@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMissionRuns } from '@/services/missions'
-import { fetchOwnedCharacters, fetchGatherCharacterIds } from '@/services/playerCharacters'
+import { fetchOwnedCharacters, fetchGatherCharacterIds, type EquippedItem } from '@/services/playerCharacters'
 import { fetchAdmissions } from '@/services/infirmary'
-import { fetchItemDefBonuses } from '@/services/items'
+import { fetchItemDefs } from '@/services/items'
 import { fetchCharacterDefs } from '@/services/characters'
 import { effectiveStats } from '@/lib/stats'
 import { resolveRole, type CharacterRole } from '@/lib/roles'
@@ -21,8 +21,8 @@ export function useMissionRuns() {
 function useOwnedCharacters() {
   return useQuery({ queryKey: ['ownedCharacters'], queryFn: fetchOwnedCharacters })
 }
-function useItemDefs() {
-  return useQuery({ queryKey: ['itemDefs'], queryFn: fetchItemDefBonuses })
+export function useItemDefs() {
+  return useQuery({ queryKey: ['itemDefs'], queryFn: fetchItemDefs })
 }
 function useGatherCharacterIds() {
   return useQuery({ queryKey: ['gatherCharacterIds'], queryFn: fetchGatherCharacterIds })
@@ -40,6 +40,7 @@ function useCharacterDefs() {
 // the same computation the sim uses) and busy state (mission vs gathering).
 export type RosterMember = {
   id: string
+  characterDefId: string
   name: string
   charClass: string
   role: CharacterRole
@@ -47,6 +48,7 @@ export type RosterMember = {
   xp: number
   maxHp: number
   currentHp: number | null
+  equipped: Record<string, EquippedItem>
   busy: 'mission' | 'gathering' | 'infirmary' | null
 }
 
@@ -79,6 +81,7 @@ export function useRoster() {
       })
       return [{
         id: c.id,
+        characterDefId: c.characterDefId,
         name: def.name,
         charClass: def.charClass,
         role: resolveRole(def.charClass, def.role),
@@ -86,6 +89,7 @@ export function useRoster() {
         xp: c.xp,
         maxHp: Math.max(1, Math.round(stats.health ?? 0)),
         currentHp: c.currentHp,
+        equipped: c.equipped,
         busy: gathering.has(c.id)
           ? 'gathering'
           : onMission.has(c.id)

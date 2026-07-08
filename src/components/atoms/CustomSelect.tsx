@@ -1,7 +1,11 @@
 import { useState } from 'react'
 
 // Custom dropdown — fully styled list (native <select> can't restyle its open menu).
-export function CustomSelect({ options, initial }: { options: { value: string; label: string }[]; initial?: string }) {
+export function CustomSelect({ options, initial, onChange }: {
+  options: { value: string; label: string }[]
+  initial?: string
+  onChange?: (value: string) => void
+}) {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState(initial ?? options[0].value)
   const current = options.find(o => o.value === value) ?? options[0]
@@ -22,7 +26,7 @@ export function CustomSelect({ options, initial }: { options: { value: string; l
                 <button
                   type="button"
                   className={o.value === value ? 'select-option is-selected' : 'select-option'}
-                  onClick={() => { setValue(o.value); setOpen(false) }}
+                  onClick={() => { setValue(o.value); setOpen(false); onChange?.(o.value) }}
                 >{o.label}</button>
               </li>
             ))}
