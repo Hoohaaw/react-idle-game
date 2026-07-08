@@ -11,7 +11,7 @@ vi.mock('@/lib/supabase', () => ({
 import { supabase } from '@/lib/supabase'
 import { fetchProfile } from './profile'
 
-type Row = { currencies: unknown; resources: unknown; transcendence_count: number }
+type Row = { currencies: unknown; resources: unknown; transcendence_count: number; infirmary_level?: number }
 
 // Helper: stubs `.from().select().maybeSingle()` to resolve with the given value.
 function mockProfile(result: { data: Row | null; error: unknown }) {
@@ -28,7 +28,7 @@ describe('fetchProfile', () => {
 
   it('maps the wallet row to typed currencies/resources + transcendenceCount', async () => {
     mockProfile({
-      data: { currencies: { gold: 1420 }, resources: { Iron: 5, Wood: 30 }, transcendence_count: 2 },
+      data: { currencies: { gold: 1420 }, resources: { Iron: 5, Wood: 30 }, transcendence_count: 2, infirmary_level: 3 },
       error: null,
     })
 
@@ -38,6 +38,7 @@ describe('fetchProfile', () => {
       currencies: { gold: 1420 },
       resources: { Iron: 5, Wood: 30 },
       transcendenceCount: 2,
+      infirmaryLevel: 3,
     })
   })
 
@@ -46,7 +47,7 @@ describe('fetchProfile', () => {
 
     const result = await fetchProfile()
 
-    expect(result).toEqual({ currencies: {}, resources: {}, transcendenceCount: 0 })
+    expect(result).toEqual({ currencies: {}, resources: {}, transcendenceCount: 0, infirmaryLevel: 1 })
   })
 
   it('throws when the query returns an error', async () => {
@@ -65,6 +66,6 @@ describe('fetchProfile', () => {
     await fetchProfile()
 
     expect(supabase.from).toHaveBeenCalledWith('profiles')
-    expect(select).toHaveBeenCalledWith('currencies, resources, transcendence_count')
+    expect(select).toHaveBeenCalledWith('currencies, resources, transcendence_count, infirmary_level')
   })
 })

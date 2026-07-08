@@ -1,94 +1,109 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useRoster, type RosterMember } from '@/hooks/useRoster'
-import { healCharacter } from '@/services/heal'
-import { RoleBadge } from '@/components/atoms/RoleBadge'
-import { PrimaryButton } from '@/components/atoms/Button'
+import { useRoster } from '@/hooks/useRoster'
+import { useProfile } from '@/hooks/useProfile'
+import { bedsForLevel, regenPerSec } from '@/lib/infirmary'
+import { useAdmissions, useAdmit, useDischarge, useUpgradeInfirmary } from './hooks'
+import { BedCard, EmptyBed } from './components/BedCard'
+import { WardCard } from './components/WardCard'
+import { UpgradePanel } from './components/UpgradePanel'
 
-// The Infirmary: heal wounded characters. First-pass — fully restores HP instantly and for free
-// (heal rate / resource cost / capacity are future tuning). Damage persists between missions
-// (ADR-0013), and a downed character (0 HP) can't be dispatched until healed here.
-
-const hpColor = (pct: number) => (pct <= 0 ? '#e0635c' : pct < 0.35 ? '#d89a4f' : '#5fc77e')
-
-function HpBar({ current, max }: { current: number; max: number }) {
-  const pct = max > 0 ? Math.max(0, Math.min(1, current / max)) : 0
-  const color = hpColor(pct)
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-      <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#0d0304', border: '1px solid var(--color-gold-dark)', overflow: 'hidden' }}>
-        <div style={{ width: `${pct * 100}%`, height: '100%', background: color, boxShadow: `0 0 6px ${color}88`, transition: 'width 0.3s' }} />
-      </div>
-      <span style={{ color, fontSize: 11, fontWeight: 'bold', minWidth: 56, textAlign: 'right' }}>
-        {current <= 0 ? 'DOWNED' : `${Math.round(current)}/${max}`}
-      </span>
-    </div>
-  )
-}
-
-function InfirmaryCard({ member, onHeal, healing }: { member: RosterMember; onHeal: () => void; healing: boolean }) {
-  const current = member.currentHp ?? member.maxHp // null = full
-  const hurt = member.currentHp !== null && member.currentHp < member.maxHp
-  return (
-    <div className="atom-heavy" style={{
-      width: 320, padding: 14, borderRadius: 8,
-      border: `3px solid ${member.currentHp === 0 ? '#8a2e29' : 'var(--color-gold-dark)'}`,
-      background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 40, height: 48, flexShrink: 0, borderRadius: 3, border: '2px solid var(--color-gold-dark)', background: 'linear-gradient(180deg, #1a0608 0%, #0d0304 100%)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6)' }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ color: 'var(--color-text-primary)', fontSize: 13 }}>{member.name}</p>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 10 }}>{member.charClass} · Lv {member.level}</p>
-          <div style={{ marginTop: 4 }}><RoleBadge role={member.role} size="sm" /></div>
-        </div>
-      </div>
-      <HpBar current={current} max={member.maxHp} />
-      <div style={{ marginTop: 12 }}>
-        <PrimaryButton fullWidth disabled={!hurt || healing} onClick={onHeal}>
-          {healing ? 'Healing…' : hurt ? 'Heal to full' : 'Full HP'}
-        </PrimaryButton>
-      </div>
-    </div>
-  )
-}
+// The Infirmary (ADR-0021): a leveled building that heals admitted characters over real time.
+// Beds = level; each bed regens a flat HP/s; downed characters stabilize first. All state
+// changes go through Edge Functions (ADR-0003) — this page only derives and displays.
 
 const NOTE: React.CSSProperties = { color: 'var(--color-text-muted)', fontSize: 12, fontStyle: 'italic' }
 
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 style={{
+      color: 'var(--color-gold-mid)', fontSize: 12, letterSpacing: 3, textTransform: 'uppercase',
+      marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid var(--color-gold-dark)',
+    }}>{children}</h2>
+  )
+}
+
 export default function InfirmaryPage() {
   const { roster, isLoading, error } = useRoster()
-  const qc = useQueryClient()
-  const heal = useMutation({
-    mutationFn: (characterId: string) => healCharacter(characterId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['ownedCharacters'] }),
-  })
+  const profile = useProfile()
+  const admissions = useAdmissions()
+  const admit = useAdmit()
+  const discharge = useDischarge()
+  const upgrade = useUpgradeInfirmary()
+
+  const level = profile.data?.infirmaryLevel ?? 1
+  const beds = bedsForLevel(level)
+  const admissionByChar = new Map((admissions.data ?? []).map((a) => [a.player_character_id, a]))
+  const occupied = roster.filter((m) => admissionByChar.has(m.id))
+  const bedFree = occupied.length < beds
+  const actionError = admit.error ?? discharge.error ?? upgrade.error
 
   return (
     <div>
-      <h2 style={{
-        color: 'var(--color-gold-mid)', fontSize: 12, letterSpacing: 3, textTransform: 'uppercase',
-        marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid var(--color-gold-dark)',
-      }}>Infirmary</h2>
-      <p style={{ ...NOTE, marginBottom: 20 }}>
-        Rest your wounded here to fully restore their HP. A downed character must be healed before it can be sent again.
+      <SectionHeading>Infirmary</SectionHeading>
+      <p style={{ ...NOTE, marginBottom: 4 }}>
+        Admit wounded characters to a bed to recover HP over time. Downed characters must
+        stabilize before they begin healing.
+      </p>
+      <p style={{ color: 'var(--color-gold-light)', fontSize: 12, marginBottom: 20 }}>
+        Level {level} · {beds} {beds === 1 ? 'bed' : 'beds'} · {regenPerSec(level)} HP/s per bed
       </p>
 
-      {isLoading ? (
+      {actionError && (
+        <p style={{ ...NOTE, color: '#e0635c', marginBottom: 14 }}>{(actionError as Error).message}</p>
+      )}
+
+      {isLoading || admissions.isLoading ? (
         <p style={NOTE}>Loading roster…</p>
       ) : error ? (
         <p style={{ ...NOTE, color: '#e0635c' }}>Could not load your roster.</p>
       ) : roster.length === 0 ? (
         <p style={NOTE}>No characters yet — recruit one on the Team page.</p>
       ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-          {roster.map((m) => (
-            <InfirmaryCard
-              key={m.id}
-              member={m}
-              healing={heal.isPending && heal.variables === m.id}
-              onHeal={() => heal.mutate(m.id)}
+        <>
+          <section style={{ marginBottom: 36 }}>
+            <SectionHeading>Beds</SectionHeading>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+              {occupied.map((m) => (
+                <BedCard
+                  key={m.id}
+                  member={m}
+                  admission={admissionByChar.get(m.id)!}
+                  infirmaryLevel={level}
+                  discharging={discharge.isPending && discharge.variables === m.id}
+                  onDischarge={() => discharge.mutate(m.id)}
+                />
+              ))}
+              {Array.from({ length: Math.max(0, beds - occupied.length) }, (_, i) => (
+                <EmptyBed key={`empty-${i}`} />
+              ))}
+            </div>
+          </section>
+
+          <section style={{ marginBottom: 36 }}>
+            <SectionHeading>Ward</SectionHeading>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+              {roster.map((m) => (
+                <WardCard
+                  key={m.id}
+                  member={m}
+                  infirmaryLevel={level}
+                  bedFree={bedFree}
+                  admitting={admit.isPending && admit.variables === m.id}
+                  onAdmit={() => admit.mutate(m.id)}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <SectionHeading>Upgrade</SectionHeading>
+            <UpgradePanel
+              level={level}
+              profile={profile.data}
+              upgrading={upgrade.isPending}
+              onUpgrade={() => upgrade.mutate()}
             />
-          ))}
-        </div>
+          </section>
+        </>
       )}
     </div>
   )

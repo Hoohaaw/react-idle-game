@@ -114,7 +114,7 @@ export default function MissionsPage() {
     charClass: m.charClass,
     level: m.level,
     role: m.role,
-    busy: m.busy === 'mission' ? 'On mission' : m.busy === 'gathering' ? 'Gathering' : undefined,
+    busy: m.busy === 'mission' ? 'On mission' : m.busy === 'gathering' ? 'Gathering' : m.busy === 'infirmary' ? 'In Infirmary' : undefined,
     downed: m.currentHp === 0,
   }))
 

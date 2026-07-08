@@ -9,17 +9,19 @@ export type PlayerProfile = {
   currencies: Record<string, number>
   resources: Record<string, number>
   transcendenceCount: number
+  infirmaryLevel: number
 }
 
 export async function fetchProfile(): Promise<PlayerProfile> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('currencies, resources, transcendence_count')
+    .select('currencies, resources, transcendence_count, infirmary_level')
     .maybeSingle()
   if (error) throw error
   return {
     currencies: (data?.currencies ?? {}) as Record<string, number>,
     resources: (data?.resources ?? {}) as Record<string, number>,
     transcendenceCount: data?.transcendence_count ?? 0,
+    infirmaryLevel: data?.infirmary_level ?? 1,
   }
 }

@@ -58,7 +58,7 @@ export default function GatherPage() {
     charClass: m.charClass,
     level: m.level,
     role: m.role,
-    activity: m.busy === 'gathering' ? 'gather' : m.busy === 'mission' ? 'mission' : 'idle',
+    activity: m.busy === 'gathering' ? 'gather' : m.busy === 'mission' ? 'mission' : m.busy === 'infirmary' ? 'infirmary' : 'idle',
     detail: m.busy === 'gathering'
       ? assignments.find((a) => a.player_character_id === m.id)?.resource_id
       : undefined,
