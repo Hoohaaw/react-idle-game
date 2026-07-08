@@ -32,6 +32,7 @@ import { CharacterCard } from '../components/organisms/CharacterCard'
 import { useNow } from '../hooks/useNow'
 import { formatRemaining } from '../lib/time'
 import { resourceHeaderStyle } from '../lib/resources'
+import { ArtDirectionOptions } from './DesignArtDirections'
 
 // Frozen once at module load so the demo ActiveMissionCard countdowns are stable across re-renders.
 const DEMO_T0 = Date.now()
@@ -51,6 +52,9 @@ export default function DesignPage() {
         Design System
       </h1>
       <p style={{ color: 'var(--color-text-muted)', marginBottom: '48px' }}>Visual language reference — iterate here before building pages</p>
+
+      {/* ── ART DIRECTION — three candidate looks (comparison prototype) ── */}
+      <ArtDirectionOptions heading={<GroupHeading>Art Direction Options</GroupHeading>} />
 
       <GroupHeading>Atoms</GroupHeading>
 
