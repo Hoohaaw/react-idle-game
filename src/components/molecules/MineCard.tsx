@@ -12,8 +12,9 @@ import { resourceHeaderStyle, mineRate } from '../../lib/resources'
 // A mine yields a fixed amount of one resource every interval while a character is
 // assigned, repeating indefinitely (uncapped, auto-banked). The timer loops toward
 // the next tick; the banked counter is what has accrued this session.
-export function MineCard({ resource, tier, intervalSec, yieldPerTick, gatherer, assignedSecAgo, bonus, onAssign, onCollect, onStop }: {
+export function MineCard({ resource, tier, intervalSec, yieldPerTick, owned, gatherer, assignedSecAgo, bonus, onAssign, onCollect, onStop }: {
   resource: string; tier: string; intervalSec: number; yieldPerTick: number
+  owned?: number // player's current wallet balance of this resource
   gatherer?: string; assignedSecAgo?: number; bonus?: string
   onAssign?: () => void; onCollect?: () => void; onStop?: () => void
 }) {
@@ -46,12 +47,17 @@ export function MineCard({ resource, tier, intervalSec, yieldPerTick, gatherer, 
       </div>
 
       <div style={{ padding: 12 }}>
-        {/* Rate — always shown so each mine's yield is clear */}
+        {/* Rate — always shown so each mine's yield is clear; owned = current wallet balance */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <IconSlot size={16} /><span style={{ color: 'var(--color-text-gold)', fontSize: 13, fontWeight: 'bold' }}>+{yieldPerTick}</span>
           </span>
           <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>⏱ every {mineRate(intervalSec)}</span>
+          {owned !== undefined && (
+            <span style={{ marginLeft: 'auto', color: 'var(--color-text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>
+              Owned <span style={{ color: 'var(--color-text-gold)', fontWeight: 'bold', fontVariantNumeric: 'tabular-nums' }}>{owned.toLocaleString()}</span>
+            </span>
+          )}
         </div>
 
         {active ? (

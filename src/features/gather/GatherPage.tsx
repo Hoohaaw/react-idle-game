@@ -7,6 +7,7 @@ import { PrimaryButton, SecondaryButton } from '@/components/atoms/Button'
 import { resourceHeaderStyle } from '@/lib/resources'
 import { MINE_DEFS, MINE_BY_RESOURCE } from '@/lib/gather'
 import { useRoster } from '@/hooks/useRoster'
+import { useProfile } from '@/hooks/useProfile'
 import type { GatherAssignment } from '@/services/gather'
 import { useGatherAssignments, useStartGather, useCollectGather } from './hooks'
 
@@ -26,6 +27,7 @@ const NOTE: React.CSSProperties = { color: 'var(--color-text-muted)', fontSize: 
 export default function GatherPage() {
   const assignmentsQ = useGatherAssignments()
   const { roster } = useRoster()
+  const { data: profile } = useProfile()
   const startG = useStartGather()
   const collectG = useCollectGather()
 
@@ -103,6 +105,7 @@ export default function GatherPage() {
                   tier={mine.tier}
                   intervalSec={mine.intervalSec}
                   yieldPerTick={mine.yieldPerTick}
+                  owned={profile?.resources?.[mine.resourceKey] ?? 0}
                   gatherer={a ? nameOf(a.player_character_id) : undefined}
                   assignedSecAgo={a ? secSince(a.last_collected_at) : undefined}
                   onAssign={() => setAssigningResource(mine.resourceKey)}
