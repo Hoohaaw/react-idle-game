@@ -987,3 +987,55 @@ derived); RPCs `admit_infirmary` / `discharge_infirmary` / `upgrade_infirmary`; 
 `start_gather` gained an in-infirmary busy check; an upgrade atomically SETTLES active admissions
 (healing chars bank derived HP; stabilizing chars keep their elapsed fraction of the shorter window).
 The placeholder instant-heal `heal` Edge Function is removed.
+
+---
+
+## ADR-0022 — Gear equip v1: 14 slot keys, atomic swap RPCs, busy-lock
+**Date:** 2026-07-08 · **Status:** Accepted (built on `feature/equip-gear`)
+
+**Context.** Mission loot lands in `player_inventory` and nothing consumes it, even though the whole
+downstream is gear-aware: the stat engine (`collectGearBonuses` + `RARITY_MULT` ×2/rarity step) already
+feeds the combat sim, the roster's max HP and the infirmary's healing target from
+`player_characters.equipped`. What was missing was the write boundary — how an item moves between an
+inventory stack and a character's slot — and its rules.
+
+**Decision.**
+- **A. 14 slot keys, owned by `src/lib/equipment.ts`.** The equipped map's keys are the 8 unique gear
+  slots from the Sanity `itemDef` schema (`head, shoulders, chest, hands, legs, feet, weapon, offhand`)
+  used verbatim, plus `ring1..ring4` and `trinket1/trinket2`. Multi-slot keys map back to their base
+  itemDef slot for compatibility (`itemSlotForSlotKey('ring3') === 'ring'`) — a ring item fits any ring
+  slot. The module is pure/Deno-safe and imported by both the client and the Edge Functions (ADR-0016
+  pattern), so there is exactly one slot list.
+- **B. Two-layer validation.** Slot *compatibility* (does this item go in that slot?) needs the authored
+  def, so it lives in the **Edge Function** (Sanity lookup). Ownership, stack existence, busy-state and
+  structural slot-key validity live in the **RPC** (defense in depth). Two functions: `gear-equip`,
+  `gear-unequip` → `equip_item` / `unequip_item` (SECURITY DEFINER, service_role-only, ADR-0003).
+- **C. Atomic swap in one RPC.** Equip = decrement the source stack (delete at qty 1) → return any
+  displaced item to inventory (upsert +1) → `jsonb_set` the slot, all under FOR UPDATE locks on the
+  character + stack rows. Equipping into an occupied slot is therefore a swap with no intermediate
+  state; equipping the same item+rarity over itself nets zero. Unequip is the inverse.
+- **D. Gear locks while busy.** Equip/unequip are rejected while the character is on a mission,
+  gathering, or in the infirmary. Rationale: the sim reads `equipped` at claim time, so re-gearing
+  mid-mission would let one item be counted by several concurrent claims (unequip from A mid-run,
+  equip on B, dispatch B — the item fights twice); and maxHp drift mid-heal would corrupt the
+  infirmary's compute-on-read settlement. Idle characters swap freely.
+- **E. No other restrictions.** No class/level/role gates (existing design: gear swappable). Rarity
+  scales stats ×2/step now; **unique affixes on rare gear** (special effects beyond stats) are wanted
+  but explicitly deferred — they need the affix design pass first.
+
+**Alternatives considered.**
+- *Client-side slot validation only* — rejected: ADR-0003; a tampered client could equip a chest into
+  every ring slot.
+- *Allow re-gearing while busy* — rejected for the double-count exploit above; a "loadout snapshot at
+  dispatch" fix would cost more than the lock.
+- *Per-instance items (unstack on equip)* — rejected: stacks by (def, rarity) are already the inventory
+  model (upgrading consumes duplicates); fungibility keeps the swap math trivial.
+
+**Consequences.**
+- The core loop closes: mission → drop → equip → measurably stronger next mission. Loot has a purpose.
+- The UI Item type's coin `value` has no authored source yet — inventory passes 0 and the tooltip hides
+  the row; an itemDef `value` field is a later content pass.
+- The CharacterCard's Stats tab still shows def baselines only; a per-stat gear/blessing breakdown via
+  `effectiveStats` is a natural follow-up.
+- Equipped keys are validated but not migrated: nothing ever wrote to `equipped` before this, so no
+  backfill is needed.

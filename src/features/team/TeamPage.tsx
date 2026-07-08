@@ -1,20 +1,31 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { Avatar } from '../components/atoms/Avatar'
-import { RoleBadge } from '../components/atoms/RoleBadge'
-import { ClassBadge } from '../components/atoms/ClassBadge'
-import { resolveRole } from '../lib/roles'
-import { Modal } from '../components/organisms/Modal'
-import { CharacterCard } from '../components/organisms/CharacterCard'
-import { useCharacters } from '../hooks/useCharacters'
-import { usePlayerCharacters } from '../hooks/usePlayerCharacters'
-import { useRecruit } from '../hooks/useRecruit'
-import { PrimaryButton } from '../components/atoms/Button'
-import { Alert } from '../components/atoms/Alert'
-import type { GameCharacter } from '../services/characters'
+import { Avatar } from '@/components/atoms/Avatar'
+import { RoleBadge } from '@/components/atoms/RoleBadge'
+import { ClassBadge } from '@/components/atoms/ClassBadge'
+import { resolveRole } from '@/lib/roles'
+import { Modal } from '@/components/organisms/Modal'
+import { CharacterCard } from '@/components/organisms/CharacterCard'
+import { useCharacters } from '@/hooks/useCharacters'
+import { usePlayerCharacters } from '@/hooks/usePlayerCharacters'
+import { useRecruit } from '@/hooks/useRecruit'
+import { useRoster, useItemDefs, type RosterMember } from '@/hooks/useRoster'
+import { xpToNext } from '@/lib/leveling'
+import type { GearSlotKey } from '@/lib/equipment'
+import { PrimaryButton } from '@/components/atoms/Button'
+import { Alert } from '@/components/atoms/Alert'
+import type { GameCharacter } from '@/services/characters'
+import { resolveGearSlots } from './lib'
+import { SlotPickerModal } from './components/SlotPickerModal'
 
-// Team page — reads the real authored roster from Sanity (replaces the old mock party). There is no
-// per-player instance yet (level/xp live in Supabase, a later step), so the card shows a PREVIEW
-// level the player can change to inspect the computed baselines across the growth curve.
+// Team page — the authored roster from Sanity. Recruited characters open at their REAL
+// instance (level/xp/gear from Supabase, with the Equipped tab live — click a slot to
+// equip loot, ADR-0022); unrecruited ones keep the preview-level inspection mode.
+
+const BUSY_REASON: Record<NonNullable<RosterMember['busy']>, string> = {
+  mission: 'Gear is locked while on a mission.',
+  gathering: 'Gear is locked while gathering.',
+  infirmary: 'Gear is locked while in the infirmary.',
+}
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
@@ -30,10 +41,14 @@ const muted: CSSProperties = { color: 'var(--color-text-muted)', fontSize: '13px
 export default function TeamPage() {
   const { data: characters, isLoading, isError, error } = useCharacters()
   const { data: recruitedIds } = usePlayerCharacters()
+  const { roster } = useRoster()
+  const itemDefs = useItemDefs()
   const [openKey, setOpenKey] = useState<string | null>(null)
-  // No per-player instance yet → preview the def's computed baselines at a chosen level.
+  const [pickerSlot, setPickerSlot] = useState<GearSlotKey | null>(null)
+  // Unrecruited characters have no instance → preview the def's baselines at a chosen level.
   const [previewLevel, setPreviewLevel] = useState(1)
   const openMember = characters?.find(c => c.charKey === openKey) ?? null
+  const openInstance = openMember ? roster.find(m => m.characterDefId === openMember.charKey) ?? null : null
 
   return (
     <div>
@@ -54,23 +69,38 @@ export default function TeamPage() {
 
       {characters && characters.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '16px' }}>
-          {characters.map(c => (
-            <PartyMemberCard key={c.charKey} member={c} level={previewLevel} onOpen={() => setOpenKey(c.charKey)} />
-          ))}
+          {characters.map(c => {
+            const instance = roster.find(m => m.characterDefId === c.charKey)
+            return (
+              <PartyMemberCard
+                key={c.charKey}
+                member={c}
+                level={instance?.level ?? previewLevel}
+                onOpen={() => setOpenKey(c.charKey)}
+              />
+            )
+          })}
         </div>
       )}
 
-      {/* Click a member → full character sheet (Stats tab = real computed baselines) */}
+      {/* Click a member → full character sheet (recruited = real instance, else preview) */}
       <Modal open={openKey !== null} onClose={() => setOpenKey(null)}>
         {openMember && (
           <>
             <CharacterCard
               name={openMember.name}
               charClass={openMember.charClass}
-              level={previewLevel}
+              level={openInstance?.level ?? previewLevel}
+              xpCurrent={openInstance?.xp}
+              xpNeeded={openInstance ? xpToNext(openInstance.level) : undefined}
               role={openMember.role}
               baseStats={openMember.baseStats}
               growth={openMember.growth}
+              gear={openInstance ? {
+                slots: resolveGearSlots(openInstance.equipped, itemDefs.data),
+                onSlotClick: setPickerSlot,
+                disabledReason: openInstance.busy ? BUSY_REASON[openInstance.busy] : null,
+              } : undefined}
             />
             {!recruitedIds?.includes(openMember.charKey) && (
               <RecruitAction charKey={openMember.charKey} name={openMember.name} />
@@ -78,11 +108,15 @@ export default function TeamPage() {
           </>
         )}
       </Modal>
+
+      {openInstance && (
+        <SlotPickerModal member={openInstance} slotKey={pickerSlot} onClose={() => setPickerSlot(null)} />
+      )}
     </div>
   )
 }
 
-// Preview-level control — temporary affordance until per-player level comes from Supabase.
+// Preview-level control — inspects an unrecruited def's baselines across the growth curve.
 function PreviewLevel({ level, onChange }: { level: number; onChange: (n: number) => void }) {
   return (
     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>

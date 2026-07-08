@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       gather_assignments: {
@@ -245,6 +270,16 @@ export type Database = {
         Args: { p_char: string; p_new_current_hp: number; p_player: string }
         Returns: Json
       }
+      equip_item: {
+        Args: {
+          p_char: string
+          p_item_def_id: string
+          p_player: string
+          p_rarity: string
+          p_slot_key: string
+        }
+        Returns: Json
+      }
       start_gather: {
         Args: { p_char: string; p_player: string; p_resource_id: string }
         Returns: {
@@ -283,6 +318,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      unequip_item: {
+        Args: { p_char: string; p_player: string; p_slot_key: string }
+        Returns: Json
       }
       upgrade_infirmary: {
         Args: {
@@ -422,6 +461,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

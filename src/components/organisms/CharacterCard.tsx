@@ -1,41 +1,23 @@
-import { useState } from 'react'
-import { RARITY_STYLES } from '../../lib/rarity'
+import { useState, type ComponentProps } from 'react'
 import { LevelBadge } from '../atoms/LevelBadge'
 import { ProgressBar } from '../atoms/ProgressBar'
-import { RarityBadge } from '../atoms/RarityBadge'
 import { StatPill } from '../atoms/StatPill'
 import { GoldDivider } from '../atoms/GoldDivider'
 import { Tooltip } from '../atoms/Tooltip'
 import { RoleBadge } from '../atoms/RoleBadge'
 import { ClassBadge } from '../atoms/ClassBadge'
+import { GearSlotGrid } from './GearSlotGrid'
 import { resolveRole, type CharacterRole } from '../../lib/roles'
 import { computeBaselines, type StatValue, type StatGrowth } from '../../lib/stats'
 import { STAT_DEFS } from '../../lib/statDefinitions'
 
 // The full character sheet: portrait + identity + XP on the left, and Equipped /
-// Talents / Stats tabs on the right. Identity + XP are per-character (props); the tab
-// contents are still shared mock data until the backend supplies per-character gear,
-// blessings, and stat breakdowns. Extracted from the /design prototype when the Team
-// page was built. See [[project-party-roster]].
+// Talents / Stats tabs on the right. Identity + XP + gear are per-character (props;
+// the Equipped tab renders real gear when a recruited instance supplies `gear` —
+// ADR-0022); Talents are still shared mock data until blessings are wired. Extracted
+// from the /design prototype when the Team page was built. See [[project-party-roster]].
 
 type CharTab = 'equipped' | 'talents' | 'stats'
-
-const MOCK_EQUIPPED: Record<string, { name: string; rarity: string } | null> = {
-  HEAD:     { name: 'Helm of the Fallen', rarity: 'Rare' },
-  SHOULDER: { name: 'Pauldrons of Dread', rarity: 'Epic' },
-  CHEST:    { name: 'Breastplate of Valor', rarity: 'Uncommon' },
-  HANDS:    null,
-  BELT:     { name: 'Girdle of Shadows', rarity: 'Common' },
-  LEGS:     null,
-  BOOTS:    { name: 'Sabatons of Might', rarity: 'Legendary' },
-  WEAPON:   { name: 'Ashbringer', rarity: 'Legendary' },
-  'RING 1':  { name: 'Band of Annihilation', rarity: 'Rare' },
-  'RING 2':  null,
-  'RING 3':  { name: 'Seal of the Lich King', rarity: 'Epic' },
-  'RING 4':  null,
-  'TRINKET 1': null,
-  'TRINKET 2': { name: 'Eye of the Lich', rarity: 'Epic' },
-}
 
 const MOCK_BLESSINGS = [
   { row: 1, unlocked: true,  slots: [{ name: 'Blade Mastery', pts: 3, max: 5 }, { name: 'Iron Skin', pts: 5, max: 5 }, { name: 'Battle Cry', pts: 0, max: 3 }] },
@@ -48,7 +30,7 @@ const MOCK_BLESSINGS = [
 
 type StatBreakdown = { label: string; base: number; items: number; blessings: number; upgrades: number }
 
-export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, role: roleProp, baseStats = [], growth = [] }: {
+export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, role: roleProp, baseStats = [], growth = [], gear }: {
   name: string
   charClass: string
   level: number
@@ -57,6 +39,7 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, rol
   role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
   baseStats?: StatValue[]
   growth?: StatGrowth[]
+  gear?: ComponentProps<typeof GearSlotGrid> // recruited instance's gear; omitted = empty preview grid
 }) {
   const [tab, setTab] = useState<CharTab>('equipped')
   const role = resolveRole(charClass, roleProp)
@@ -175,64 +158,11 @@ export function CharacterCard({ name, charClass, level, xpCurrent, xpNeeded, rol
 
         {/* Tab content */}
         <div style={{ flex: 1, padding: '16px' }}>
-          {tab === 'equipped' && <EquippedTab />}
+          {tab === 'equipped' && <GearSlotGrid {...(gear ?? { slots: {} })} />}
           {tab === 'talents'  && <TalentsTab />}
           {tab === 'stats'    && <StatsTab baseStats={baseStats} growth={growth} level={level} />}
         </div>
       </div>
-    </div>
-  )
-}
-
-function EquippedTab() {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-      {Object.entries(MOCK_EQUIPPED).map(([slot, item]) => (
-        <Tooltip
-          key={slot}
-          content={
-            item ? (
-              <div>
-                <p style={{ color: RARITY_STYLES[item.rarity]?.color ?? 'var(--color-text-primary)', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>{item.name}</p>
-                <RarityBadge rarity={item.rarity} />
-                <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', marginTop: '8px', lineHeight: 1.5 }}>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fortis arma bellum gloria.
-                </p>
-              </div>
-            ) : (
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', fontStyle: 'italic' }}>This slot is empty.</p>
-            )
-          }
-        >
-          <div className="atom-heavy" style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '3px',
-            padding: '8px 10px',
-            borderRadius: '4px',
-            border: `2px solid ${item ? 'var(--color-gold-dark)' : '#2a0d10'}`,
-            background: item
-              ? 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)'
-              : 'linear-gradient(180deg, #110305 0%, #0a0203 100%)',
-            opacity: item ? 1 : 0.55,
-            cursor: item ? 'pointer' : 'default',
-          }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '9px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{slot}</span>
-            {item ? (
-              <span style={{
-                color: RARITY_STYLES[item.rarity]?.color ?? 'var(--color-text-primary)',
-                fontSize: '12px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                textShadow: `0 0 6px ${RARITY_STYLES[item.rarity]?.glow ?? 'transparent'}`,
-              }}>{item.name}</span>
-            ) : (
-              <span style={{ color: '#3a1218', fontSize: '12px', fontStyle: 'italic' }}>Empty</span>
-            )}
-          </div>
-        </Tooltip>
-      ))}
     </div>
   )
 }

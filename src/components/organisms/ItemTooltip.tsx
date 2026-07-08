@@ -57,8 +57,8 @@ export function ItemTooltip({ item, children }: { item: Item; children: ReactNod
             </div>
           )}
 
-          {/* Value */}
-          <div style={{
+          {/* Value — hidden while items have no authored coin value (real inventory passes 0) */}
+          {item.value > 0 && <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
             padding: '9px 14px', borderTop: '1px solid var(--color-gold-dark)',
           }}>
@@ -67,7 +67,7 @@ export function ItemTooltip({ item, children }: { item: Item; children: ReactNod
               <IconSlot size={14} />
               <span style={{ color: 'var(--color-text-gold)', fontSize: '13px', fontWeight: 'bold' }}>{item.value.toLocaleString()}</span>
             </span>
-          </div>
+          </div>}
 
           {/* Flavour */}
           {item.flavor && (
