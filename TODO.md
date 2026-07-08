@@ -61,10 +61,8 @@ character sprite art. Older open items below may be stale — trust the mileston
   `↳ context: project-next-steps (UI pages), project-data-architecture · src/pages/, src/hooks/`
 
 ## Housekeeping / polish
-- [ ] Rename the project in `package.json` (`name` is still `vite-scaffold`, `version` `0.0.0`)
-  `↳ context: cosmetic scaffold leftover · package.json`
-- [ ] Code-split the app bundle (build warns: chunk > 500 kB)
-  `↳ context: whole-app bundle; route-level dynamic import() or manualChunks · vite.config.ts, src/`
+- [x] Rename the project in `package.json` — now `the-idle-game` (working title; final game name still open)
+- [x] Code-split the app bundle — route-level `React.lazy` in `App.tsx`; entry chunk 862 kB → 488 kB, warning gone
 
 ## Done
 - [x] First real character authored in Sanity: **Mordrek Graveborn** (Death Knight / tank) — base stats + per-level growth (str +8@10, hp +30@25 milestones) + a 5-node blessing tree (prereq chain + row-7 ultimate). Seeded via Sanity **CLI** (`sanity documents create`, the MCP is read-only here). Currently a **draft** — review/publish in the Studio.
