@@ -54,17 +54,25 @@ export default function GatherPage() {
   }
 
   // Every character + what they're doing (busy ones show in the picker but aren't selectable).
-  const rosterChars: RosterCharacter[] = roster.map((m) => ({
-    id: m.id,
-    name: m.name,
-    charClass: m.charClass,
-    level: m.level,
-    role: m.role,
-    activity: m.busy === 'gathering' ? 'gather' : m.busy === 'mission' ? 'mission' : m.busy === 'infirmary' ? 'infirmary' : 'idle',
-    detail: m.busy === 'gathering'
-      ? assignments.find((a) => a.player_character_id === m.id)?.resource_id
-      : undefined,
-  }))
+  const rosterChars: RosterCharacter[] = roster.map((m) => {
+    const downed = m.currentHp === 0
+    const activity = downed ? 'downed'
+      : m.busy === 'gathering' ? 'gather'
+      : m.busy === 'mission' ? 'mission'
+      : m.busy === 'infirmary' ? 'infirmary'
+      : 'idle'
+    return {
+      id: m.id,
+      name: m.name,
+      charClass: m.charClass,
+      level: m.level,
+      role: m.role,
+      activity,
+      detail: m.busy === 'gathering'
+        ? assignments.find((a) => a.player_character_id === m.id)?.resource_id
+        : undefined,
+    }
+  })
 
   return (
     <div>
