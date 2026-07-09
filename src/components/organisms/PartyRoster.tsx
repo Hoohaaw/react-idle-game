@@ -10,7 +10,7 @@ export type RosterCharacter = {
   name: string
   charClass: string
   level: number
-  activity: 'idle' | 'mission' | 'gather' | 'infirmary'
+  activity: 'idle' | 'mission' | 'gather' | 'infirmary' | 'downed'
   detail?: string // mission name or resource being gathered
   role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
 }
@@ -41,8 +41,11 @@ function RosterRow({ char, selected, onSelect }: { char: RosterCharacter; select
       ? 'On Mission'
       : char.activity === 'gather'
         ? 'Gathering'
-        : 'In Infirmary'
-  const detailIcon = char.activity === 'mission' ? '⚔' : char.activity === 'gather' ? '⛏' : char.activity === 'infirmary' ? '✚' : ''
+        : char.activity === 'downed'
+          ? 'Downed'
+          : 'In Infirmary'
+  const statusTone = free ? 'ready' : char.activity === 'downed' ? 'danger' : char.activity === 'mission' ? 'busy' : 'locked'
+  const detail = char.activity === 'gather' && char.detail ? `Gathering — ${char.detail}` : char.detail
   const borderColor = selected ? 'var(--color-gold-light)' : free ? 'var(--color-gold-mid)' : 'var(--color-gold-dark)'
 
   return (
@@ -67,9 +70,9 @@ function RosterRow({ char, selected, onSelect }: { char: RosterCharacter; select
         <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 7 }}>{char.charClass} · Lv {char.level}</p>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <RoleBadge role={resolveRole(char.charClass, char.role)} size="sm" />
-          <StatusTag tone={free ? 'ready' : 'busy'}>{status}</StatusTag>
+          <StatusTag tone={statusTone}>{status}</StatusTag>
         </div>
-        {char.detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detailIcon} {char.detail}</p>}
+        {detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detail}</p>}
       </div>
       {/* Selection indicator — only meaningful for free, selectable characters */}
       {free && (
