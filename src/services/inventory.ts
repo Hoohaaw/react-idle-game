@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { invokeError } from './_invoke'
 
 // The player's loot stacks. RLS scopes rows to the caller (owner-read, SELECT-only grant) —
 // all writes happen server-side (mission-claim loot inserts, equip/unequip RPCs; ADR-0003).
@@ -10,6 +11,18 @@ export type InventoryStack = {
   rarity: string
   quantity: number
   acquiredAt: string
+}
+
+export type UpgradeOp = {
+  itemDefId: string
+  fromRarity: string
+  consumeCount: number
+}
+
+export async function upgradeItems(ops: UpgradeOp[]): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('item-upgrade', { body: { ops } })
+  if (error) await invokeError(error, 'Could not upgrade items')
+  return data
 }
 
 export async function fetchInventory(): Promise<InventoryStack[]> {
