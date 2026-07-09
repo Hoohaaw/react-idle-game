@@ -51,6 +51,16 @@ export default function InfirmaryPage() {
         <p style={{ ...NOTE, color: '#e0635c', marginBottom: 14 }}>{(actionError as Error).message}</p>
       )}
 
+      <section style={{ marginBottom: 36 }}>
+        <SectionHeading>Upgrade</SectionHeading>
+        <UpgradePanel
+          level={level}
+          profile={profile.data}
+          upgrading={upgrade.isPending}
+          onUpgrade={() => upgrade.mutate()}
+        />
+      </section>
+
       {isLoading || admissions.isLoading ? (
         <p style={NOTE}>Loading roster…</p>
       ) : error ? (
@@ -92,16 +102,6 @@ export default function InfirmaryPage() {
                 />
               ))}
             </div>
-          </section>
-
-          <section>
-            <SectionHeading>Upgrade</SectionHeading>
-            <UpgradePanel
-              level={level}
-              profile={profile.data}
-              upgrading={upgrade.isPending}
-              onUpgrade={() => upgrade.mutate()}
-            />
           </section>
         </>
       )}
