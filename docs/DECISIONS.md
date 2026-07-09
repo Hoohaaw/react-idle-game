@@ -37,6 +37,12 @@ the history is the point.
 | [0015](#adr-0015--combat-math-v1--formulas--first-pass-constants) | Combat math v1: formulas + first-pass constants | 2026-07-05 | Accepted |
 | [0016](#adr-0016--mission-claim-wiring-shared-pure-engine--atomic-claim_mission-rpc) | Mission-claim wiring: shared pure engine + atomic claim_mission RPC | 2026-07-05 | Accepted |
 | [0017](#adr-0017--mission-claim-v1-gear-in-the-sim-survivor-xp-item-rarity-scaling-mission-start) | Mission-claim v1: gear in the sim, survivor XP, item rarity scaling, mission-start | 2026-07-05 | Accepted |
+| [0018](#adr-0018--wallet-display-currency-is-gold-header-reads-the-live-wallet-mission-resources-mine-only) | Wallet display: currency is `gold`, header reads the live wallet, mission resources mine-only | 2026-07-05 | Accepted |
+| [0019](#adr-0019--gathering-loop-continuous-accrual-code-registry-mine-config-startcollect-rpcs) | Gathering loop: continuous accrual, code-registry mine config, start/collect RPCs | 2026-07-06 | Accepted |
+| [0020](#adr-0020--genre-direction-idle--roguelike-hybrid-run-based-expeditions-as-the-retention-layer) | Genre direction: idle + roguelike hybrid (run-based "expeditions" as the retention layer) | 2026-07-07 | Accepted |
+| [0021](#adr-0021--infirmary-v1-leveled-recovery-building-beds--hps-stabilize-phase-for-downed-characters) | Infirmary v1: leveled recovery building (beds + HP/s), stabilize phase for downed characters | 2026-07-08 | Accepted |
+| [0022](#adr-0022--gear-equip-v1-14-slot-keys-atomic-swap-rpcs-busy-lock) | Gear equip v1: 14 slot keys, atomic swap RPCs, busy-lock | 2026-07-08 | Accepted |
+| [0023](#adr-0023--two-tier-reset-system-reset-soft-prestige--transcendence-hard-wipe) | Two-tier reset system: Reset (soft prestige) + Transcendence (hard wipe) | 2026-07-09 | Accepted |
 
 ---
 
@@ -1039,3 +1045,65 @@ inventory stack and a character's slot — and its rules.
   `effectiveStats` is a natural follow-up.
 - Equipped keys are validated but not migrated: nothing ever wrote to `equipped` before this, so no
   backfill is needed.
+
+## ADR-0023 — Two-tier reset system: Reset (soft prestige) + Transcendence (hard wipe)
+**Date:** 2026-07-09 · **Status:** Accepted
+
+**Context.** The original design sketched a single "transcendence" that kept characters but reset
+their levels, with a flat `transcendenceCount × 10%` bonus applied to all rewards. This works as a
+loop driver, but a single reset tier creates a flat prestige feel: every reset is identical, the only
+asymptote is time. Two distinct tiers give the game a second gear and a clearer reason to go deep.
+
+**Decision: two named reset modes with separate currencies and trees.**
+
+**Reset (soft — "Prestige-class" in implementation):**
+- Keeps all characters, their current levels, and all equipped and inventory items.
+- Resets: the player's resource totals, gold wallet, and other accumulated progression (exact scope
+  to be listed at build time; characters and their development are explicitly preserved).
+- Awards a **Prestige currency** (name TBD) scaled to how much was achieved before resetting — richer
+  play session = more currency. Formula TBD at implementation; the principle is "reward depth, not
+  time spent idle."
+- That currency unlocks a **Prestige tree**: permanent account-wide bonuses including XP gain rate,
+  damage output, mission speed reduction, and similar quality-of-life multipliers. Tree authored in
+  Sanity (same blessingNode schema or a dedicated tree schema — TBD at build).
+- This is the mid-game loop driver: regular resets compound the Prestige tree, characters carry over
+  so the player's roster investment is never lost.
+
+**Transcendence (hard — complete wipe):**
+- Full reset: all characters are removed (levels, gear, blessings gone), all resources and progress
+  cleared. The player starts over from scratch.
+- Awards a **Transcendence currency** (name TBD), significantly rarer and more powerful than Prestige
+  currency — earned by going deep and then giving everything up.
+- That currency unlocks a **Transcendence tree**: far more impactful multipliers than the Prestige
+  tree. Rewards the extreme long-game commitment with disproportionate power spikes.
+- Intended for players who want a complete fresh run with compounding advantages, not the
+  character-preservation loop of Reset.
+
+**Relationship to the old transcendence design (supersedes the note in ADR-preamble):**
+The old design had a single "transcendence" that kept characters and reset their levels to 1,
+with a flat `transcendenceCount × 10%` bonus. That is now the **Reset** tier. The new **Transcendence**
+is harder and rarer. The `transcendenceCount × 10%` reward formula is provisional and will be
+rebalanced against both trees at build time.
+
+**What is NOT decided yet (open at build time):**
+- The exact reset scope (which wallet fields, which mission progress states).
+- Prestige/Transcendence currency names.
+- Tree structure, node counts, and specific bonus values — authored in Sanity when built.
+- The achievement formula that determines Prestige currency award at reset.
+- Whether Transcendence unlocks unique content (cosmetics, exclusive missions) in addition to the tree.
+
+**Alternatives considered.**
+- *Single-tier prestige (original design)* — kept as the Reset tier; not discarded, just split.
+- *No hard reset at all* — rejected; gives the game no "start over" option for players who want
+  a fresh run with compounding power, which is core to roguelike-adjacent loops (ADR-0020).
+- *Three tiers* — considered; rejected as scope-creep for a solo-dev project. Two tiers cover
+  the "soft loop" and "hard reset" cases without fragmenting the player base.
+
+**Consequences.**
+- Introduces two new currencies and two Sanity-authored trees (build work deferred).
+- The reward pipeline formula `final = base × marginBonus × levelBonus × partySizeBonus × transcendenceBonus`
+  will need a `prestigeBonus` multiplicand inserted at build time.
+- Character data (levels, gear, blessings) is an explicit keeper for Reset → the `player_characters`
+  table must NOT be purged on a Reset, only on a Transcendence.
+- The Paragon concept from earlier notes is retired; Transcendence fills the same role with a more
+  defined mechanism.

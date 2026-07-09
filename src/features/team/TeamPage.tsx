@@ -2,25 +2,15 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { Avatar } from '@/components/atoms/Avatar'
 import { RoleBadge } from '@/components/atoms/RoleBadge'
 import { ClassBadge } from '@/components/atoms/ClassBadge'
-import { resolveRole } from '@/lib/roles'
 import { Modal } from '@/components/organisms/Modal'
 import { CharacterCard } from '@/components/organisms/CharacterCard'
 import { useCharacters } from '@/hooks/useCharacters'
-import { usePlayerCharacters } from '@/hooks/usePlayerCharacters'
-import { useRecruit } from '@/hooks/useRecruit'
 import { useRoster, useItemDefs, type RosterMember } from '@/hooks/useRoster'
 import { xpToNext } from '@/lib/leveling'
 import { effectiveStatBreakdown } from '@/lib/stats'
 import type { GearSlotKey } from '@/lib/equipment'
-import { PrimaryButton } from '@/components/atoms/Button'
-import { Alert } from '@/components/atoms/Alert'
-import type { GameCharacter } from '@/services/characters'
 import { resolveGearSlots } from './lib'
 import { SlotPickerModal } from './components/SlotPickerModal'
-
-// Team page — the authored roster from Sanity. Recruited characters open at their REAL
-// instance (level/xp/gear from Supabase, with the Equipped tab live — click a slot to
-// equip loot, ADR-0022); unrecruited ones keep the preview-level inspection mode.
 
 const BUSY_REASON: Record<NonNullable<RosterMember['busy']>, string> = {
   mission: 'Gear is locked while on a mission.',
@@ -40,131 +30,74 @@ function SectionTitle({ children }: { children: ReactNode }) {
 const muted: CSSProperties = { color: 'var(--color-text-muted)', fontSize: '13px', fontStyle: 'italic' }
 
 export default function TeamPage() {
-  const { data: characters, isLoading, isError, error } = useCharacters()
-  const { data: recruitedIds } = usePlayerCharacters()
-  const { roster } = useRoster()
+  const { roster, isLoading, error } = useRoster()
+  const { data: defs } = useCharacters()
   const itemDefs = useItemDefs()
-  const [openKey, setOpenKey] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
   const [pickerSlot, setPickerSlot] = useState<GearSlotKey | null>(null)
-  // Unrecruited characters have no instance → preview the def's baselines at a chosen level.
-  const [previewLevel, setPreviewLevel] = useState(1)
-  const openMember = characters?.find(c => c.charKey === openKey) ?? null
-  const openInstance = openMember ? roster.find(m => m.characterDefId === openMember.charKey) ?? null : null
+
+  const openMember = roster.find(m => m.id === openId) ?? null
+  const openDef = openMember ? defs?.find(d => d.charKey === openMember.characterDefId) ?? null : null
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-        <SectionTitle>Your Party</SectionTitle>
-        <PreviewLevel level={previewLevel} onChange={setPreviewLevel} />
-      </div>
+      <SectionTitle>Your Party</SectionTitle>
 
-      {isLoading && <p style={muted}>Loading roster…</p>}
-      {isError && (
+      {isLoading && <p style={muted}>Loading roster...</p>}
+      {error && (
         <p style={{ ...muted, color: '#e0635c' }}>
-          Couldn’t load characters: {error instanceof Error ? error.message : 'unknown error'}. Is VITE_SANITY_READ_TOKEN set?
+          Couldn't load roster: {error instanceof Error ? error.message : 'unknown error'}
         </p>
       )}
-      {characters && characters.length === 0 && (
-        <p style={muted}>No characters authored yet — add one in the Sanity Studio.</p>
+      {!isLoading && !error && roster.length === 0 && (
+        <p style={muted}>No characters recruited yet.</p>
       )}
 
-      {characters && characters.length > 0 && (
+      {roster.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '16px' }}>
-          {characters.map(c => {
-            const instance = roster.find(m => m.characterDefId === c.charKey)
-            return (
-              <PartyMemberCard
-                key={c.charKey}
-                member={c}
-                level={instance?.level ?? previewLevel}
-                onOpen={() => setOpenKey(c.charKey)}
-              />
-            )
-          })}
+          {roster.map(m => (
+            <PartyMemberCard key={m.id} member={m} onOpen={() => setOpenId(m.id)} />
+          ))}
         </div>
       )}
 
-      {/* Click a member → full character sheet (recruited = real instance, else preview) */}
-      <Modal open={openKey !== null} onClose={() => setOpenKey(null)}>
-        {openMember && (
-          <>
-            <CharacterCard
-              name={openMember.name}
-              charClass={openMember.charClass}
-              level={openInstance?.level ?? previewLevel}
-              xpCurrent={openInstance?.xp}
-              xpNeeded={openInstance ? xpToNext(openInstance.level) : undefined}
-              role={openMember.role}
-              baseStats={openMember.baseStats}
-              growth={openMember.growth}
-              gear={openInstance ? {
-                slots: resolveGearSlots(openInstance.equipped, itemDefs.data),
-                onSlotClick: setPickerSlot,
-                disabledReason: openInstance.busy ? BUSY_REASON[openInstance.busy] : null,
-              } : undefined}
-              statBreakdown={openInstance ? effectiveStatBreakdown({
-                level: openInstance.level,
-                baseStats: openMember.baseStats,
-                growth: openMember.growth,
-                blessingAllocations: openInstance.blessings,
-                blessingNodes: openMember.blessingNodes,
-                equipped: openInstance.equipped,
-                itemDefs: itemDefs.data ?? {},
-              }) : undefined}
-            />
-            {!recruitedIds?.includes(openMember.charKey) && (
-              <RecruitAction charKey={openMember.charKey} name={openMember.name} />
-            )}
-          </>
+      <Modal open={openId !== null} onClose={() => setOpenId(null)}>
+        {openMember && openDef && (
+          <CharacterCard
+            name={openDef.name}
+            charClass={openDef.charClass}
+            level={openMember.level}
+            xpCurrent={openMember.xp}
+            xpNeeded={xpToNext(openMember.level)}
+            role={openDef.role}
+            baseStats={openDef.baseStats}
+            growth={openDef.growth}
+            gear={{
+              slots: resolveGearSlots(openMember.equipped, itemDefs.data),
+              onSlotClick: setPickerSlot,
+              disabledReason: openMember.busy ? BUSY_REASON[openMember.busy] : null,
+            }}
+            statBreakdown={effectiveStatBreakdown({
+              level: openMember.level,
+              baseStats: openDef.baseStats,
+              growth: openDef.growth,
+              blessingAllocations: openMember.blessings,
+              blessingNodes: openDef.blessingNodes,
+              equipped: openMember.equipped,
+              itemDefs: itemDefs.data ?? {},
+            })}
+          />
         )}
       </Modal>
 
-      {openInstance && (
-        <SlotPickerModal member={openInstance} slotKey={pickerSlot} onClose={() => setPickerSlot(null)} />
+      {openMember && (
+        <SlotPickerModal member={openMember} slotKey={pickerSlot} onClose={() => setPickerSlot(null)} />
       )}
     </div>
   )
 }
 
-// Preview-level control — inspects an unrecruited def's baselines across the growth curve.
-function PreviewLevel({ level, onChange }: { level: number; onChange: (n: number) => void }) {
-  return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
-      Preview level
-      <input
-        type="number" min={1} max={50} value={level}
-        onChange={e => onChange(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
-        style={{
-          width: '58px', padding: '5px 8px', textAlign: 'center',
-          fontFamily: 'Georgia, serif', fontSize: '13px', fontWeight: 'bold',
-          color: 'var(--color-text-gold)', background: 'linear-gradient(180deg, #1a0a0c 0%, #100305 100%)',
-          border: '2px solid var(--color-gold-dark)', borderRadius: '4px',
-        }}
-      />
-    </label>
-  )
-}
-
-// Minimal smoke-test surface for the recruit Edge Function (the server-authoritative write path).
-// A full starter-selection / recruitment UI comes later; this just exercises the loop end-to-end.
-function RecruitAction({ charKey, name }: { charKey: string; name: string }) {
-  const recruit = useRecruit()
-  return (
-    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-      {recruit.isSuccess && <Alert variant="success">{name} recruited to your roster.</Alert>}
-      {recruit.isError && (
-        <Alert variant="error">{recruit.error instanceof Error ? recruit.error.message : 'Recruit failed'}</Alert>
-      )}
-      {!recruit.isSuccess && (
-        <PrimaryButton onClick={() => recruit.mutate(charKey)} disabled={recruit.isPending}>
-          {recruit.isPending ? 'Recruiting…' : 'Recruit'}
-        </PrimaryButton>
-      )}
-    </div>
-  )
-}
-
-function PartyMemberCard({ member, level, onOpen }: { member: GameCharacter; level: number; onOpen: () => void }) {
+function PartyMemberCard({ member, onOpen }: { member: RosterMember; onOpen: () => void }) {
   const [hover, setHover] = useState(false)
 
   return (
@@ -188,14 +121,14 @@ function PartyMemberCard({ member, level, onOpen }: { member: GameCharacter; lev
       }}
     >
       <div style={{ marginBottom: '6px' }}>
-        <Avatar size={120} level={level} />
+        <Avatar size={120} level={member.level} />
       </div>
       <div style={{ textAlign: 'center' }}>
         <p style={{ color: 'var(--color-gold-light)', fontSize: '15px', fontWeight: 'bold', textShadow: '0 0 8px rgba(240,208,96,0.35)' }}>{member.name}</p>
       </div>
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
         <ClassBadge charClass={member.charClass} size="sm" />
-        <RoleBadge role={resolveRole(member.charClass, member.role)} size="sm" />
+        <RoleBadge role={member.role} size="sm" />
       </div>
     </div>
   )
