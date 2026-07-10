@@ -31,6 +31,14 @@ export const COMBAT = {
   /** Tanks generate this much more threat per point of damage than everyone else. */
   TANK_THREAT_MULT: 4,
   /**
+   * Tanks ALSO accrue threat passively over time: (defense + maxHp/10) × this, per combat second
+   * (ADR-0027, the ADR-0013 "role weight + Defense/Health" term). Damage-only threat fails
+   * structurally — a speed-growth dps generates threat per ACTION and out-paces any flat
+   * multiplier on the slow tank as levels rise. Stat accrual is action-rate independent, so the
+   * tank tanks at every level; extreme dps overgearing can still rip aggro (intended risk).
+   */
+  TANK_THREAT_STAT_RATE: 3,
+  /**
    * Healers START healing when an ally falls below this fraction of max HP, then keep healing
    * until the whole party is topped up (hysteresis); above it they attack (ADR-0026). Without a
    * threshold a healer never attacked — any scratch anywhere locked it into pure (over)healing,
@@ -145,6 +153,8 @@ type Unit = {
   healthRegen: number
   threatMult: number
   threat: number
+  /** Passive threat per combat second (tanks only, ADR-0027); evaluated lazily as threat + rate × t. */
+  threatStatRate: number
   interval: number
   nextAt: number
   /** Hysteresis for healer AI: healing engaged below the threshold, released when the party is full. */
@@ -188,6 +198,8 @@ function partyUnit(c: Combatant, order: number): Unit {
     threatMult,
     // Seed threat so ties at t=0 break toward the tank (before damage-based threat takes over).
     threat: threatMult,
+    threatStatRate:
+      c.role === 'tank' ? (num(s, 'defense') + maxHp / 10) * COMBAT.TANK_THREAT_STAT_RATE : 0,
     interval: actionInterval(num(s, 'speed'), num(s, 'haste')),
     nextAt: 0,
     healing: false,
@@ -217,6 +229,7 @@ function enemyUnit(e: Enemy, order: number): Unit {
     healthRegen: e.healthRegen ?? 0,
     threatMult: 1,
     threat: 0,
+    threatStatRate: 0,
     interval: actionInterval(e.speed, 0),
     nextAt: 0,
     healing: false,
@@ -256,12 +269,18 @@ function pickEnemyTarget(units: Unit[]): Unit | undefined {
   return best
 }
 
-/** Enemies hit the highest-threat living party member; ties → lowest order. */
-function pickThreatTarget(units: Unit[]): Unit | undefined {
+/** Enemies hit the highest-threat living party member at time `t`; ties → lowest order.
+ *  Effective threat = accumulated damage threat + the tank's passive stat accrual (ADR-0027). */
+function pickThreatTarget(units: Unit[], t: number): Unit | undefined {
   let best: Unit | undefined
+  let bestThreat = -Infinity
   for (const u of units) {
     if (u.side !== 'party' || u.hp <= 0) continue
-    if (!best || u.threat > best.threat || (u.threat === best.threat && u.order < best.order)) best = u
+    const threat = u.threat + u.threatStatRate * t
+    if (!best || threat > bestThreat || (threat === bestThreat && u.order < best.order)) {
+      best = u
+      bestThreat = threat
+    }
   }
   return best
 }
@@ -336,7 +355,7 @@ export function simulateCombat(args: {
       }
     }
 
-    const target = actor.side === 'party' ? pickEnemyTarget(units) : pickThreatTarget(units)
+    const target = actor.side === 'party' ? pickEnemyTarget(units) : pickThreatTarget(units, t)
     if (target) {
       const dmg = resolveAttack(actor, target, rng)
       if (dmg <= 0) {

@@ -78,6 +78,20 @@ describe('simulateCombat — role behaviours', () => {
     expect(r.endingHp.tank).toBeGreaterThan(0)
   })
 
+  it('a slow tank holds aggro against a much faster damage dealer (stat-accrual threat)', () => {
+    // Damage-only threat loses this matchup: the dps attacks 6× as often and out-threats the tank.
+    // The ADR-0027 passive (defense + maxHp/10) accrual keeps the enemy on the tank anyway.
+    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 20, health: 300, defense: 40, speed: 5 } }
+    const dps: Combatant = { id: 'dps', role: 'damage', stats: { attack: 60, health: 120, speed: 30 } }
+    const brute: Enemy = { id: 'brute', health: 900, attack: 20, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [tank, dps], encounter: encounterWith([brute]), seed: 'run-1' })
+    expect(r.outcome).toBe('win')
+    const enemyHits = r.log.filter((e) => (e.type === 'attack' || e.type === 'dodge') && e.source === 'brute')
+    expect(enemyHits.length).toBeGreaterThan(2)
+    expect(enemyHits.every((e) => e.target === 'tank')).toBe(true)
+    expect(r.endingHp.dps).toBe(120)
+  })
+
   it('a healer sustains the party and stays safe (deals no damage → no threat)', () => {
     const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 20, health: 300, defense: 40, speed: 10 } }
     const healer: Combatant = { id: 'healer', role: 'healer', stats: { healingPower: 40, health: 150, speed: 10 } }
