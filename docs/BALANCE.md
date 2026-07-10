@@ -133,6 +133,7 @@ reproducible offline. When baseStats/growth change in Sanity, re-pull with:
 | 2026-07-10 | Healer AI: heal threshold 0.7 + hysteresis (engine change) | `2026-07-10-healer-threshold` | ADR-0026 |
 | 2026-07-10 | Tank threat: passive (def + maxHp/10) × 3 × t accrual (engine change) | `2026-07-10-threat-stat` | ADR-0027 |
 | 2026-07-10 | healthRegen time-normalized: HP per 3s, not per action (engine change) | `2026-07-10-regen-cadence` | ADR-0028 |
+| 2026-07-10 | Party dodge capped at 25% + percent-stat audit; `solo-crit` probe comp added | `2026-07-10-dodge-cap` | ADR-0029 |
 
 **v2 outcome (ADR-0024):** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band
 appears (`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP
@@ -167,6 +168,14 @@ collapses (`solo-tank` L20 T6 boss 100%→0%), slow sustain comps correctly buff
 (inversions 0, threat 1 marginal cell, cliffs ~79 = the tier ×1.4 jump itself, a design-feel call).
 **Newly identified queue item: authored dodge growth** — Mordrek's +1 dodge/level = 53% at L50
 keeps solo-tank sweeping the grid; content fix (rarer dodge growth) or engine dodge cap, TBD.
+
+**Dodge-cap outcome (ADR-0029, engine change):** party dodge clamped at 25% (enemies uncapped —
+authored gimmicks stay legal). 18 cells move, all downward, all dodge-stacked comps at overtier
+edges (`solo-dps` L50 T7 pack 83%→19%). Percent-stat audit alongside: crit healthy (new `solo-crit`
+probe comp — clean gradient, no cap), block bounded (worst case −50% damage; authoring guidance
+only), defense/armorPen/heals self-limiting. **Remaining runaway = SPEED**: linear action rate ×
+authored speed growth (Mordrek 55, Dace/Lyra 110 at L50) still carries solo-tank to 100% grid-wide.
+Design decision pending: authoring guidelines vs engine diminishing returns on action rate.
 
 ## Baseline findings — 2026-07-10 (untuned v1 constants)
 

@@ -26,6 +26,13 @@ export const COMBAT = {
   REF_SPEED: 10,
   /** Crit adds this on top of critDamage%: multiplier = 1 + CRIT_BASE + critDamage/100. */
   CRIT_BASE: 0.5,
+  /**
+   * Party dodge is capped at this % (ADR-0029). Dodge is full avoidance, so growth/gear stacking
+   * runs away: authored +1/level growth alone reaches 50%+ at L50 and made solo tanks sweep every
+   * tier. Enemies are NOT capped — their stats are hand-authored (an untouchable ghost stays a
+   * legitimate encounter design tool).
+   */
+  DODGE_CAP: 25,
   /** A blocked hit loses this fraction of its damage. */
   BLOCK_FACTOR: 0.5,
   /** Tanks generate this much more threat per point of damage than everyone else. */
@@ -190,7 +197,7 @@ function partyUnit(c: Combatant, order: number): Unit {
     defense: num(s, 'defense'),
     resistance: num(s, 'resistance'),
     block: num(s, 'block'),
-    dodge: num(s, 'dodge'),
+    dodge: Math.min(num(s, 'dodge'), COMBAT.DODGE_CAP),
     critChance: num(s, 'critChance'),
     critDamage: num(s, 'critDamage'),
     armorPen: num(s, 'armorPen'),

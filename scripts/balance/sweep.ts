@@ -28,6 +28,7 @@ const COMPS: Record<string, string[]> = {
   'duo-tank-heal': ['brom-ironwall', 'tyla-windcarrier'], // unkillable-comp probe
   'solo-tank': ['mordrek-graveborn'],
   'solo-dps': ['vex-nightcut'],
+  'solo-crit': ['dace-ashveil'], // crit+dodge+speed growth stacker ([WIP] char) — percent-stat runaway probe
 }
 
 const LEVELS = [1, 5, 10, 20, 35, 50]
@@ -254,7 +255,7 @@ function main() {
     `${totalFights.toLocaleString()} fights (${cells.length} cells × ${SEEDS_PER_CELL} seeds) in ${elapsed}s. ` +
       `Naked baselines (no gear, no blessings). Constants: ARMOR_K=${COMBAT.ARMOR_K}, ` +
       `TANK_THREAT_MULT=${COMBAT.TANK_THREAT_MULT}, TANK_THREAT_STAT_RATE=${COMBAT.TANK_THREAT_STAT_RATE}, ` +
-      `HEALER_HEAL_THRESHOLD=${COMBAT.HEALER_HEAL_THRESHOLD}, MARGIN_MAX=${COMBAT.MARGIN_MAX}, ` +
+      `HEALER_HEAL_THRESHOLD=${COMBAT.HEALER_HEAL_THRESHOLD}, DODGE_CAP=${COMBAT.DODGE_CAP}, MARGIN_MAX=${COMBAT.MARGIN_MAX}, ` +
       `LEVEL_BONUS=${COMBAT.LEVEL_BONUS_PER_AVG_LEVEL}, BASE_INTERVAL=${COMBAT.BASE_INTERVAL}, REF_SPEED=${COMBAT.REF_SPEED}.`,
   )
   md.push('')

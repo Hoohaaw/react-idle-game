@@ -109,6 +109,21 @@ describe('simulateCombat — role behaviours', () => {
     expect(r.outcome).toBe('loss')
   })
 
+  it('party dodge is capped: an 80-dodge unit avoids only ~DODGE_CAP% of hits', () => {
+    const evader: Combatant = {
+      id: 'evader',
+      role: 'damage',
+      stats: { health: 10000, speed: 10, dodge: 80 },
+    }
+    const pecker: Enemy = { id: 'pecker', health: 100000, attack: 10, damageType: 'physical', speed: 30 }
+    const r = simulateCombat({ party: [evader], encounter: encounterWith([pecker], 120), seed: 'run-1' })
+    const swings = r.log.filter((e) => e.source === 'pecker')
+    const dodged = swings.filter((e) => e.type === 'dodge').length / swings.length
+    expect(swings.length).toBeGreaterThan(50)
+    expect(dodged).toBeGreaterThan(0.15) // uncapped 80% dodge would sit near 0.8
+    expect(dodged).toBeLessThan(0.35)
+  })
+
   it('regen is time-normalized: a fast unit cannot out-regen sustained damage per action', () => {
     // speed 30 = 3 actions per enemy swing. Per-action regen made this unit immortal
     // (30 HP × 3/s > 15 dmg/s incoming); time-normalized (ADR-0028) it is 10 HP/s and bleeds out.

@@ -1314,3 +1314,55 @@ no-OOC-regen rule already bounds it.
   identically); only speed-outliers change.
 - `mission-claim` picks this up on next deploy (no stored replays, no migration).
 - +speed/+haste no longer buy extra regen — one less double-dip when pricing blessing/item stats.
+
+## ADR-0029 — Party dodge capped at 25% + percent-stat runaway audit
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 6 — engine change)
+
+**Context.** After ADR-0028 removed regen immortality, solo Mordrek still swept the grid — driven
+by his authored `dodge` growth (+1/level → 53% at L50; Vex reaches 59%). Dodge is FULL avoidance,
+so it compounds multiplicatively with every other defensive layer, and any growth/gear/blessing
+stacking runs away. Decision (Alex): cap it.
+
+**Decision.** `COMBAT.DODGE_CAP = 25` — party units' dodge is clamped at 25% in the sim.
+**Enemies are NOT capped**: their stats are hand-authored (no growth runaway), and an untouchable
+ghost remains a legitimate encounter design tool (the timeout-loss test depends on it).
+
+**Percent-stat audit (the rest of the family, measured):**
+- **critChance** — previously UNPROBED (the only crit-growth character, Dace [WIP], was in no sweep
+  comp). Added a `solo-crit` probe comp. Verdict: HEALTHY — 57% crit at L50 produces big damage but
+  a clean difficulty gradient (margins fall 0.95→0.17 across tiers, win rates collapse at T8), no
+  immortality. Crit is offense: it bounds fight LENGTH, not survival. No cap now; re-audit when
+  `critDamage` gear/blessings exist (nobody authors critDamage today).
+- **block** — Mordrek 62% / Brom 58% at L50. Same runaway *shape* as dodge but bounded impact:
+  a proc removes only `BLOCK_FACTOR` (50%) of one hit, so worst case asymptotes at −50% damage,
+  not invulnerability. Left uncapped for now; flagged for authoring guidance (block growth should
+  stay modest) and a possible later cap if gear stacking pushes it past ~60%.
+- **defense/resistance** — self-limiting by the DR curve (`def/(def+100)` is hyperbolic;
+  even def 400 = 80%). No action.
+- **armorPen** — self-limiting (`max(0, mitigation − pen)` can at most zero the target's
+  mitigation). No action.
+- **healthRegen** — fixed by ADR-0028. **healingPower/healingCrit** — bounded by the heal-target
+  cap and threshold AI. No action.
+- **speed (and haste)** — THE remaining runaway, now cleanly isolated: action rate is linear in
+  speed with no cap, and it multiplies damage, threat, and (pre-0028) regen. Mordrek's 100% grid
+  sweep survives the dodge cap because his authored +1 speed/level makes him a 580-DPS tank at L50
+  (11× Brom's action rate); Dace/Lyra reach speed 110. This is NOT capped here — speed is a core
+  reward-flagged stat and the fix is a design decision: authored-growth guidelines (speed growth
+  rare/fractional) vs. engine diminishing returns on action rate. Escalated to Alex; queued.
+
+**Evidence (`2026-07-10-dodge-cap` report vs `regen-cadence`, 500 seeds):**
+- 18 pre-existing cells move >15pts, ALL downward and all dodge-stacked comps at overtier edges
+  (`solo-dps` L50 T7 pack 83%→19%, T6 boss 89%→34%) — the cap bites exactly where dodge was
+  carrying fights beyond the intended band.
+- Party-wide anomalies stable: healer inversions 0, threat failure 1 marginal cell, cliffs ~82.
+- Regression test: an 80-dodge party unit avoids ~25% of a long swing series (fails uncapped).
+
+**Alternatives considered.** Diminishing-returns curve on dodge (WoW-style) — rejected for v1:
+a hard cap is transparent to players and trivially explainable in the stat sheet; DR curves can
+replace it later without schema changes. Capping enemies too — rejected (kills authored gimmicks).
+
+**Consequences.**
+- Stat-sheet UI should surface the cap (e.g. "Dodge 53% (capped 25%)") when it lands.
+- Authoring: dodge growth/gear beyond ~25 total is wasted — rebalance Mordrek/Vex/Dace dodge
+  growth in a content pass, or leave as flavor knowing the cap absorbs it.
+- `mission-claim` picks this up on next deploy (no stored replays, no migration).
