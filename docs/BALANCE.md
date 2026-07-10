@@ -123,16 +123,29 @@ reproducible offline. When baseStats/growth change in Sanity, re-pull with:
 (drafts perspective — content is drafts-only) and update the file. The report header records the
 `COMBAT` constants per run; the fixture date is in `roster.ts`'s header.
 
+## Tuning log
+
+| Date | Change | Report | ADR |
+|---|---|---|---|
+| 2026-07-10 | Baseline, untuned v1 constants | `2026-07-10-baseline` | — |
+| 2026-07-10 | Tier template v2: enemy speed flat across tiers | `2026-07-10-speed-flat` | ADR-0024 |
+
+**v2 outcome:** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band appears
+(`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP
+×1.4/tier against the flat 60s limit is now the wall (39 cells win ≥40pts more at 180s). Next knob:
+per-tier `timeLimitSeconds` authoring guidance. Also confirmed: per-action `healthRegen` + speed
+growth = L50 solo tank untouchable (100% win, margin 1.0, every tier) — queued as its own iteration.
+
 ## Baseline findings — 2026-07-10 (untuned v1 constants)
 
 Full data: [`scripts/balance/reports/2026-07-10-baseline.md`](../scripts/balance/reports/2026-07-10-baseline.md).
 Headlines, in rough order of severity:
 
-1. **Difficulty cliffs everywhere (~130 flagged).** Nearly every comp goes 100% → ~0% across one
-   tier step; the 30–80% band barely exists. Driver: the tier template multiplies **every** stat by
-   1.4 — including speed — so effective enemy DPS grows ~×1.96/tier while party HP grows far
-   slower. Margin bimodality follows: wins are flawless, losses are total, `marginBonus` is inert.
-   First knob to try: stop (or soften) speed scaling in the tier template and retune.
+1. **Difficulty cliffs everywhere (~130 flagged).** ~~Nearly every comp goes 100% → ~0% across one
+   tier step; the 30–80% band barely exists.~~ Driver: the tier template multiplied **every** stat by
+   1.4 — including speed — so effective enemy DPS grew ~×1.96/tier while party HP grows far
+   slower. Margin bimodality followed: wins flawless, losses total, `marginBonus` inert.
+   **ADDRESSED (ADR-0024): speed no longer scales with tier — see the tuning log.**
 2. **Healer inversion is real and common.** `trio-core` (tank/dps/healer) loses to
    `trio-double-dps` in 8+ cells by up to 73 points. The sim's healer AI heals whenever *anyone* is
    below 100% HP, so a healer virtually never attacks — the slot trades all its damage for

@@ -1,9 +1,11 @@
-// Enemy generation for the balance harness — a code implementation of the ADR-0015 §G enemy tier
-// template. Real missions author enemyDefs by hand in Sanity; the harness generates the same shapes
-// from (tier, archetype) so the sweep can probe difficulty bands that aren't authored yet.
+// Enemy generation for the balance harness — a code implementation of the enemy tier template
+// (ADR-0015 §G, revised by ADR-0024). Real missions author enemyDefs by hand in Sanity; the harness
+// generates the same shapes from (tier, archetype) so the sweep can probe difficulty bands that
+// aren't authored yet.
 //
 //   Tier-1 base (= the seeded Rotting Ghoul): HP 120 · atk 12 · def 5 · speed 10.
-//   Per-tier growth: every stat × 1.4^(tier−1).
+//   Per-tier growth: HP/atk/def × 1.4^(tier−1); speed FLAT (ADR-0024 — scaling speed with tier
+//   made effective enemy DPS grow ~×1.96/tier and produced binary 100%→0% difficulty cliffs).
 //   Archetype mods: tank ×2 HP / ×1.5 def / ×0.6 atk · caster magic dmg / ×1.2 atk / ×0.8 HP ·
 //                   swarm ×0.4 HP / ×0.7 atk · boss ×5 HP / ×1.5 atk.
 //
@@ -34,7 +36,7 @@ export function makeEnemy(tier: number, archetype: Archetype, index = 0): Enemy 
     health: Math.round(TIER1.health * scale * mod.hp),
     attack: Math.round(TIER1.attack * scale * mod.atk),
     damageType: mod.magic ? 'magic' : 'physical',
-    speed: Math.round(TIER1.speed * scale),
+    speed: TIER1.speed, // flat across tiers (ADR-0024)
     defense: Math.round(TIER1.defense * scale * mod.def),
   }
 }

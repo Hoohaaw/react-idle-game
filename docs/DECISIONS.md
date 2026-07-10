@@ -1107,3 +1107,43 @@ rebalanced against both trees at build time.
   table must NOT be purged on a Reset, only on a Transcendence.
 - The Paragon concept from earlier notes is retired; Transcendence fills the same role with a more
   defined mechanism.
+
+## ADR-0024 — Enemy tier template v2: speed excluded from per-tier growth
+**Date:** 2026-07-10 · **Status:** Accepted (first accepted change of the ADR-0015 tuning loop)
+
+**Context.** ADR-0015 §G defined the enemy tier template as *every* stat × 1.4^(tier−1), including
+speed. The balance harness (`scripts/balance/`, docs/BALANCE.md) measured what that does across
+1.44M simulated fights: because action rate is linear in speed, scaling attack AND speed multiplies
+effective enemy DPS by ~×1.96 per tier while party HP grows far slower. Result (see
+`scripts/balance/reports/2026-07-10-baseline.md`): ~130 difficulty cliffs (win rate 100%→~0% in one
+tier step), a near-empty 30–80% win band, bimodal margins (wins flawless, losses total) leaving
+`marginBonus` inert, and high-tier fights compressed to sub-0.3s enemy action intervals where
+crit/dodge variance averages away.
+
+**Decision.** The tier template scales **HP, attack, and defense** by ×1.4^(tier−1); **speed stays
+flat** at the tier-1 base (10). Speed variation is an *authoring* tool (a fast enemy is a designed
+threat, not an automatic consequence of tier). Both currently authored enemies already conform
+(Rotting Ghoul speed 10, Bone Colossus speed 12 despite ~tier-4-boss HP/atk).
+
+**Evidence (before → after, same 1.44M-fight grid, `2026-07-10-speed-flat` report):**
+- Difficulty cliffs: ~130 → ~78 flagged; a real middle band appears (38%/46%/48% win cells with
+  mid-range margins) — `marginBonus` now has dynamic range.
+- Healer inversions: 8 → 4 cells, and milder (worst gap 73pts → 27pts).
+- New binding constraint exposed: timeouts jump 22 → 87 heavy cells — enemy HP ×1.4/tier against a
+  flat 60s limit is now the wall (39 cells win ≥40pts more at 180s). **Next knob: per-tier time
+  limits** (authoring guidance, e.g. scale `timeLimitSeconds` with tier), not further stat changes.
+- Confirmed separately: per-action `healthRegen` + speed growth makes a L50 solo tank literally
+  untouchable (100% win, margin 1.0, all tiers). Queued as its own tuning iteration (fixed-cadence
+  regen), per the one-change-per-branch loop.
+
+**Alternatives considered.** Gentle speed growth (×1.1/tier) — rejected for v2: reintroduces the
+compounding DPS problem in diluted form and muddies the before/after measurement; can be revisited
+once time limits are tuned. Softening HP growth instead — rejected: HP growth is what makes higher
+tiers *feel* bigger; the clock is the cheaper, more surgical follow-up lever.
+
+**Consequences.**
+- `scripts/balance/enemies.ts` implements v2; ADR-0015 §G is superseded on the speed point only.
+- Enemy authoring in Sanity: do not scale speed with tier by default; author fast enemies
+  deliberately.
+- Endgame note: L50 parties clear tier 8 at ~100% — the ladder needs tiers 9+ authored (or the
+  sweep grid extended) for endgame content; that is content headroom, not a template flaw.
