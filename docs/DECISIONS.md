@@ -1147,3 +1147,42 @@ tiers *feel* bigger; the clock is the cheaper, more surgical follow-up lever.
   deliberately.
 - Endgame note: L50 parties clear tier 8 at ~100% — the ladder needs tiers 9+ authored (or the
   sweep grid extended) for endgame content; that is content headroom, not a template flaw.
+
+## ADR-0025 — Encounter time limit: 180s recommended (was 60s), flat across tiers
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 2)
+
+**Context.** After ADR-0024 the clock became the binding constraint: 87 cells >30% timeouts, and 39
+cells flipped loss→win when the limit was raised 60s→180s. Analysis of the flipped cells showed the
+timeout wall was NOT tier-dependent: legitimate slow wins (sustain comps — `duo-tank-heal` was 26 of
+the 39 flips — grinding fights down) run 60–170s at EVERY tier, tier 1 included. A per-tier limit
+formula was therefore the wrong shape; the 60s limit was punishing a play style, not preventing
+stalls.
+
+**Decision.** Recommended `timeLimitSeconds` for authored encounters = **180s, flat across tiers**
+(`RECOMMENDED_TIME_LIMIT` in `scripts/balance/enemies.ts`). Both authored encounter drafts
+(`graveyard-awakening`, `trial-of-ruin`) patched 60→180 in Sanity. Key insight: combat time is
+VIRTUAL — the fight resolves instantly at claim, and real-world pacing lives in
+`missionDef.durationSeconds` — so a generous limit costs nothing. The clock's only job (ADR-0014) is
+to turn can't-ever-kill stalls into losses, which 180s still does.
+
+**Evidence (`2026-07-10-limit-180` report, 180s primary + 300s probe, vs `speed-flat`):**
+- Timeout-heavy cells: 87 → 35 (the rest are genuine kill-ceiling edges, not clock artifacts).
+- **Healer inversions: 4 → 0.** The longer clock lets healer comps convert sustain into wins;
+  the healer slot is no longer a downgrade anywhere in the grid.
+- Clock-bound (180s→300s flips): 8 cells, ALL `duo-tank-heal` boss grinds — the extreme turtle duo
+  still meets the clock at the top edge, exactly the ADR-0014 "unkillable must still beat the
+  clock" intent. 180s is the plateau; 300s buys nothing structural.
+- Difficulty cliffs persist (~70, wipe-driven) — that is the tier ×1.4 stat jump itself, next in
+  the tuning queue via threat/healer-AI/regen iterations, not a clock issue.
+
+**Alternatives considered.** Per-tier scaling (60×1.2^(tier−1) or +30s/tier) — rejected: duration
+data is comp-dependent, not tier-dependent; scaling adds authoring complexity for nothing.
+Unlimited time — rejected: removes the anti-stall guard and the ADR-0014 clock gate on pure-turtle
+comps.
+
+**Consequences.**
+- Encounter authoring default: `timeLimitSeconds: 180`; deviate deliberately (a "race" mission can
+  author lower, a siege higher).
+- The sweep grid's time-limit dimension is now [180 primary, 300 probe].
+- Client fight-replay UI (future) should expect fights up to ~3 virtual minutes; consider replay
+  time compression regardless.
