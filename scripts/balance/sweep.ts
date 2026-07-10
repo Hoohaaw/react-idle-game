@@ -2,8 +2,9 @@
 // party comp × level × enemy tier × encounter shape × time limit, many seeds per cell, and writes
 // a CSV (full grid) + a markdown report (matrices + auto-flagged anomalies) to scripts/balance/reports/.
 //
-// Run:  node scripts/balance/sweep.ts [seedsPerCell]     (default 200)
-// See docs/BALANCE.md for the process this feeds.
+// Run:  node scripts/balance/sweep.ts [seedsPerCell] [label]     (default: 200 baseline)
+// `label` names the report files (reports/<date>-<label>.{md,csv}) so tuning runs don't
+// overwrite the baseline. See docs/BALANCE.md for the process this feeds.
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -34,6 +35,7 @@ const TIERS = [1, 2, 3, 4, 5, 6, 7, 8]
 const SHAPES: EncounterShape[] = ['solo', 'pack', 'boss']
 const TIME_LIMITS = [60, 180] // 60s = every authored mission today; 180s probes clock sensitivity
 const SEEDS_PER_CELL = Number(process.argv[2] ?? 200)
+const LABEL = process.argv[3] ?? 'baseline'
 
 // ---- Per-cell metrics ----------------------------------------------------------------------------
 
@@ -240,7 +242,7 @@ function main() {
   mkdirSync(outDir, { recursive: true })
 
   const md: string[] = []
-  md.push(`# Balance sweep — ${date}`)
+  md.push(`# Balance sweep — ${date} (${LABEL})`)
   md.push('')
   md.push(
     `${totalFights.toLocaleString()} fights (${cells.length} cells × ${SEEDS_PER_CELL} seeds) in ${elapsed}s. ` +
@@ -263,9 +265,9 @@ function main() {
     }
   }
 
-  writeFileSync(join(outDir, `${date}-baseline.md`), md.join('\n') + '\n')
-  writeFileSync(join(outDir, `${date}-baseline.csv`), csvOf(cells) + '\n')
-  console.log(`Wrote ${cells.length} cells (${totalFights.toLocaleString()} fights, ${elapsed}s) to scripts/balance/reports/${date}-baseline.{md,csv}`)
+  writeFileSync(join(outDir, `${date}-${LABEL}.md`), md.join('\n') + '\n')
+  writeFileSync(join(outDir, `${date}-${LABEL}.csv`), csvOf(cells) + '\n')
+  console.log(`Wrote ${cells.length} cells (${totalFights.toLocaleString()} fights, ${elapsed}s) to scripts/balance/reports/${date}-${LABEL}.{md,csv}`)
 }
 
 main()
