@@ -1,8 +1,8 @@
-import { RarityBadge } from '../components/atoms/RarityBadge'
-import { Modal } from '../components/organisms/Modal'
-import { PrimaryButton, SecondaryButton } from '../components/atoms/Button'
-import { RARITY_ORDER, nextRarity } from '../lib/rarity'
-import { UPGRADE_COST } from '../lib/upgrade'
+import { RarityBadge } from '@/components/atoms/RarityBadge'
+import { Modal } from '@/components/organisms/Modal'
+import { PrimaryButton, SecondaryButton } from '@/components/atoms/Button'
+import { RARITY_ORDER, nextRarity } from '@/lib/rarity'
+import { UPGRADE_COST } from '@/lib/upgrade'
 import type { Item } from '../types/item'
 
 // Compact "rarity badge + ×count" rows for an item's stacks, high → low.

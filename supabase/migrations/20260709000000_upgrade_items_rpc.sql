@@ -36,9 +36,12 @@ begin
       raise exception 'upgrade_items: cannot upgrade from %', v_from_rarity;
     end if;
 
-    -- Validate consume_count is a positive multiple of 5.
+    -- Validate consume_count is a positive multiple of 5 within a sane upper bound.
     if v_consume <= 0 or v_consume % 5 != 0 then
       raise exception 'upgrade_items: consume_count must be a positive multiple of 5';
+    end if;
+    if v_consume > 10000 then
+      raise exception 'upgrade_items: consume_count exceeds maximum (10000)';
     end if;
 
     -- Lock source stack and verify sufficient quantity.
