@@ -33,7 +33,11 @@ const COMPS: Record<string, string[]> = {
 const LEVELS = [1, 5, 10, 20, 35, 50]
 const TIERS = [1, 2, 3, 4, 5, 6, 7, 8]
 const SHAPES: EncounterShape[] = ['solo', 'pack', 'boss']
-const TIME_LIMITS = [60, 180] // 60s = every authored mission today; 180s probes clock sensitivity
+// First entry = the recommended authored limit (matrices + anomaly rules read it); second = a
+// longer probe that separates "can't kill it" from "can't kill it in time".
+const TIME_LIMITS = [180, 300] // ADR-0025: 180s recommended (was 60); 300s probes clock sensitivity
+const PRIMARY_LIMIT = TIME_LIMITS[0]
+const PROBE_LIMIT = TIME_LIMITS[1]
 const SEEDS_PER_CELL = Number(process.argv[2] ?? 200)
 const LABEL = process.argv[3] ?? 'baseline'
 
@@ -170,8 +174,10 @@ function findAnomalies(cells: CellResult[]): string[] {
   const at = (comp: string, level: number, tier: number, shape: EncounterShape, limit: number) =>
     cells.find((c) => c.comp === comp && c.level === level && c.tier === tier && c.shape === shape && c.limit === limit)
 
-  // 1. Threat failure: a tank comp where the tank eats < 60% of enemy attacks.
-  const threatFails = cells.filter((c) => !Number.isNaN(c.tankTargetPct) && c.tankTargetPct < 0.6 && c.winRate > 0)
+  // 1. Threat failure: a tank comp where the tank eats < 60% of enemy attacks. Only WINNABLE cells
+  // (winRate ≥ 0.5) count — in doomed fights the tank correctly dies first and the survivors soak
+  // the rest, which is tank mortality, not an aggro failure (measured while refining ADR-0027).
+  const threatFails = cells.filter((c) => !Number.isNaN(c.tankTargetPct) && c.tankTargetPct < 0.6 && c.winRate >= 0.5)
   if (threatFails.length > 0) {
     const worst = threatFails.reduce((a, b) => (a.tankTargetPct < b.tankTargetPct ? a : b))
     out.push(
@@ -189,8 +195,8 @@ function findAnomalies(cells: CellResult[]): string[] {
 
   // 3. Healer inversion: healer trio LOSES to swapping the healer for a second dps.
   for (const level of LEVELS) for (const tier of TIERS) for (const shape of SHAPES) {
-    const healer = at('trio-core', level, tier, shape, 60)
-    const noHealer = at('trio-double-dps', level, tier, shape, 60)
+    const healer = at('trio-core', level, tier, shape, PRIMARY_LIMIT)
+    const noHealer = at('trio-double-dps', level, tier, shape, PRIMARY_LIMIT)
     if (healer && noHealer && noHealer.winRate - healer.winRate > 0.1) {
       out.push(
         `**Healer inversion** L${level} T${tier} ${shape}: trio-core ${pct(healer.winRate)} vs ` +
@@ -202,23 +208,23 @@ function findAnomalies(cells: CellResult[]): string[] {
   // 4. Difficulty cliff: win rate falls from ≥90% to ≤10% in ONE tier step (no middle band).
   for (const comp of Object.keys(COMPS)) for (const level of LEVELS) for (const shape of SHAPES) {
     for (let i = 0; i < TIERS.length - 1; i++) {
-      const a = at(comp, level, TIERS[i], shape, 60)
-      const b = at(comp, level, TIERS[i + 1], shape, 60)
+      const a = at(comp, level, TIERS[i], shape, PRIMARY_LIMIT)
+      const b = at(comp, level, TIERS[i + 1], shape, PRIMARY_LIMIT)
       if (a && b && a.winRate >= 0.9 && b.winRate <= 0.1) {
         out.push(`**Cliff** ${comp} L${level} ${shape}: T${TIERS[i]} ${pct(a.winRate)} → T${TIERS[i + 1]} ${pct(b.winRate)}.`)
       }
     }
   }
 
-  // 5. Clock sensitivity: tripling the time limit flips a cell from loss to win (>40pt swing).
+  // 5. Clock sensitivity: raising the limit to the probe flips a cell from loss to win (>40pt swing).
   const clockFlips = cells.filter((c) => {
-    if (c.limit !== 60) return false
-    const longer = at(c.comp, c.level, c.tier, c.shape, 180)
+    if (c.limit !== PRIMARY_LIMIT) return false
+    const longer = at(c.comp, c.level, c.tier, c.shape, PROBE_LIMIT)
     return longer !== undefined && longer.winRate - c.winRate > 0.4
   })
   if (clockFlips.length > 0) {
     const sample = clockFlips.slice(0, 5).map((c) => `${c.comp} L${c.level} T${c.tier} ${c.shape}`)
-    out.push(`**Clock-bound** (${clockFlips.length} cells win ≥40pts more at 180s): ${sample.join(', ')}${clockFlips.length > 5 ? ', …' : ''}.`)
+    out.push(`**Clock-bound** (${clockFlips.length} cells win ≥40pts more at ${PROBE_LIMIT}s): ${sample.join(', ')}${clockFlips.length > 5 ? ', …' : ''}.`)
   }
 
   return out
@@ -247,11 +253,12 @@ function main() {
   md.push(
     `${totalFights.toLocaleString()} fights (${cells.length} cells × ${SEEDS_PER_CELL} seeds) in ${elapsed}s. ` +
       `Naked baselines (no gear, no blessings). Constants: ARMOR_K=${COMBAT.ARMOR_K}, ` +
-      `TANK_THREAT_MULT=${COMBAT.TANK_THREAT_MULT}, MARGIN_MAX=${COMBAT.MARGIN_MAX}, ` +
+      `TANK_THREAT_MULT=${COMBAT.TANK_THREAT_MULT}, TANK_THREAT_STAT_RATE=${COMBAT.TANK_THREAT_STAT_RATE}, ` +
+      `HEALER_HEAL_THRESHOLD=${COMBAT.HEALER_HEAL_THRESHOLD}, MARGIN_MAX=${COMBAT.MARGIN_MAX}, ` +
       `LEVEL_BONUS=${COMBAT.LEVEL_BONUS_PER_AVG_LEVEL}, BASE_INTERVAL=${COMBAT.BASE_INTERVAL}, REF_SPEED=${COMBAT.REF_SPEED}.`,
   )
   md.push('')
-  md.push('Cell format: `winRate m<avg surviving-HP% on wins>`. `0` = no wins. Matrices are the 60s time limit.')
+  md.push(`Cell format: \`winRate m<avg surviving-HP% on wins>\`. \`0\` = no wins. Matrices are the ${PRIMARY_LIMIT}s time limit.`)
 
   md.push('', '## Anomalies (auto-flagged)', '')
   const anomalies = findAnomalies(cells)
@@ -260,8 +267,8 @@ function main() {
   for (const shape of SHAPES) {
     md.push('', `## Shape: ${shape}`, '')
     for (const level of LEVELS) {
-      md.push(`### Level ${level} — ${shape} (60s)`, '')
-      md.push(matrix(cells, level, shape, 60), '')
+      md.push(`### Level ${level} — ${shape} (${PRIMARY_LIMIT}s)`, '')
+      md.push(matrix(cells, level, shape, PRIMARY_LIMIT), '')
     }
   }
 

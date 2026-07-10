@@ -47,9 +47,9 @@ matrices + auto-flagged anomalies), the CSV is the full grid for spreadsheet/dee
 |---|---|---|
 | Comp | 10 named parties from the real roster | role coverage: core trio, no-healer, no-tank, casters, double-tank turtle, utility, gatherers, duo, solos |
 | Level | 1, 5, 10, 20, 35, 50 | the leveling arc incl. both milestone spikes |
-| Enemy tier | 1–8 | ×1.4^(tier−1) template growth (ADR-0015 §G) |
+| Enemy tier | 1–8 | ×1.4^(tier−1) template growth (ADR-0015 §G, revised ADR-0024) |
 | Shape | solo · pack (3×basic) · boss (boss+2 swarm) | the 1–N encounter space |
-| Time limit | 60s (authored today) · 180s | separates "can't kill it" from "can't kill it *in time*" |
+| Time limit | 180s (recommended, ADR-0025) · 300s probe | separates "can't kill it" from "can't kill it *in time*" |
 
 Parties are **naked baselines** — level-derived stats only, no gear, no blessings, full HP. That is
 deliberate: baseline math must hold up on its own before bonus layers are priced on top. When
@@ -129,12 +129,36 @@ reproducible offline. When baseStats/growth change in Sanity, re-pull with:
 |---|---|---|---|
 | 2026-07-10 | Baseline, untuned v1 constants | `2026-07-10-baseline` | — |
 | 2026-07-10 | Tier template v2: enemy speed flat across tiers | `2026-07-10-speed-flat` | ADR-0024 |
+| 2026-07-10 | Time limit 180s flat (was 60s); grid limits now 180/300 | `2026-07-10-limit-180` | ADR-0025 |
+| 2026-07-10 | Healer AI: heal threshold 0.7 + hysteresis (engine change) | `2026-07-10-healer-threshold` | ADR-0026 |
+| 2026-07-10 | Tank threat: passive (def + maxHp/10) × 3 × t accrual (engine change) | `2026-07-10-threat-stat` | ADR-0027 |
 
-**v2 outcome:** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band appears
-(`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP
-×1.4/tier against the flat 60s limit is now the wall (39 cells win ≥40pts more at 180s). Next knob:
-per-tier `timeLimitSeconds` authoring guidance. Also confirmed: per-action `healthRegen` + speed
-growth = L50 solo tank untouchable (100% win, margin 1.0, every tier) — queued as its own iteration.
+**v2 outcome (ADR-0024):** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band
+appears (`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP
+×1.4/tier against the flat 60s limit became the wall (39 cells win ≥40pts more at 180s). Also
+confirmed: per-action `healthRegen` + speed growth = L50 solo tank untouchable (100% win, margin
+1.0, every tier) — queued as its own iteration.
+
+**Limit-180 outcome (ADR-0025):** flipped-cell analysis showed slow wins are comp-dependent
+(sustain grinds, 60–170s at every tier), not tier-dependent — so flat 180s, not a per-tier formula.
+Timeout-heavy 87 → 35, **healer inversions 4 → 0**, clock-bound at 300s down to 8 cells (all
+`duo-tank-heal` boss grinds — the intended ADR-0014 gate). Both authored Sanity encounter drafts
+patched 60→180.
+
+**Healer-threshold outcome (ADR-0026, first engine change):** healers attack when the party is
+above 70% HP, heal-to-full below it (hysteresis). Threshold robust (0.5/0.7/0.9 indistinguishable
+on aggregates). Strictly-upward effect: 4 cells move >15pts, all up (sustain-edge timeouts become
+kills); timeout-heavy 35 → 29; no regressions. Modest by design — ADR-0025 had already rescued the
+win rates; this fixes the degenerate never-attacks behavior and makes healer damage stats real.
+
+**Threat-stat outcome (ADR-0027, engine change):** tanks passively accrue threat
+`(defense + maxHp/10) × 3` per combat second on top of damage threat — action-rate independent, so
+fast dps no longer out-threats the slow tank at high levels. Rate plateau at 3 (1/3/5 swept). In
+winnable fights the sub-60%-absorption flag drops to ZERO grid-wide (~89% avg tank absorption);
+remaining low-absorption cells are doomed fights where the tank correctly dies first — the
+threat-failure anomaly rule now only counts cells with win rate ≥50% for this reason. Defensive
+stats double as aggro tools — price into tank gear/blessing authoring.
+Remaining queue: regen cadence (cliffs ~75 persist, wipe-driven — the tier ×1.4 stat jump itself).
 
 ## Baseline findings — 2026-07-10 (untuned v1 constants)
 

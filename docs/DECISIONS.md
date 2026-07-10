@@ -1147,3 +1147,129 @@ tiers *feel* bigger; the clock is the cheaper, more surgical follow-up lever.
   deliberately.
 - Endgame note: L50 parties clear tier 8 at ~100% — the ladder needs tiers 9+ authored (or the
   sweep grid extended) for endgame content; that is content headroom, not a template flaw.
+
+## ADR-0025 — Encounter time limit: 180s recommended (was 60s), flat across tiers
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 2)
+
+**Context.** After ADR-0024 the clock became the binding constraint: 87 cells >30% timeouts, and 39
+cells flipped loss→win when the limit was raised 60s→180s. Analysis of the flipped cells showed the
+timeout wall was NOT tier-dependent: legitimate slow wins (sustain comps — `duo-tank-heal` was 26 of
+the 39 flips — grinding fights down) run 60–170s at EVERY tier, tier 1 included. A per-tier limit
+formula was therefore the wrong shape; the 60s limit was punishing a play style, not preventing
+stalls.
+
+**Decision.** Recommended `timeLimitSeconds` for authored encounters = **180s, flat across tiers**
+(`RECOMMENDED_TIME_LIMIT` in `scripts/balance/enemies.ts`). Both authored encounter drafts
+(`graveyard-awakening`, `trial-of-ruin`) patched 60→180 in Sanity. Key insight: combat time is
+VIRTUAL — the fight resolves instantly at claim, and real-world pacing lives in
+`missionDef.durationSeconds` — so a generous limit costs nothing. The clock's only job (ADR-0014) is
+to turn can't-ever-kill stalls into losses, which 180s still does.
+
+**Evidence (`2026-07-10-limit-180` report, 180s primary + 300s probe, vs `speed-flat`):**
+- Timeout-heavy cells: 87 → 35 (the rest are genuine kill-ceiling edges, not clock artifacts).
+- **Healer inversions: 4 → 0.** The longer clock lets healer comps convert sustain into wins;
+  the healer slot is no longer a downgrade anywhere in the grid.
+- Clock-bound (180s→300s flips): 8 cells, ALL `duo-tank-heal` boss grinds — the extreme turtle duo
+  still meets the clock at the top edge, exactly the ADR-0014 "unkillable must still beat the
+  clock" intent. 180s is the plateau; 300s buys nothing structural.
+- Difficulty cliffs persist (~70, wipe-driven) — that is the tier ×1.4 stat jump itself, next in
+  the tuning queue via threat/healer-AI/regen iterations, not a clock issue.
+
+**Alternatives considered.** Per-tier scaling (60×1.2^(tier−1) or +30s/tier) — rejected: duration
+data is comp-dependent, not tier-dependent; scaling adds authoring complexity for nothing.
+Unlimited time — rejected: removes the anti-stall guard and the ADR-0014 clock gate on pure-turtle
+comps.
+
+**Consequences.**
+- Encounter authoring default: `timeLimitSeconds: 180`; deviate deliberately (a "race" mission can
+  author lower, a siege higher).
+- The sweep grid's time-limit dimension is now [180 primary, 300 probe].
+- Client fight-replay UI (future) should expect fights up to ~3 virtual minutes; consider replay
+  time compression regardless.
+
+## ADR-0026 — Healer AI: heal threshold + hysteresis (healers attack when the party is healthy)
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 3 — first engine change)
+
+**Context.** The v1 sim healer healed whenever *any* ally was below 100% HP — so in practice a
+healer never attacked after the first scratch, trading its entire damage contribution for overheal.
+The baseline sweep flagged this as "healer inversion" (a second damage dealer beat the healer slot
+in 8 cells). ADR-0025's longer clock fixed the inversions by letting sustain win anyway, but the
+degenerate never-attacks behavior remained: wrong for fights (wasted actions), wrong for player
+expectations (a Shaman with 300 spell power contributing zero damage), and wrong for future content
+where healer damage stats are priced.
+
+**Decision.** `COMBAT.HEALER_HEAL_THRESHOLD = 0.7` with hysteresis: a healer starts healing when a
+living ally falls below 70% of max HP, keeps healing (most-hurt first) until the whole party is back
+to full, then returns to attacking. Implemented in `simulateCombat` (a `healing` flag per unit +
+`pickHealTarget(units, belowPct)`); pure engine change, no schema or API impact. The threshold was
+chosen empirically but is ROBUST: sweeps at 0.5 / 0.7 / 0.9 were statistically indistinguishable on
+aggregates (healer-advantage cells 10–11, inversions 0, safe-win margins 0.93–0.96), so 0.7 is a
+sensible middle with hysteresis preserving end-of-fight margins.
+
+**Evidence (`2026-07-10-healer-threshold` report vs `limit-180`, same grid):**
+- Strictly targeted upside: only 4 cells move >15pts and ALL move up — healer damage converts
+  sustain-edge timeouts into kills (`duo-tank-heal` L50 T7 boss 59%→99.5%, L10 T4 boss 16%→41%;
+  `trio-no-tank` L5 T3 pack 69%→100%). No cell regresses.
+- Timeout-heavy cells 35 → 29; clock-bound 8 → 6; threat-failure 102 → 96 (healer damage adds
+  nothing to inversion risk — still 0 everywhere).
+- Honest sizing: the effect is modest because ADR-0025 already rescued the healer's win rates;
+  this ADR fixes the *behavior* (and the reward/pacing texture of healer fights) rather than
+  rewriting outcomes.
+
+**Alternatives considered.** Stateless threshold (heal only below 70%, no hysteresis) — rejected:
+parks party HP at ~70% and eats `marginBonus` on wins, punishing healer comps in rewards. Healing
+stance whenever damaged + damage sharing — out of scope for passive-stats v1 (ADR-0013).
+
+**Consequences.**
+- `mission-claim` picks the change up on its next deploy (it bundles `src/lib/combat.ts`);
+  determinism is preserved per-deploy — same seed + same engine version = same result — but replays
+  of runs resolved under the old engine would differ. No stored replays exist yet, so no migration.
+- Healer characters' attack-side stats (Tyla's `spellPower`, etc.) now DO something — factor that
+  into blessing-tree and itemDef authoring for healer characters.
+- The dedicated `healingCrit` / `healingPower` vs damage trade-off becomes a real build decision.
+
+## ADR-0027 — Tank threat: passive stat accrual (defense/HP × time), not damage alone
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 4 — engine change)
+
+**Context.** v1 threat was damage-only: `threat += damage × mult`, tank mult ×4 (ADR-0015 D).
+That fails STRUCTURALLY, not numerically: action rate is linear in speed, so a speed-growth dps
+generates threat per action and its threat *rate* outgrows the slow tank's as levels rise (at L50 a
+Rogue attacks ~12× as often as the Warrior; the needed multiplier would be ~16 and still climbing).
+Baseline flagged 67 threat-failure cells; after ADR-0024/25/26 it stood at 96 (worst: tank absorbing
+21% of hits). ADR-0013 already named the intended fix: threat = "role weight + Defense/Health".
+
+**Decision.** Tanks passively accrue threat with combat time, on top of damage threat:
+
+```
+effectiveThreat(t) = damageThreat + threatStatRate × t
+threatStatRate     = (defense + maxHp/10) × TANK_THREAT_STAT_RATE   (tanks only, else 0)
+TANK_THREAT_STAT_RATE = 3
+```
+
+Evaluated lazily in `pickThreatTarget(units, t)` — no per-tick mutation, determinism intact.
+Damage threat + ×4 mult stay: a grossly over-geared dps can still rip aggro (intended risk), and
+tank damage still contributes. The accrual is action-rate independent, so tanking no longer decays
+with level. Defensive stats now generate threat — gearing a tank defensively IS gearing its aggro.
+
+**Evidence (`2026-07-10-threat-stat` report vs `healer-threshold`):**
+- Rate swept 1/3/5: 1 under-holds (40 fail cells), 3 and 5 identical (28) — plateau at 3; picked 3
+  (smallest value at the plateau keeps damage threat relevant).
+- Of the remaining sub-60% cells at rate 3, ALL but one sit in doomed fights (win rate <50%,
+  avg 2.67 members downed) where the tank correctly dies first and survivors soak the rest — tank
+  mortality, not aggro failure. In winnable fights: ONE marginal cell grid-wide.
+- The threat-failure anomaly rule was refined accordingly (only cells with win rate ≥50% count);
+  under it the flag is ZERO in the final 500-seed sweep. Avg tank absorption across tank comps:
+  ~89%. Win rates and downed counts across tank comps unchanged (aggro was already mostly held in
+  easy fights; this fixes the scaling edge).
+- Regression test added: slow tank (speed 5) vs 6×-faster dps — enemy attacks land 100% on the
+  tank; test FAILS at rate 0 (old behavior), passes at 3.
+
+**Alternatives considered.** Raising `TANK_THREAT_MULT` — rejected: flat multiplier vs a
+level-growing rate ratio is the wrong shape (needs ~8 at L20, ~16 at L50). Hard taunt (enemies
+always prefer tanks) — rejected: deletes threat as a system and the overgear-rip risk with it.
+
+**Consequences.**
+- `mission-claim` picks this up on its next deploy (same note as ADR-0026 — no stored replays, no
+  migration).
+- Tank defense/health gear and blessing nodes double as aggro tools — price that into authoring.
+- Multiple tanks split accrual naturally (both accrue; highest effective threat tanks).

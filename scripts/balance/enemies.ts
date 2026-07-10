@@ -17,6 +17,15 @@ import type { Enemy, Encounter } from '../../src/lib/combat.ts'
 
 export type Archetype = 'basic' | 'tank' | 'caster' | 'swarm' | 'boss'
 
+/**
+ * Recommended `timeLimitSeconds` for authored encounters (ADR-0025). Flat across tiers: sweep data
+ * shows legitimate slow wins (sustain comps grinding a fight down) run 60–170s at EVERY tier, so the
+ * old 60s limit punished a play style, not a stall. Combat time is virtual (the fight resolves at
+ * claim; real-world pacing is missionDef.durationSeconds) — the limit's only job is to turn
+ * can't-ever-kill stalls into losses, which 180s still does.
+ */
+export const RECOMMENDED_TIME_LIMIT = 180
+
 const TIER1 = { health: 120, attack: 12, defense: 5, speed: 10 }
 const TIER_GROWTH = 1.4
 
