@@ -1457,3 +1457,29 @@ SPEND; two overlapping budget dimensions would fight.
   layers exist (a +5 agility node is priced against these budgets).
 - Character rarity surfaces to players (roster UI + /game-stats guide); acquisition design
   (which rarities cost what to recruit) remains open ([[project-undecided]]).
+
+## ADR-0032 — Item rarity multiplier flattened (×16 → ×2.25 Legendary) + party size law
+**Date:** 2026-07-10 · **Status:** Accepted (decided by Alex)
+
+**Context.** ADR-0017's provisional gear multiplier doubled per rarity step (Common 1 → Legendary
+16). Against the ADR-0031 character budgets that is upside-down: one Legendary item would out-value
+a character's entire 49-level growth ladder, and gear would drown character identity. Alex's
+direction: every tier should matter, Legendary should feel best *by some margin* — not ×16.
+
+**Decision.** `RARITY_MULT` (src/lib/stats.ts) becomes **1 / 1.2 / 1.45 / 1.75 / 2.25** — steady
+steps with the largest jump into Legendary (+0.5 vs +0.2–0.3 for earlier steps). Item stacking
+(5 → next tier, ADR upgrading) keeps its meaning at every tier without any tier being a whole new
+game. Values provisional like all constants: once itemDefs exist, geared probe comps enter the
+sweep and calibrate.
+
+**Also recorded — party size is the law:** missions take a party of **at most 3**; sending 1–2 is
+allowed and simply forgoes the party bonus (+10%/member beyond the first, ADR-0017). The balance
+harness, encounter shapes, and dispatch UI all assume 3 as the hard ceiling. If a future mode ever
+wants more (e.g. ADR-0020 expeditions), that mode gets its own balance pass first.
+
+**Consequences.**
+- `mission-claim` picks up the new multipliers on next deploy; the 4 draft items' effective power
+  drops at high rarities (no player owns any above Common today — no live impact).
+- `itemStats.ts` display helper shows fractional bonuses (e.g. +17.5) — round in UI when item
+  authoring starts.
+- Player guide gear entry updated ("twice as strong per step" → flattened wording).
