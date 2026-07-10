@@ -1366,3 +1366,49 @@ replace it later without schema changes. Capping enemies too — rejected (kills
 - Authoring: dodge growth/gear beyond ~25 total is wasted — rebalance Mordrek/Vex/Dace dodge
   growth in a content pass, or leave as flavor knowing the cap absorbs it.
 - `mission-claim` picks this up on next deploy (no stored replays, no migration).
+
+## ADR-0030 — Diminishing returns on speed above baseline (haste folds in pre-curve)
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 7 — engine change; decided by Alex)
+
+**Context.** Action rate was linear in speed with no ceiling — the last uncapped runaway channel.
+Authored growth reaches speed 55–110 at L50 (5.5–11× baseline actions), multiplying damage and
+threat; any future +speed/+haste gear or blessing node would stack on top linearly. Alex approved
+engine-side diminishing returns over authoring guidelines (content-proof beats convention).
+
+**Decision.** Effective speed saturates above the baseline; at or below baseline nothing changes:
+
+```
+raw = max(1, speed) × (1 + haste/100)      — haste folds in BEFORE the curve
+eff = raw                                   (raw ≤ REF_SPEED)
+eff = REF_SPEED + (raw − REF_SPEED) × K / (raw − REF_SPEED + K)   (raw > REF_SPEED)
+COMBAT.SPEED_DR_K = 30                      — action rate asymptote = 4× baseline
+```
+
+Anchoring at `REF_SPEED` (10) means every enemy (template speed 10) and every slow unit keeps
+exact v1 behavior — zero rebalance below baseline. K swept 20/30/50: grid metrics nearly identical
+(mean win rate 0.581–0.590), so K=30 is chosen as the middle. At K=30: speed 55 → eff 28 (2.8×),
+speed 110 → eff 33 (3.3×), asymptote 40 (4×). Speed stays a strong reward stat, just sublinear.
+
+**Evidence + an honest correction (`2026-07-10-speed-dr` report vs `dodge-cap`):**
+- The global effect is the intended gentle compression: grid mean win rate 0.607 → 0.585, no comp
+  breaks, anomalies stable (healer inversions 0, threat 1 marginal cell).
+- **Speed DR does NOT break Mordrek's L50 solo sweep (still ~100% all tiers)** — the earlier claim
+  that speed carried it was incomplete. Even at 2.4× actions his kill speed (~250 DPS) beats T8 in
+  ~35s while the full authored mitigation stack (53% armor DR + 25% capped dodge + 62% block +
+  17 HP/s regen + 670 HP) drains only ~13 HP/s. No single engine knob is responsible anymore: the
+  cause is AUTHORED STAT BREADTH — Mordrek uniquely has every defensive growth at once (9 growth
+  entries vs the roster's 4–5). The remaining fix is a content rebalance of Mordrek's def in
+  Sanity, not another engine cap. The engine-side guards (regen, dodge, speed, threat) are now all
+  principled and closed.
+
+**Alternatives considered.** Authoring guideline only — rejected by decision (any future author or
+gear system re-opens the channel). Sqrt curve — rejected: silently buffs every sub-baseline unit.
+Hard speed cap — rejected: kills speed as a growth stat instead of bending it.
+
+**Consequences.**
+- Speed/haste blessing nodes and gear affixes are now safely priceable — the curve bounds their
+  worst case (4× actions) no matter how much content stacks.
+- Stat sheet should eventually display effective action rate (the curve makes raw speed unreadable).
+- `mission-claim` picks this up on next deploy (no stored replays, no migration).
+- Queued content work: Mordrek authored-stat rebalance (drafts) — narrow his defensive growth
+  spread; re-run the sweep to confirm the solo sweep breaks.

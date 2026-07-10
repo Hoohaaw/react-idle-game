@@ -134,6 +134,7 @@ reproducible offline. When baseStats/growth change in Sanity, re-pull with:
 | 2026-07-10 | Tank threat: passive (def + maxHp/10) × 3 × t accrual (engine change) | `2026-07-10-threat-stat` | ADR-0027 |
 | 2026-07-10 | healthRegen time-normalized: HP per 3s, not per action (engine change) | `2026-07-10-regen-cadence` | ADR-0028 |
 | 2026-07-10 | Party dodge capped at 25% + percent-stat audit; `solo-crit` probe comp added | `2026-07-10-dodge-cap` | ADR-0029 |
+| 2026-07-10 | Speed DR above baseline (K=30, asymptote 4× actions; haste pre-curve) | `2026-07-10-speed-dr` | ADR-0030 |
 
 **v2 outcome (ADR-0024):** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band
 appears (`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP
@@ -176,6 +177,14 @@ probe comp — clean gradient, no cap), block bounded (worst case −50% damage;
 only), defense/armorPen/heals self-limiting. **Remaining runaway = SPEED**: linear action rate ×
 authored speed growth (Mordrek 55, Dace/Lyra 110 at L50) still carries solo-tank to 100% grid-wide.
 Design decision pending: authoring guidelines vs engine diminishing returns on action rate.
+
+**Speed-DR outcome (ADR-0030, engine change):** effective speed saturates above baseline
+(K=30, asymptote 4× actions; haste folds in pre-curve; at/below speed 10 untouched — enemies keep
+exact behavior). Gentle global compression (grid mean win rate 0.607→0.585), no comp breaks.
+**Honest correction:** speed DR does NOT break Mordrek's L50 solo sweep — the cause is authored
+stat BREADTH (every defensive growth at once), not any single engine channel. All engine-side
+runaway guards are now closed (regen · dodge · speed · threat); the remaining fix is a **content
+rebalance of Mordrek's defensive growth spread in Sanity**, then re-sweep.
 
 ## Baseline findings — 2026-07-10 (untuned v1 constants)
 

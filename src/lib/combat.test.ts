@@ -109,6 +109,22 @@ describe('simulateCombat — role behaviours', () => {
     expect(r.outcome).toBe('loss')
   })
 
+  it('speed has diminishing returns above baseline; at/below baseline is untouched', () => {
+    // A speed-110 unit acted 11× as often as baseline under linear scaling; with the DR curve
+    // (ADR-0030, K=30) its effective speed is ~33 → ~3.3×. Baseline speed 10 must be exactly 3s.
+    const count = (speed: number) => {
+      const attacker: Combatant = { id: 'a', role: 'damage', stats: { attack: 1, health: 1000, speed } }
+      const wall: Enemy = { id: 'wall', health: 100000, attack: 0, damageType: 'physical', speed: 10, defense: 200 }
+      const r = simulateCombat({ party: [attacker], encounter: encounterWith([wall], 60), seed: 'run-1' })
+      return r.log.filter((e) => e.source === 'a').length
+    }
+    const baseline = count(10)
+    expect(baseline).toBe(21) // 60s / 3s inclusive of t=0 — the baseline interval is untouched
+    const ratio = count(110) / baseline
+    expect(ratio).toBeGreaterThan(2.5) // still clearly faster…
+    expect(ratio).toBeLessThan(4.5) // …but nowhere near the linear 11×
+  })
+
   it('party dodge is capped: an 80-dodge unit avoids only ~DODGE_CAP% of hits', () => {
     const evader: Combatant = {
       id: 'evader',

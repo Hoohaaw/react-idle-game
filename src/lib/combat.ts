@@ -24,6 +24,15 @@ export const COMBAT = {
   BASE_INTERVAL: 3,
   /** The `speed` value that equals one baseline interval. */
   REF_SPEED: 10,
+  /**
+   * Diminishing returns on speed ABOVE the baseline (ADR-0030): effective speed saturates at
+   * REF_SPEED + SPEED_DR_K, so action rate caps at (REF_SPEED + K)/REF_SPEED × baseline. Speed at
+   * or below REF_SPEED is untouched (enemies and slow units keep exact v1 behavior). Haste folds
+   * into speed BEFORE the curve so it cannot reopen the linear channel. Raw linear action rate was
+   * the last stat runaway: authored +1–2 speed/level reached speed 55–110 at L50 (5.5–11× actions),
+   * multiplying damage AND threat, and carried solo tanks to 100% win against every tier.
+   */
+  SPEED_DR_K: 30,
   /** Crit adds this on top of critDamage%: multiplier = 1 + CRIT_BASE + critDamage/100. */
   CRIT_BASE: 0.5,
   /**
@@ -171,8 +180,13 @@ type Unit = {
 const num = (m: StatMap, k: string) => m[k] ?? 0
 
 function actionInterval(speed: number, haste: number): number {
-  const s = Math.max(1, speed)
-  return (COMBAT.BASE_INTERVAL * COMBAT.REF_SPEED) / (s * (1 + haste / 100))
+  const raw = Math.max(1, speed) * (1 + haste / 100)
+  const surplus = raw - COMBAT.REF_SPEED
+  const eff =
+    surplus <= 0
+      ? raw
+      : COMBAT.REF_SPEED + (surplus * COMBAT.SPEED_DR_K) / (surplus + COMBAT.SPEED_DR_K)
+  return (COMBAT.BASE_INTERVAL * COMBAT.REF_SPEED) / eff
 }
 
 function partyUnit(c: Combatant, order: number): Unit {
