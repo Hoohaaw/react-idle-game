@@ -1227,3 +1227,49 @@ stance whenever damaged + damage sharing — out of scope for passive-stats v1 (
 - Healer characters' attack-side stats (Tyla's `spellPower`, etc.) now DO something — factor that
   into blessing-tree and itemDef authoring for healer characters.
 - The dedicated `healingCrit` / `healingPower` vs damage trade-off becomes a real build decision.
+
+## ADR-0027 — Tank threat: passive stat accrual (defense/HP × time), not damage alone
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 4 — engine change)
+
+**Context.** v1 threat was damage-only: `threat += damage × mult`, tank mult ×4 (ADR-0015 D).
+That fails STRUCTURALLY, not numerically: action rate is linear in speed, so a speed-growth dps
+generates threat per action and its threat *rate* outgrows the slow tank's as levels rise (at L50 a
+Rogue attacks ~12× as often as the Warrior; the needed multiplier would be ~16 and still climbing).
+Baseline flagged 67 threat-failure cells; after ADR-0024/25/26 it stood at 96 (worst: tank absorbing
+21% of hits). ADR-0013 already named the intended fix: threat = "role weight + Defense/Health".
+
+**Decision.** Tanks passively accrue threat with combat time, on top of damage threat:
+
+```
+effectiveThreat(t) = damageThreat + threatStatRate × t
+threatStatRate     = (defense + maxHp/10) × TANK_THREAT_STAT_RATE   (tanks only, else 0)
+TANK_THREAT_STAT_RATE = 3
+```
+
+Evaluated lazily in `pickThreatTarget(units, t)` — no per-tick mutation, determinism intact.
+Damage threat + ×4 mult stay: a grossly over-geared dps can still rip aggro (intended risk), and
+tank damage still contributes. The accrual is action-rate independent, so tanking no longer decays
+with level. Defensive stats now generate threat — gearing a tank defensively IS gearing its aggro.
+
+**Evidence (`2026-07-10-threat-stat` report vs `healer-threshold`):**
+- Rate swept 1/3/5: 1 under-holds (40 fail cells), 3 and 5 identical (28) — plateau at 3; picked 3
+  (smallest value at the plateau keeps damage threat relevant).
+- Of the remaining sub-60% cells at rate 3, ALL but one sit in doomed fights (win rate <50%,
+  avg 2.67 members downed) where the tank correctly dies first and survivors soak the rest — tank
+  mortality, not aggro failure. In winnable fights: ONE marginal cell grid-wide.
+- The threat-failure anomaly rule was refined accordingly (only cells with win rate ≥50% count);
+  under it the flag is ZERO in the final 500-seed sweep. Avg tank absorption across tank comps:
+  ~89%. Win rates and downed counts across tank comps unchanged (aggro was already mostly held in
+  easy fights; this fixes the scaling edge).
+- Regression test added: slow tank (speed 5) vs 6×-faster dps — enemy attacks land 100% on the
+  tank; test FAILS at rate 0 (old behavior), passes at 3.
+
+**Alternatives considered.** Raising `TANK_THREAT_MULT` — rejected: flat multiplier vs a
+level-growing rate ratio is the wrong shape (needs ~8 at L20, ~16 at L50). Hard taunt (enemies
+always prefer tanks) — rejected: deletes threat as a system and the overgear-rip risk with it.
+
+**Consequences.**
+- `mission-claim` picks this up on its next deploy (same note as ADR-0026 — no stored replays, no
+  migration).
+- Tank defense/health gear and blessing nodes double as aggro tools — price that into authoring.
+- Multiple tanks split accrual naturally (both accrue; highest effective threat tanks).

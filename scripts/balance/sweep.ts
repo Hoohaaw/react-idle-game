@@ -174,8 +174,10 @@ function findAnomalies(cells: CellResult[]): string[] {
   const at = (comp: string, level: number, tier: number, shape: EncounterShape, limit: number) =>
     cells.find((c) => c.comp === comp && c.level === level && c.tier === tier && c.shape === shape && c.limit === limit)
 
-  // 1. Threat failure: a tank comp where the tank eats < 60% of enemy attacks.
-  const threatFails = cells.filter((c) => !Number.isNaN(c.tankTargetPct) && c.tankTargetPct < 0.6 && c.winRate > 0)
+  // 1. Threat failure: a tank comp where the tank eats < 60% of enemy attacks. Only WINNABLE cells
+  // (winRate ≥ 0.5) count — in doomed fights the tank correctly dies first and the survivors soak
+  // the rest, which is tank mortality, not an aggro failure (measured while refining ADR-0027).
+  const threatFails = cells.filter((c) => !Number.isNaN(c.tankTargetPct) && c.tankTargetPct < 0.6 && c.winRate >= 0.5)
   if (threatFails.length > 0) {
     const worst = threatFails.reduce((a, b) => (a.tankTargetPct < b.tankTargetPct ? a : b))
     out.push(
@@ -251,7 +253,8 @@ function main() {
   md.push(
     `${totalFights.toLocaleString()} fights (${cells.length} cells × ${SEEDS_PER_CELL} seeds) in ${elapsed}s. ` +
       `Naked baselines (no gear, no blessings). Constants: ARMOR_K=${COMBAT.ARMOR_K}, ` +
-      `TANK_THREAT_MULT=${COMBAT.TANK_THREAT_MULT}, MARGIN_MAX=${COMBAT.MARGIN_MAX}, ` +
+      `TANK_THREAT_MULT=${COMBAT.TANK_THREAT_MULT}, TANK_THREAT_STAT_RATE=${COMBAT.TANK_THREAT_STAT_RATE}, ` +
+      `HEALER_HEAL_THRESHOLD=${COMBAT.HEALER_HEAL_THRESHOLD}, MARGIN_MAX=${COMBAT.MARGIN_MAX}, ` +
       `LEVEL_BONUS=${COMBAT.LEVEL_BONUS_PER_AVG_LEVEL}, BASE_INTERVAL=${COMBAT.BASE_INTERVAL}, REF_SPEED=${COMBAT.REF_SPEED}.`,
   )
   md.push('')
