@@ -100,6 +100,56 @@ The report opens with rule-based flags so regressions jump out without reading 6
 Keep sweeps deterministic: seeds are derived from cell coordinates, so two runs at the same
 seeds-per-cell are exactly comparable, run-to-run and machine-to-machine.
 
+## Agent playbook — how a tuning iteration is actually executed
+
+The 2026-07-10 session (ADR-0024…0030) followed this recipe. Future agents: replicate it.
+
+**Setup (once per session)**
+1. Read `src/lib/combat.ts` + the combat ADRs before touching anything. If the roster fixture is
+   stale (characterDef baseStats/growth changed in Sanity), re-snapshot `roster.ts` first.
+2. Confirm the latest committed report matches a fresh sweep at the current constants (sanity
+   check that master's engine = the last "after" state).
+
+**Per iteration (one branch → one change → one ADR → one PR)**
+3. Pick ONE issue from the newest report's anomaly list (or the queue in the tuning log). Name the
+   hypothesis: which constant, formula, or authored content is responsible — and decide
+   **engine vs content**: growth/authoring problems get fixed in Sanity, not with a new engine knob.
+4. If a constant needs a value: run quick candidate sweeps
+   (`node scripts/balance/sweep.ts 200 <label>` per candidate), look for the **plateau**, take the
+   smallest value on it. Robustness beats optimality — if candidates are indistinguishable, say so
+   in the ADR (that's evidence the knob is safe, not a failed experiment).
+5. Make the change. Then write a **discriminating regression test**: one that FAILS on the old
+   behavior and passes on the new. Verify the failure for real — temporarily flip the constant
+   back, run the test, watch it fail, restore. A test that can't fail proves nothing.
+6. Run the canonical sweep: `node scripts/balance/sweep.ts 500 <adr-slug>`. Delete the candidate
+   experiment reports; commit only baseline-quality evidence (md + csv).
+7. **Diff the CSVs, don't just read anomaly counts.** Join old/new on
+   (comp, level, tier, shape, limit); list every cell whose win rate moved >15pts; explain each
+   mover in both directions. An unexplained mover means STOP — you don't understand your change.
+8. Interrogate suspicious metrics before "fixing" them. Two real examples: most "threat failures"
+   were doomed fights where the tank correctly dies first (the metric got refined, not the
+   engine); the solo-tank 100% sweep peeled like an onion — regen → dodge → speed → authored stat
+   breadth — and each layer needed its own iteration. When a hypothesis turns out wrong, record
+   the correction in the ADR ("speed DR does NOT break X because…") — wrong-but-documented beats
+   silently-adjusted.
+9. Check for **blind spots**: if a stat or mechanic has no comp probing it, add a probe comp to
+   the grid (e.g. `solo-crit` was added because the only crit-growth character sat in no comp and
+   crit stacking had never been measured).
+10. Close out: ADR in `docs/DECISIONS.md` (context → decision → evidence → alternatives →
+    consequences, including the mission-claim redeploy note), a row + outcome paragraph in the
+    tuning log below, player-guide entry if player-visible (step 7 of the loop), memory update,
+    `lint`+`build`+`test`, commit, stacked PR.
+
+**Mechanics that keep results trustworthy**
+- Never overwrite reports: always pass a label; the constants header in each report is the
+  provenance record.
+- Seeds derive from cell coordinates — identical grids are exactly comparable across runs and
+  machines; a single anomalous fight can be replayed by reconstructing its seed string.
+- Merge stacked PRs bottom-up and DELETE each base branch immediately — twice this session, PRs
+  merged into stale stacked bases and never reached master (rescued by #33/#37).
+- Windows note: edit source with proper tools; if scripting a constant flip, write files back as
+  UTF-8 **without BOM** or the diff grows a phantom first-line change.
+
 ### Target bands (proposal — first tuning goal, not yet met)
 
 | Situation | Target win rate |
