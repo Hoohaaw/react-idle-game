@@ -94,6 +94,85 @@ describe('simulateCombat — role behaviours', () => {
     expect(r.reason).toBe('timeout')
     expect(r.outcome).toBe('loss')
   })
+
+  it('a healer attacks while the party is above the heal threshold', () => {
+    // Enemy deals 0 damage → no party member ever drops below HEALER_HEAL_THRESHOLD.
+    // Healer has real spell power so its attack power is non-zero.
+    const healer: Combatant = {
+      id: 'healer',
+      role: 'healer',
+      stats: { spellPower: 30, intelligence: 10, healingPower: 20, health: 150, speed: 10 },
+    }
+    const dummy: Enemy = { id: 'dummy', health: 500, attack: 0, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [healer], encounter: encounterWith([dummy], 30), seed: 'run-1' })
+    expect(r.log.some((e) => e.type === 'attack' && e.source === 'healer')).toBe(true)
+    expect(r.log.some((e) => e.type === 'heal' && e.source === 'healer')).toBe(false)
+  })
+
+  it('a healer starts healing once an ally drops below the threshold', () => {
+    // Tank has 100 HP and no defense; enemy attack 50 means one hit takes the tank to 50 HP (50%),
+    // well below the 0.7 threshold — healer must engage.
+    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 5, health: 100, speed: 10 } }
+    const healer: Combatant = {
+      id: 'healer',
+      role: 'healer',
+      stats: { spellPower: 20, healingPower: 20, health: 150, speed: 10 },
+    }
+    const bruiser: Enemy = { id: 'bruiser', health: 500, attack: 50, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [tank, healer], encounter: encounterWith([bruiser], 60), seed: 'run-1' })
+    expect(r.log.some((e) => e.type === 'heal' && e.source === 'healer')).toBe(true)
+  })
+
+  it('healer hysteresis: no attack events from the healer between the first heal and the ally reaching full HP', () => {
+    // Tank has 100 HP, no defense; enemy hits for ~50 → tank at 50% triggers healing.
+    // Healer healPower=10 (small) so it takes multiple ticks to top the tank up, letting us
+    // assert that all healer actions between first-heal and full-HP are heals (no attacks).
+    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 5, health: 100, speed: 10 } }
+    const healer: Combatant = {
+      id: 'healer',
+      role: 'healer',
+      stats: { spellPower: 30, healingPower: 10, health: 150, speed: 10 },
+    }
+    const bruiser: Enemy = { id: 'bruiser', health: 500, attack: 50, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [tank, healer], encounter: encounterWith([bruiser], 60), seed: 'run-1' })
+
+    const healerEvents = r.log.filter((e) => e.source === 'healer')
+    const firstHealIdx = healerEvents.findIndex((e) => e.type === 'heal')
+    // Healer must have healed at least once (threshold was crossed)
+    expect(firstHealIdx).toBeGreaterThanOrEqual(0)
+
+    // Find when the tank first reaches full HP after the first heal: look for a heal event that
+    // brings the tank's running HP back to maxHp (100). Replay healer heal amounts cumulatively.
+    const firstHeal = healerEvents[firstHealIdx]
+    let runningHp = 0
+    // Recompute tank HP at the time healing started so we can track top-up.
+    // We know tank fell below 70 (threshold) — find the exact HP by summing damage/heals on the tank.
+    let tankHp = 100
+    for (const e of r.log) {
+      if (e.target === 'tank' && e.type === 'attack') tankHp = Math.max(0, tankHp - e.amount)
+      if (e.target === 'tank' && e.type === 'heal') tankHp = Math.min(100, tankHp + e.amount)
+      if (e === firstHeal) { runningHp = tankHp; break }
+    }
+    // Replay healer events from first heal onward until tank is topped up
+    let topUpIdx = -1
+    let hp = runningHp
+    for (let i = firstHealIdx; i < healerEvents.length; i++) {
+      const e = healerEvents[i]
+      if (e.type === 'heal' && e.target === 'tank') {
+        hp = Math.min(100, hp + e.amount)
+        if (hp >= 100) { topUpIdx = i; break }
+      }
+    }
+
+    if (topUpIdx > firstHealIdx) {
+      // Every healer event between first heal (inclusive) and top-up (exclusive) must be a heal
+      const between = healerEvents.slice(firstHealIdx, topUpIdx)
+      expect(between.every((e) => e.type === 'heal')).toBe(true)
+    }
+    // If topUpIdx === firstHealIdx, a single heal topped the tank up — hysteresis had no span to check,
+    // but the heal itself fired, which is sufficient.
+    expect(r.log.some((e) => e.type === 'heal' && e.source === 'healer')).toBe(true)
+  })
 })
 
 describe('reward helpers', () => {

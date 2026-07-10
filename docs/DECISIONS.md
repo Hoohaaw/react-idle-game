@@ -1186,3 +1186,44 @@ comps.
 - The sweep grid's time-limit dimension is now [180 primary, 300 probe].
 - Client fight-replay UI (future) should expect fights up to ~3 virtual minutes; consider replay
   time compression regardless.
+
+## ADR-0026 — Healer AI: heal threshold + hysteresis (healers attack when the party is healthy)
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 3 — first engine change)
+
+**Context.** The v1 sim healer healed whenever *any* ally was below 100% HP — so in practice a
+healer never attacked after the first scratch, trading its entire damage contribution for overheal.
+The baseline sweep flagged this as "healer inversion" (a second damage dealer beat the healer slot
+in 8 cells). ADR-0025's longer clock fixed the inversions by letting sustain win anyway, but the
+degenerate never-attacks behavior remained: wrong for fights (wasted actions), wrong for player
+expectations (a Shaman with 300 spell power contributing zero damage), and wrong for future content
+where healer damage stats are priced.
+
+**Decision.** `COMBAT.HEALER_HEAL_THRESHOLD = 0.7` with hysteresis: a healer starts healing when a
+living ally falls below 70% of max HP, keeps healing (most-hurt first) until the whole party is back
+to full, then returns to attacking. Implemented in `simulateCombat` (a `healing` flag per unit +
+`pickHealTarget(units, belowPct)`); pure engine change, no schema or API impact. The threshold was
+chosen empirically but is ROBUST: sweeps at 0.5 / 0.7 / 0.9 were statistically indistinguishable on
+aggregates (healer-advantage cells 10–11, inversions 0, safe-win margins 0.93–0.96), so 0.7 is a
+sensible middle with hysteresis preserving end-of-fight margins.
+
+**Evidence (`2026-07-10-healer-threshold` report vs `limit-180`, same grid):**
+- Strictly targeted upside: only 4 cells move >15pts and ALL move up — healer damage converts
+  sustain-edge timeouts into kills (`duo-tank-heal` L50 T7 boss 59%→99.5%, L10 T4 boss 16%→41%;
+  `trio-no-tank` L5 T3 pack 69%→100%). No cell regresses.
+- Timeout-heavy cells 35 → 29; clock-bound 8 → 6; threat-failure 102 → 96 (healer damage adds
+  nothing to inversion risk — still 0 everywhere).
+- Honest sizing: the effect is modest because ADR-0025 already rescued the healer's win rates;
+  this ADR fixes the *behavior* (and the reward/pacing texture of healer fights) rather than
+  rewriting outcomes.
+
+**Alternatives considered.** Stateless threshold (heal only below 70%, no hysteresis) — rejected:
+parks party HP at ~70% and eats `marginBonus` on wins, punishing healer comps in rewards. Healing
+stance whenever damaged + damage sharing — out of scope for passive-stats v1 (ADR-0013).
+
+**Consequences.**
+- `mission-claim` picks the change up on its next deploy (it bundles `src/lib/combat.ts`);
+  determinism is preserved per-deploy — same seed + same engine version = same result — but replays
+  of runs resolved under the old engine would differ. No stored replays exist yet, so no migration.
+- Healer characters' attack-side stats (Tyla's `spellPower`, etc.) now DO something — factor that
+  into blessing-tree and itemDef authoring for healer characters.
+- The dedicated `healingCrit` / `healingPower` vs damage trade-off becomes a real build decision.

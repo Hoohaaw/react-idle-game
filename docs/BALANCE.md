@@ -130,6 +130,7 @@ reproducible offline. When baseStats/growth change in Sanity, re-pull with:
 | 2026-07-10 | Baseline, untuned v1 constants | `2026-07-10-baseline` | — |
 | 2026-07-10 | Tier template v2: enemy speed flat across tiers | `2026-07-10-speed-flat` | ADR-0024 |
 | 2026-07-10 | Time limit 180s flat (was 60s); grid limits now 180/300 | `2026-07-10-limit-180` | ADR-0025 |
+| 2026-07-10 | Healer AI: heal threshold 0.7 + hysteresis (engine change) | `2026-07-10-healer-threshold` | ADR-0026 |
 
 **v2 outcome (ADR-0024):** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band
 appears (`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP
@@ -141,8 +142,14 @@ confirmed: per-action `healthRegen` + speed growth = L50 solo tank untouchable (
 (sustain grinds, 60–170s at every tier), not tier-dependent — so flat 180s, not a per-tier formula.
 Timeout-heavy 87 → 35, **healer inversions 4 → 0**, clock-bound at 300s down to 8 cells (all
 `duo-tank-heal` boss grinds — the intended ADR-0014 gate). Both authored Sanity encounter drafts
-patched 60→180. Remaining queue: healer threshold AI · threat component · regen cadence
-(cliffs ~70 persist, wipe-driven — expect these three to widen the bands).
+patched 60→180.
+
+**Healer-threshold outcome (ADR-0026, first engine change):** healers attack when the party is
+above 70% HP, heal-to-full below it (hysteresis). Threshold robust (0.5/0.7/0.9 indistinguishable
+on aggregates). Strictly-upward effect: 4 cells move >15pts, all up (sustain-edge timeouts become
+kills); timeout-heavy 35 → 29; no regressions. Modest by design — ADR-0025 had already rescued the
+win rates; this fixes the degenerate never-attacks behavior and makes healer damage stats real.
+Remaining queue: threat component · regen cadence (cliffs ~79 persist, wipe-driven).
 
 ## Baseline findings — 2026-07-10 (untuned v1 constants)
 

@@ -30,6 +30,13 @@ export const COMBAT = {
   BLOCK_FACTOR: 0.5,
   /** Tanks generate this much more threat per point of damage than everyone else. */
   TANK_THREAT_MULT: 4,
+  /**
+   * Healers START healing when an ally falls below this fraction of max HP, then keep healing
+   * until the whole party is topped up (hysteresis); above it they attack (ADR-0026). Without a
+   * threshold a healer never attacked — any scratch anywhere locked it into pure (over)healing,
+   * making the healer slot a measurable downgrade vs. a second damage dealer.
+   */
+  HEALER_HEAL_THRESHOLD: 0.7,
   /** marginBonus = survivingHP% × MARGIN_MAX (reward for a decisive win). */
   MARGIN_MAX: 0.5,
   /** levelBonus = avgPartyLevel × this (capped by the level-50 ceiling). */
@@ -140,6 +147,8 @@ type Unit = {
   threat: number
   interval: number
   nextAt: number
+  /** Hysteresis for healer AI: healing engaged below the threshold, released when the party is full. */
+  healing: boolean
 }
 
 const num = (m: StatMap, k: string) => m[k] ?? 0
@@ -181,6 +190,7 @@ function partyUnit(c: Combatant, order: number): Unit {
     threat: threatMult,
     interval: actionInterval(num(s, 'speed'), num(s, 'haste')),
     nextAt: 0,
+    healing: false,
   }
 }
 
@@ -209,6 +219,7 @@ function enemyUnit(e: Enemy, order: number): Unit {
     threat: 0,
     interval: actionInterval(e.speed, 0),
     nextAt: 0,
+    healing: false,
   }
 }
 
@@ -255,14 +266,14 @@ function pickThreatTarget(units: Unit[]): Unit | undefined {
   return best
 }
 
-/** Healers mend the most-hurt (lowest HP%) living ally below full; undefined if all are full. */
-function pickHealTarget(units: Unit[]): Unit | undefined {
+/** Healers mend the most-hurt (lowest HP%) living ally below `belowPct`; undefined if none qualify. */
+function pickHealTarget(units: Unit[], belowPct: number): Unit | undefined {
   let best: Unit | undefined
-  let bestPct = 1
+  let bestPct = belowPct
   for (const u of units) {
     if (u.side !== 'party' || u.hp <= 0) continue
     const pct = u.hp / u.maxHp
-    if (pct < 1 && (best === undefined || pct < bestPct || (pct === bestPct && u.order < best.order))) {
+    if (pct < belowPct && (best === undefined || pct < bestPct || (pct === bestPct && u.order < best.order))) {
       best = u
       bestPct = pct
     }
@@ -310,7 +321,11 @@ export function simulateCombat(args: {
     if (actor.healthRegen > 0) actor.hp = Math.min(actor.maxHp, actor.hp + actor.healthRegen)
 
     if (actor.isHealer) {
-      const heal = pickHealTarget(units)
+      // Threshold + hysteresis (ADR-0026): start healing when an ally drops below the threshold,
+      // keep healing until the party is topped up, otherwise fall through and attack.
+      const trigger = actor.healing ? 1 : COMBAT.HEALER_HEAL_THRESHOLD
+      const heal = pickHealTarget(units, trigger)
+      actor.healing = heal !== undefined
       if (heal) {
         let amount = actor.healPower
         if (actor.healingCrit > 0 && rng() * 100 < actor.healingCrit) amount *= 2
