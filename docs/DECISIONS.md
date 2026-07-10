@@ -1412,3 +1412,48 @@ Hard speed cap — rejected: kills speed as a growth stat instead of bending it.
 - `mission-claim` picks this up on next deploy (no stored replays, no migration).
 - Queued content work: Mordrek authored-stat rebalance (drafts) — narrow his defensive growth
   spread; re-run the sweep to confirm the solo sweep breaks.
+
+## ADR-0031 — Character point-buy budget + character rarity
+**Date:** 2026-07-10 · **Status:** Accepted (decided by Alex)
+
+**Context.** The roster was authored before any budget rules existed. A priced audit showed growth
+spend ranging 4.6–16.5 points/level (Mordrek 16.5, roster median 7.3) — characters were incomparable
+by construction, and the probe confirmed it (L50 solo ceilings: Mordrek T8 vs a healthy T3–T5 band
+for 17 of 19). Alex wants: easy future authoring, clear stronger/weaker-at-different-things
+identity, more interesting level-ups, and character rarity.
+
+**Decision: a priced point-buy budget, set by rarity, enforced at authoring time.**
+1. **Prices** (`STAT_PRICE`, `src/lib/characterBudget.ts`): each stat costs budget points per +1 —
+   health 0.15, reference scalars 1, speed/haste/critDamage 1.5, block/regen/healingCrit 2,
+   critChance 2.5, dodge 3, non-combat economy stats 0.5. First-pass values; the harness calibrates.
+2. **Rarity** (new `characterDef.rarity`): Common/Uncommon/Rare/Epic/Legendary → base budget
+   80/85/90/95/100 (level-1 spread) and growth budget 8/8.5/9/9.5/10 (per level). Tight band on
+   purpose: ~25% growth spread, meaningful but never dominant. Budgets anchored to the authored
+   roster's median under the price table so re-costing was nudges, not rewrites.
+3. **Milestones** cost `bonus × price` amortized over the 49 level-ups — pre-paid spikes, not
+   free stats. Tolerance ±0.5 on each budget.
+4. **Enforcement where the mistake happens:** Sanity studio validation on `characterDef` sums the
+   priced spend against the rarity budgets; `auditCharacter()` is the code-side mirror.
+5. **Fractional `perLevel` is encouraged** (2.5 strength/level legal). The "10 points distributed
+   each level-up" display Alex described is achieved later in UI: per-level integer gains derived
+   from the fractional weights via deterministic largest-remainder rounding — a presentation
+   layer over compute-on-read, no engine change now (deferred with the level-up UI).
+6. **Whole roster re-costed** (all 19 drafts patched in Sanity) to their assigned rarities:
+   Common ×6 (Gort, Nira, Rowan, Elia, Torvin, Fenn), Uncommon ×7 (Callum, Mira, Yenna, Dara, Oku,
+   Lyra, Aldric), Rare ×5 (Brom, Vex, Sera, Tyla, Dace), Epic ×1 (Mordrek), Legendary ×0
+   (headroom). Assignments provisional — content call, freely reshuffled.
+
+**Alternatives considered.** Flat unpriced 10 points/level — rejected: HP-heavy characters starve
+while percent-stat characters break (1 dodge/level was this week's degeneracy). Per-level authored
+tables (49 rows/char) — rejected: brutal authoring for what deterministic rounding gives free.
+Budget by role instead of rarity — rejected: rarity was wanted anyway and role already shapes the
+SPEND; two overlapping budget dimensions would fight.
+
+**Consequences.**
+- New characters = fill a shopping cart; recruit #20 cannot accidentally be the next Mordrek.
+- The roster probe band (docs/BALANCE.md) becomes the acceptance test for content changes.
+- `roster.ts` harness fixture re-snapshotted; sweep re-run as evidence.
+- Blessing trees and gear will add power ON TOP of budgeted baselines — re-audit prices when those
+  layers exist (a +5 agility node is priced against these budgets).
+- Character rarity surfaces to players (roster UI + /game-stats guide); acquisition design
+  (which rarities cost what to recruit) remains open ([[project-undecided]]).

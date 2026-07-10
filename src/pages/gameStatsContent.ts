@@ -180,6 +180,14 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     title: 'Getting Stronger',
     entries: [
       {
+        name: 'Hero Rarity',
+        body:
+          'Every hero has a rarity — Common, Uncommon, Rare, Epic, or Legendary. Rarer heroes have a ' +
+          'somewhat richer stat budget (a Legendary grows roughly a quarter faster than a Common), ' +
+          'but every hero is built fairly from the same rules: rarity makes a hero a bit stronger, ' +
+          'never a different game. What truly sets heroes apart is WHERE their strengths lie.',
+      },
+      {
         name: 'Gear',
         body:
           'Equip items from your inventory on the Team page — 14 slots per hero. A rarer copy of an ' +
