@@ -337,7 +337,13 @@ export function simulateCombat(args: {
     if (!actor || actor.nextAt > timeLimit) break // timeout
 
     t = actor.nextAt
-    if (actor.healthRegen > 0) actor.hp = Math.min(actor.maxHp, actor.hp + actor.healthRegen)
+    // Regen is time-normalized (ADR-0028): healthRegen = HP per BASE_INTERVAL of combat time,
+    // applied on the unit's own action scaled by its interval. Per-action regen double-dipped
+    // with speed (a fast unit regenerated per ACTION), making high-speed/high-regen tanks immortal.
+    if (actor.healthRegen > 0) {
+      const regen = actor.healthRegen * (actor.interval / COMBAT.BASE_INTERVAL)
+      actor.hp = Math.min(actor.maxHp, actor.hp + regen)
+    }
 
     if (actor.isHealer) {
       // Threshold + hysteresis (ADR-0026): start healing when an ally drops below the threshold,

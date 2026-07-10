@@ -132,6 +132,7 @@ reproducible offline. When baseStats/growth change in Sanity, re-pull with:
 | 2026-07-10 | Time limit 180s flat (was 60s); grid limits now 180/300 | `2026-07-10-limit-180` | ADR-0025 |
 | 2026-07-10 | Healer AI: heal threshold 0.7 + hysteresis (engine change) | `2026-07-10-healer-threshold` | ADR-0026 |
 | 2026-07-10 | Tank threat: passive (def + maxHp/10) × 3 × t accrual (engine change) | `2026-07-10-threat-stat` | ADR-0027 |
+| 2026-07-10 | healthRegen time-normalized: HP per 3s, not per action (engine change) | `2026-07-10-regen-cadence` | ADR-0028 |
 
 **v2 outcome (ADR-0024):** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band
 appears (`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP
@@ -158,7 +159,14 @@ winnable fights the sub-60%-absorption flag drops to ZERO grid-wide (~89% avg ta
 remaining low-absorption cells are doomed fights where the tank correctly dies first — the
 threat-failure anomaly rule now only counts cells with win rate ≥50% for this reason. Defensive
 stats double as aggro tools — price into tank gear/blessing authoring.
-Remaining queue: regen cadence (cliffs ~75 persist, wipe-driven — the tier ×1.4 stat jump itself).
+
+**Regen-cadence outcome (ADR-0028, engine change):** `healthRegen` now = HP per 3s of combat time
+(applied per action scaled by interval) instead of full value per action — speed no longer buys
+regen. 23 cells move >15pts, both directions, all explainable: regen-carried overtier immortality
+collapses (`solo-tank` L20 T6 boss 100%→0%), slow sustain comps correctly buffed. Anomalies stable
+(inversions 0, threat 1 marginal cell, cliffs ~79 = the tier ×1.4 jump itself, a design-feel call).
+**Newly identified queue item: authored dodge growth** — Mordrek's +1 dodge/level = 53% at L50
+keeps solo-tank sweeping the grid; content fix (rarer dodge growth) or engine dodge cap, TBD.
 
 ## Baseline findings — 2026-07-10 (untuned v1 constants)
 

@@ -109,6 +109,20 @@ describe('simulateCombat — role behaviours', () => {
     expect(r.outcome).toBe('loss')
   })
 
+  it('regen is time-normalized: a fast unit cannot out-regen sustained damage per action', () => {
+    // speed 30 = 3 actions per enemy swing. Per-action regen made this unit immortal
+    // (30 HP × 3/s > 15 dmg/s incoming); time-normalized (ADR-0028) it is 10 HP/s and bleeds out.
+    const speedster: Combatant = {
+      id: 'speedster',
+      role: 'damage',
+      stats: { attack: 5, health: 200, speed: 30, healthRegen: 30 },
+    }
+    const juggernaut: Enemy = { id: 'juggernaut', health: 5000, attack: 45, damageType: 'physical', speed: 10, defense: 200 }
+    const r = simulateCombat({ party: [speedster], encounter: encounterWith([juggernaut], 120), seed: 'run-1' })
+    expect(r.reason).toBe('party-wiped')
+    expect(r.endingHp.speedster).toBe(0)
+  })
+
   it('a healer attacks while the party is above the heal threshold', () => {
     // Enemy deals 0 damage → no party member ever drops below HEALER_HEAL_THRESHOLD.
     // Healer has real spell power so its attack power is non-zero.

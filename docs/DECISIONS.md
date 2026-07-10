@@ -1273,3 +1273,44 @@ always prefer tanks) — rejected: deletes threat as a system and the overgear-r
   migration).
 - Tank defense/health gear and blessing nodes double as aggro tools — price that into authoring.
 - Multiple tanks split accrual naturally (both accrue; highest effective threat tanks).
+
+## ADR-0028 — healthRegen is time-normalized (HP per BASE_INTERVAL, not per action)
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 5 — engine change)
+
+**Context.** v1 applied `healthRegen` in full on each of a unit's OWN actions — so effective regen
+scaled linearly with speed. Combined with speed growth this was a confirmed hard degeneracy: a L50
+Death Knight (speed 55 → an action every 0.55s) regenerated ~95 HP/s against ~20 HP/s incoming and
+was literally untouchable — 100% win at margin 1.0 against every tier in the grid. Regen also
+double-dipped with every future +speed/+haste source, poisoning stat pricing.
+
+**Decision.** `healthRegen` = HP per `BASE_INTERVAL` (3s) of combat time. Applied on the unit's own
+action, scaled by its interval: `regen = healthRegen × interval / BASE_INTERVAL`. Total regen over a
+fight is now `healthRegen × t / 3` regardless of speed or haste. One-line engine change; slow units
+are correctly buffed to the same normalized rate (they previously ticked less often than baseline).
+
+**Evidence (`2026-07-10-regen-cadence` report vs `threat-stat`):**
+- 23 cells move >15pts, in BOTH directions and all explainable: regen-carried overtier immortality
+  collapses (`solo-tank` L20 T6 boss 100%→0%, L35 T8 boss 100%→12%, `trio-utility` L35 T6 boss
+  100%→5% — no-healer comps that were riding per-action regen), while slow sustain comps get the
+  correct normalization buff (`duo-tank-heal` L1 T4 solo 59%→99%).
+- Regression test: a speed-30 unit with healthRegen 30 vs 15 dmg/s sustained — immortal under
+  per-action regen, bleeds out time-normalized. Test fails on the old engine, passes on the new.
+- Anomalies stable: healer inversions 0, threat failures 1 marginal cell, cliffs ~79 (the tier
+  ×1.4 jump itself), timeouts 25→33 (former regen-stall wins now honestly time out).
+
+**Discovered in passing — NEXT tuning target:** `solo-tank` (Mordrek) L50 still clears every tier
+at ~100%, but the driver is no longer regen: his AUTHORED `dodge` growth (+1/level → 53% dodge at
+L50) halves incoming damage. Dodge-from-growth stacking to 50%+ is an authoring/content problem
+(possibly wanting an engine-side dodge cap) — queued, not addressed here.
+
+**Alternatives considered.** Global fixed-cadence regen ticks (scheduler events every 3s for every
+unit) — rejected: more sim machinery for the same math. Removing in-combat regen entirely —
+rejected: it's an authored stat with build identity (Brewmaster/Death Knight flavor); ADR-0013's
+no-OOC-regen rule already bounds it.
+
+**Consequences.**
+- `healthRegen`'s canonical meaning everywhere (authoring, tooltips, stat sheets): **HP per 3
+  seconds of combat**. Sanity-authored values keep their magnitudes (baseline-speed units behave
+  identically); only speed-outliers change.
+- `mission-claim` picks this up on next deploy (no stored replays, no migration).
+- +speed/+haste no longer buy extra regen — one less double-dip when pricing blessing/item stats.
