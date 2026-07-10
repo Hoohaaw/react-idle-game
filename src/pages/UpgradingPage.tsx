@@ -90,6 +90,10 @@ export default function UpgradingPage() {
   const upgradableCount = inventory.filter(canUpgrade).length
   const shown = filter === 'Upgradable' ? inventory.filter(canUpgrade) : inventory
   const isPending = upgrade.isPending
+  const bulkChanges = useMemo(
+    () => (bulkOpen ? changedItems(inventory) : []),
+    [bulkOpen, inventory]
+  )
 
   const upgradeOnce = (stack: Item) => {
     if (!stack.itemDefId || !nextRarity(stack.rarity)) return
@@ -99,17 +103,22 @@ export default function UpgradingPage() {
   }
 
   const upgradeMax = (stack: Item) => {
-    const ops = computeOps(inventory, cascade(inventory, [stack.name]))
+    const ops = computeOps(inventory, cascade(inventory, [stack.itemDefId ?? stack.name]))
     if (ops.length) upgrade.mutate(ops, { onSuccess: () => setTarget(null) })
+    else setTarget(null)
   }
 
   const upgradeAll = () => {
     const ops = computeOps(inventory, cascade(inventory))
-    if (ops.length) upgrade.mutate(ops, { onSuccess: () => setBulkOpen(false) })
+    if (ops.length) upgrade.mutate(ops, {
+      onSuccess: () => setBulkOpen(false),
+      onError:   () => setBulkOpen(false),
+    })
+    else setBulkOpen(false)
   }
 
   const targetBefore = target ? inventory.filter(i => i.name === target.name) : []
-  const targetAfter  = target ? cascade(inventory, [target.name]).filter(i => i.name === target.name) : []
+  const targetAfter  = target ? cascade(inventory, [target.itemDefId ?? target.name]).filter(i => i.name === target.name) : []
 
   return (
     <div>
@@ -176,7 +185,7 @@ export default function UpgradingPage() {
 
       <BulkUpgradeModal
         open={bulkOpen}
-        changes={bulkOpen ? changedItems(inventory) : []}
+        changes={bulkChanges}
         isPending={isPending}
         onConfirm={upgradeAll}
         onCancel={() => setBulkOpen(false)}

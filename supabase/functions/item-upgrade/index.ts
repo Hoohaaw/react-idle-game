@@ -35,6 +35,15 @@ Deno.serve(async (req) => {
     return json({ error: 'ops must be a non-empty array' }, 400)
   }
 
+  for (const op of body.ops as unknown[]) {
+    if (
+      typeof (op as Record<string, unknown>)?.itemDefId !== 'string' ||
+      typeof (op as Record<string, unknown>)?.fromRarity !== 'string' ||
+      typeof (op as Record<string, unknown>)?.consumeCount !== 'number' ||
+      !Number.isInteger((op as Record<string, unknown>).consumeCount)
+    ) return json({ error: 'Invalid op shape' }, 400)
+  }
+
   // Remap camelCase from the client to snake_case for the RPC.
   const ops = (body.ops as Array<{ itemDefId: string; fromRarity: string; consumeCount: number }>)
     .map((op) => ({
