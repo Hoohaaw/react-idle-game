@@ -92,6 +92,9 @@ The report opens with rule-based flags so regressions jump out without reading 6
 4. **Change one thing.** Constants in code; authored-stat conclusions go back to Sanity.
 5. **Re-run, diff the reports.** Anomaly counts and the target bands below say whether it helped.
 6. **Record the accepted change as an ADR** (combat math revisions supersede ADR-0015 values).
+7. **Update the player guide** — if the change alters what a player would feel or plan around
+   (caps, thresholds, curve behavior, reward rules), update the affected entry in
+   `src/pages/gameStatsContent.ts` (the `/game-stats` page) in the same branch.
    Repeat.
 
 Keep sweeps deterministic: seeds are derived from cell coordinates, so two runs at the same
