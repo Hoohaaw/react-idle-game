@@ -1,7 +1,10 @@
-# ELEMENTS.md — elemental damage schools (DESIGN DRAFT)
+# ELEMENTS.md — elemental damage schools
 
-> **Status: DRAFT — awaiting Alex's review.** Nothing here is built. When accepted this becomes
-> ADR-0033 and the build follows the BALANCE.md playbook (registry → schema → engine → probes).
+> **Status: ACCEPTED + BUILT (ADR-0033, 2026-07-11).** Alex's amendments applied: school list is
+> fire/ice/earth/**wind**/holy/shadow + physical + plain "magic" as the neutral school (no
+> "arcane" naming); resistances surface **mid/late game** (tier-gated, nothing before tier 3);
+> healing is schoolless. Sections below updated to as-built. UI surfaces (mission resist pips,
+> roster school badges) are the remaining follow-up.
 
 The goal, in Alex's words: enemies get resistances and real defensive stats *so the player can
 configure their squad to make smarter choices*. Picking WHO to send should depend on WHAT you're
@@ -16,12 +19,13 @@ Seven damage schools — six elemental + physical:
 | School | Icon idea | Identity | Typical wielder |
 |---|---|---|---|
 | **physical** | ⚔ | weapons, claws, arrows — mitigated by armor (Defense) | warriors, rogues, hunters, most enemies |
-| **arcane** | ✦ | raw magic, the neutral school | default for casters with no authored school |
+| **magic** | ✦ | plain magic, the neutral school | default for casters with no authored school |
 | **fire** | 🔥 | burn it down | Callum (Mage) |
 | **ice** | ❄ | frost and cold | — |
-| **earth** | ⛰ | stone, nature | Yenna (Shaman)? Fenn (Druid)? |
+| **wind** | 🌪 | storm and gale | Tyla (Windcarrier) |
+| **earth** | ⛰ | stone, nature | Yenna (Stonecall), Fenn (Druid) |
 | **holy** | ✨ | light, radiance | Aldric (Priest) |
-| **shadow** | 🌑 | decay, void | Mira (Warlock), Mordrek's enemies… |
+| **shadow** | 🌑 | decay, void | Mira (Warlock) |
 
 Registry-driven (`src/lib/schools.ts`, same pattern as stats/resources): adding a school later
 (lightning, poison…) = one registry line + content that uses it. Six is the starting set — enough

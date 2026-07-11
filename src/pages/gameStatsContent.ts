@@ -77,6 +77,15 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           'instead of their armor — some enemies have plenty of one and none of the other.',
       },
       {
+        name: 'Damage Schools',
+        body:
+          'Magic comes in schools — fire, ice, earth, wind, holy, and shadow (a caster with no ' +
+          'school deals plain magic). Early on it barely matters, but tougher enemies RESIST ' +
+          'certain schools and are wide open to others: a fire mage hits a fire-warded enemy for ' +
+          'far less, and an undead horror may crumble to holy. Check what you are fighting and ' +
+          'send the right heroes — it can swing a fight by a third or more.',
+      },
+      {
         name: 'Speed & Haste',
         body:
           'How often a hero acts. Speed 10 is the baseline (one action every 3 seconds); more speed = ' +
