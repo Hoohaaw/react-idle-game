@@ -1273,3 +1273,263 @@ always prefer tanks) — rejected: deletes threat as a system and the overgear-r
   migration).
 - Tank defense/health gear and blessing nodes double as aggro tools — price that into authoring.
 - Multiple tanks split accrual naturally (both accrue; highest effective threat tanks).
+
+## ADR-0028 — healthRegen is time-normalized (HP per BASE_INTERVAL, not per action)
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 5 — engine change)
+
+**Context.** v1 applied `healthRegen` in full on each of a unit's OWN actions — so effective regen
+scaled linearly with speed. Combined with speed growth this was a confirmed hard degeneracy: a L50
+Death Knight (speed 55 → an action every 0.55s) regenerated ~95 HP/s against ~20 HP/s incoming and
+was literally untouchable — 100% win at margin 1.0 against every tier in the grid. Regen also
+double-dipped with every future +speed/+haste source, poisoning stat pricing.
+
+**Decision.** `healthRegen` = HP per `BASE_INTERVAL` (3s) of combat time. Applied on the unit's own
+action, scaled by its interval: `regen = healthRegen × interval / BASE_INTERVAL`. Total regen over a
+fight is now `healthRegen × t / 3` regardless of speed or haste. One-line engine change; slow units
+are correctly buffed to the same normalized rate (they previously ticked less often than baseline).
+
+**Evidence (`2026-07-10-regen-cadence` report vs `threat-stat`):**
+- 23 cells move >15pts, in BOTH directions and all explainable: regen-carried overtier immortality
+  collapses (`solo-tank` L20 T6 boss 100%→0%, L35 T8 boss 100%→12%, `trio-utility` L35 T6 boss
+  100%→5% — no-healer comps that were riding per-action regen), while slow sustain comps get the
+  correct normalization buff (`duo-tank-heal` L1 T4 solo 59%→99%).
+- Regression test: a speed-30 unit with healthRegen 30 vs 15 dmg/s sustained — immortal under
+  per-action regen, bleeds out time-normalized. Test fails on the old engine, passes on the new.
+- Anomalies stable: healer inversions 0, threat failures 1 marginal cell, cliffs ~79 (the tier
+  ×1.4 jump itself), timeouts 25→33 (former regen-stall wins now honestly time out).
+
+**Discovered in passing — NEXT tuning target:** `solo-tank` (Mordrek) L50 still clears every tier
+at ~100%, but the driver is no longer regen: his AUTHORED `dodge` growth (+1/level → 53% dodge at
+L50) halves incoming damage. Dodge-from-growth stacking to 50%+ is an authoring/content problem
+(possibly wanting an engine-side dodge cap) — queued, not addressed here.
+
+**Alternatives considered.** Global fixed-cadence regen ticks (scheduler events every 3s for every
+unit) — rejected: more sim machinery for the same math. Removing in-combat regen entirely —
+rejected: it's an authored stat with build identity (Brewmaster/Death Knight flavor); ADR-0013's
+no-OOC-regen rule already bounds it.
+
+**Consequences.**
+- `healthRegen`'s canonical meaning everywhere (authoring, tooltips, stat sheets): **HP per 3
+  seconds of combat**. Sanity-authored values keep their magnitudes (baseline-speed units behave
+  identically); only speed-outliers change.
+- `mission-claim` picks this up on next deploy (no stored replays, no migration).
+- +speed/+haste no longer buy extra regen — one less double-dip when pricing blessing/item stats.
+
+## ADR-0029 — Party dodge capped at 25% + percent-stat runaway audit
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 6 — engine change)
+
+**Context.** After ADR-0028 removed regen immortality, solo Mordrek still swept the grid — driven
+by his authored `dodge` growth (+1/level → 53% at L50; Vex reaches 59%). Dodge is FULL avoidance,
+so it compounds multiplicatively with every other defensive layer, and any growth/gear/blessing
+stacking runs away. Decision (Alex): cap it.
+
+**Decision.** `COMBAT.DODGE_CAP = 25` — party units' dodge is clamped at 25% in the sim.
+**Enemies are NOT capped**: their stats are hand-authored (no growth runaway), and an untouchable
+ghost remains a legitimate encounter design tool (the timeout-loss test depends on it).
+
+**Percent-stat audit (the rest of the family, measured):**
+- **critChance** — previously UNPROBED (the only crit-growth character, Dace [WIP], was in no sweep
+  comp). Added a `solo-crit` probe comp. Verdict: HEALTHY — 57% crit at L50 produces big damage but
+  a clean difficulty gradient (margins fall 0.95→0.17 across tiers, win rates collapse at T8), no
+  immortality. Crit is offense: it bounds fight LENGTH, not survival. No cap now; re-audit when
+  `critDamage` gear/blessings exist (nobody authors critDamage today).
+- **block** — Mordrek 62% / Brom 58% at L50. Same runaway *shape* as dodge but bounded impact:
+  a proc removes only `BLOCK_FACTOR` (50%) of one hit, so worst case asymptotes at −50% damage,
+  not invulnerability. Left uncapped for now; flagged for authoring guidance (block growth should
+  stay modest) and a possible later cap if gear stacking pushes it past ~60%.
+- **defense/resistance** — self-limiting by the DR curve (`def/(def+100)` is hyperbolic;
+  even def 400 = 80%). No action.
+- **armorPen** — self-limiting (`max(0, mitigation − pen)` can at most zero the target's
+  mitigation). No action.
+- **healthRegen** — fixed by ADR-0028. **healingPower/healingCrit** — bounded by the heal-target
+  cap and threshold AI. No action.
+- **speed (and haste)** — THE remaining runaway, now cleanly isolated: action rate is linear in
+  speed with no cap, and it multiplies damage, threat, and (pre-0028) regen. Mordrek's 100% grid
+  sweep survives the dodge cap because his authored +1 speed/level makes him a 580-DPS tank at L50
+  (11× Brom's action rate); Dace/Lyra reach speed 110. This is NOT capped here — speed is a core
+  reward-flagged stat and the fix is a design decision: authored-growth guidelines (speed growth
+  rare/fractional) vs. engine diminishing returns on action rate. Escalated to Alex; queued.
+
+**Evidence (`2026-07-10-dodge-cap` report vs `regen-cadence`, 500 seeds):**
+- 18 pre-existing cells move >15pts, ALL downward and all dodge-stacked comps at overtier edges
+  (`solo-dps` L50 T7 pack 83%→19%, T6 boss 89%→34%) — the cap bites exactly where dodge was
+  carrying fights beyond the intended band.
+- Party-wide anomalies stable: healer inversions 0, threat failure 1 marginal cell, cliffs ~82.
+- Regression test: an 80-dodge party unit avoids ~25% of a long swing series (fails uncapped).
+
+**Alternatives considered.** Diminishing-returns curve on dodge (WoW-style) — rejected for v1:
+a hard cap is transparent to players and trivially explainable in the stat sheet; DR curves can
+replace it later without schema changes. Capping enemies too — rejected (kills authored gimmicks).
+
+**Consequences.**
+- Stat-sheet UI should surface the cap (e.g. "Dodge 53% (capped 25%)") when it lands.
+- Authoring: dodge growth/gear beyond ~25 total is wasted — rebalance Mordrek/Vex/Dace dodge
+  growth in a content pass, or leave as flavor knowing the cap absorbs it.
+- `mission-claim` picks this up on next deploy (no stored replays, no migration).
+
+## ADR-0030 — Diminishing returns on speed above baseline (haste folds in pre-curve)
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 7 — engine change; decided by Alex)
+
+**Context.** Action rate was linear in speed with no ceiling — the last uncapped runaway channel.
+Authored growth reaches speed 55–110 at L50 (5.5–11× baseline actions), multiplying damage and
+threat; any future +speed/+haste gear or blessing node would stack on top linearly. Alex approved
+engine-side diminishing returns over authoring guidelines (content-proof beats convention).
+
+**Decision.** Effective speed saturates above the baseline; at or below baseline nothing changes:
+
+```
+raw = max(1, speed) × (1 + haste/100)      — haste folds in BEFORE the curve
+eff = raw                                   (raw ≤ REF_SPEED)
+eff = REF_SPEED + (raw − REF_SPEED) × K / (raw − REF_SPEED + K)   (raw > REF_SPEED)
+COMBAT.SPEED_DR_K = 30                      — action rate asymptote = 4× baseline
+```
+
+Anchoring at `REF_SPEED` (10) means every enemy (template speed 10) and every slow unit keeps
+exact v1 behavior — zero rebalance below baseline. K swept 20/30/50: grid metrics nearly identical
+(mean win rate 0.581–0.590), so K=30 is chosen as the middle. At K=30: speed 55 → eff 28 (2.8×),
+speed 110 → eff 33 (3.3×), asymptote 40 (4×). Speed stays a strong reward stat, just sublinear.
+
+**Evidence + an honest correction (`2026-07-10-speed-dr` report vs `dodge-cap`):**
+- The global effect is the intended gentle compression: grid mean win rate 0.607 → 0.585, no comp
+  breaks, anomalies stable (healer inversions 0, threat 1 marginal cell).
+- **Speed DR does NOT break Mordrek's L50 solo sweep (still ~100% all tiers)** — the earlier claim
+  that speed carried it was incomplete. Even at 2.4× actions his kill speed (~250 DPS) beats T8 in
+  ~35s while the full authored mitigation stack (53% armor DR + 25% capped dodge + 62% block +
+  17 HP/s regen + 670 HP) drains only ~13 HP/s. No single engine knob is responsible anymore: the
+  cause is AUTHORED STAT BREADTH — Mordrek uniquely has every defensive growth at once (9 growth
+  entries vs the roster's 4–5). The remaining fix is a content rebalance of Mordrek's def in
+  Sanity, not another engine cap. The engine-side guards (regen, dodge, speed, threat) are now all
+  principled and closed.
+
+**Alternatives considered.** Authoring guideline only — rejected by decision (any future author or
+gear system re-opens the channel). Sqrt curve — rejected: silently buffs every sub-baseline unit.
+Hard speed cap — rejected: kills speed as a growth stat instead of bending it.
+
+**Consequences.**
+- Speed/haste blessing nodes and gear affixes are now safely priceable — the curve bounds their
+  worst case (4× actions) no matter how much content stacks.
+- Stat sheet should eventually display effective action rate (the curve makes raw speed unreadable).
+- `mission-claim` picks this up on next deploy (no stored replays, no migration).
+- Queued content work: Mordrek authored-stat rebalance (drafts) — narrow his defensive growth
+  spread; re-run the sweep to confirm the solo sweep breaks.
+
+## ADR-0031 — Character point-buy budget + character rarity
+**Date:** 2026-07-10 · **Status:** Accepted (decided by Alex)
+
+**Context.** The roster was authored before any budget rules existed. A priced audit showed growth
+spend ranging 4.6–16.5 points/level (Mordrek 16.5, roster median 7.3) — characters were incomparable
+by construction, and the probe confirmed it (L50 solo ceilings: Mordrek T8 vs a healthy T3–T5 band
+for 17 of 19). Alex wants: easy future authoring, clear stronger/weaker-at-different-things
+identity, more interesting level-ups, and character rarity.
+
+**Decision: a priced point-buy budget, set by rarity, enforced at authoring time.**
+1. **Prices** (`STAT_PRICE`, `src/lib/characterBudget.ts`): each stat costs budget points per +1 —
+   health 0.15, reference scalars 1, speed/haste/critDamage 1.5, block/regen/healingCrit 2,
+   critChance 2.5, dodge 3, non-combat economy stats 0.5. First-pass values; the harness calibrates.
+2. **Rarity** (new `characterDef.rarity`): Common/Uncommon/Rare/Epic/Legendary → base budget
+   80/85/90/95/100 (level-1 spread) and growth budget 8/8.5/9/9.5/10 (per level). Tight band on
+   purpose: ~25% growth spread, meaningful but never dominant. Budgets anchored to the authored
+   roster's median under the price table so re-costing was nudges, not rewrites.
+3. **Milestones** cost `bonus × price` amortized over the 49 level-ups — pre-paid spikes, not
+   free stats. Tolerance ±0.5 on each budget.
+4. **Enforcement where the mistake happens:** Sanity studio validation on `characterDef` sums the
+   priced spend against the rarity budgets; `auditCharacter()` is the code-side mirror.
+5. **Fractional `perLevel` is encouraged** (2.5 strength/level legal). The "10 points distributed
+   each level-up" display Alex described is achieved later in UI: per-level integer gains derived
+   from the fractional weights via deterministic largest-remainder rounding — a presentation
+   layer over compute-on-read, no engine change now (deferred with the level-up UI).
+6. **Whole roster re-costed** (all 19 drafts patched in Sanity) to their assigned rarities:
+   Common ×6 (Gort, Nira, Rowan, Elia, Torvin, Fenn), Uncommon ×7 (Callum, Mira, Yenna, Dara, Oku,
+   Lyra, Aldric), Rare ×5 (Brom, Vex, Sera, Tyla, Dace), Epic ×1 (Mordrek), Legendary ×0
+   (headroom). Assignments provisional — content call, freely reshuffled.
+
+**Alternatives considered.** Flat unpriced 10 points/level — rejected: HP-heavy characters starve
+while percent-stat characters break (1 dodge/level was this week's degeneracy). Per-level authored
+tables (49 rows/char) — rejected: brutal authoring for what deterministic rounding gives free.
+Budget by role instead of rarity — rejected: rarity was wanted anyway and role already shapes the
+SPEND; two overlapping budget dimensions would fight.
+
+**Consequences.**
+- New characters = fill a shopping cart; recruit #20 cannot accidentally be the next Mordrek.
+- The roster probe band (docs/BALANCE.md) becomes the acceptance test for content changes.
+- `roster.ts` harness fixture re-snapshotted; sweep re-run as evidence.
+- Blessing trees and gear will add power ON TOP of budgeted baselines — re-audit prices when those
+  layers exist (a +5 agility node is priced against these budgets).
+- Character rarity surfaces to players (roster UI + /game-stats guide); acquisition design
+  (which rarities cost what to recruit) remains open ([[project-undecided]]).
+
+## ADR-0032 — Item rarity multiplier flattened (×16 → ×2.25 Legendary) + party size law
+**Date:** 2026-07-10 · **Status:** Accepted (decided by Alex)
+
+**Context.** ADR-0017's provisional gear multiplier doubled per rarity step (Common 1 → Legendary
+16). Against the ADR-0031 character budgets that is upside-down: one Legendary item would out-value
+a character's entire 49-level growth ladder, and gear would drown character identity. Alex's
+direction: every tier should matter, Legendary should feel best *by some margin* — not ×16.
+
+**Decision.** `RARITY_MULT` (src/lib/stats.ts) becomes **1 / 1.2 / 1.45 / 1.75 / 2.25** — steady
+steps with the largest jump into Legendary (+0.5 vs +0.2–0.3 for earlier steps). Item stacking
+(5 → next tier, ADR upgrading) keeps its meaning at every tier without any tier being a whole new
+game. Values provisional like all constants: once itemDefs exist, geared probe comps enter the
+sweep and calibrate.
+
+**Also recorded — party size is the law:** missions take a party of **at most 3**; sending 1–2 is
+allowed and simply forgoes the party bonus (+10%/member beyond the first, ADR-0017). The balance
+harness, encounter shapes, and dispatch UI all assume 3 as the hard ceiling. If a future mode ever
+wants more (e.g. ADR-0020 expeditions), that mode gets its own balance pass first.
+
+**Consequences.**
+- `mission-claim` picks up the new multipliers on next deploy; the 4 draft items' effective power
+  drops at high rarities (no player owns any above Common today — no live impact).
+- `itemStats.ts` display helper shows fractional bonuses (e.g. +17.5) — round in UI when item
+  authoring starts.
+- Player guide gear entry updated ("twice as strong per step" → flattened wording).
+
+## ADR-0033 — Elemental damage schools + per-school enemy resistances
+**Date:** 2026-07-11 · **Status:** Accepted (design: docs/ELEMENTS.md; decided by Alex)
+
+**Context.** Enemy resistance was a single generic stat authored at 0 everywhere — magic ignored
+mitigation entirely, and dispatch had no "who should I send against WHAT" decision. Alex wants
+squad composition against an enemy's element to be a real choice, surfacing mid/late game.
+
+**Decision.**
+- **Schools registry** (`src/lib/schools.ts`, registry-driven per ADR-0004): `physical`, `magic`
+  (the NEUTRAL school — deliberately plain-named, not "arcane"), `fire`, `ice`, `earth`, `wind`,
+  `holy`, `shadow`. Healing is schoolless.
+- **Resolution (v1 asymmetry):** party attacks carry a school — physical routing is always
+  `physical` (vs enemy Defense); magic routing uses the character's authored `damageSchool`
+  (neutral `magic` when blank). Against enemies, named schools check the enemy's per-school
+  `resistances` (same DR curve as armor, K=100) and FALL BACK to generic Resistance when unlisted.
+  Enemy attacks on the party are unchanged (physical→Defense, else→Resistance); character-side
+  school resists arrive later as gear affixes, not base stats (keeps the sheet readable and the
+  ADR-0031 budgets intact).
+- **A school costs no budget points** — matchup axis, not raw power.
+- **Tier-gated appearance** (Alex: mid/late game): template gives tiers 1–2 nothing; tiers 3–5
+  put an own-school resist (100) on caster/boss archetypes; tiers 6+ broaden (own 120 + adjacent
+  40; bosses also `magic` 40; tanks/basics small). Resist DR is level-independent, so flat values
+  hold at every tier. Guideline: strong 100–150, weakness = unlisted (generic 0 → full damage),
+  immunity ≥1000 for gimmicks. Target: right-vs-wrong school ≈ 30–50% damage swing.
+- **Content:** schools authored on the six casters (Callum fire, Mira shadow, Aldric holy, Tyla
+  wind, Yenna earth, Fenn earth; Lyra/Elia/Torvin neutral); Bone Colossus (T5 boss) gets
+  shadow 120 / earth 60 / ice 40 with holy as its weakness; Rotting Ghoul (T1) stays clean.
+- **Engine details:** `CombatEvent` gains an optional `school` (replay tinting later); enemy
+  `damageType` widened to the school union ('magic' remains valid — no content migration needed).
+
+**Evidence (`2026-07-11-schools` report vs `budget-recost`, 500 seeds).** Discriminating tests:
+fire caster deals 100 vs no resist, 50 vs fire-100, 100 vs ice-100; neutral magic mitigated by
+generic Resistance. Grid: only 4 cells move >15pts — matchup texture, not upheaval. All explained,
+one worth recording: **resists couple into damage-based threat** — trio-casters L50 T7 pack
+flipped 0%→100% because the fire resist LOWERED Callum's damage → lowered his threat → enemies
+spread hits instead of executing him. In tankless comps, an enemy's resist profile changes who
+gets focused. Emergent, legitimate, and exactly the kind of texture the system wants.
+
+**Alternatives considered.** Rock-paper-scissors advantage table — rejected: authored matchups
+give content freedom without system dogma. Character base resist stats now — rejected (v2 as gear
+affixes). "Arcane" as the neutral school's name — rejected by Alex: it's just "magic".
+
+**Consequences.**
+- `mission-claim` GROQ + combatant mapping updated; **deploy AFTER the PR chain merges** (the CLI
+  bundles src/lib from the working tree — deploying early would ship unmerged engine changes).
+- UI surfaces are the required follow-up (mission resist pips + weakness icon, roster school
+  badges) — without them the system is invisible to players.
+- Enemy authoring: set a school + resistances from tier 3 up; leave early-game enemies clean.
+- Blessing/gear layers can later add school-specific power ("+15% fire damage") — price when built.

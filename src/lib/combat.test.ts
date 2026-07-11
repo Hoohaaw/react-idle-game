@@ -109,6 +109,86 @@ describe('simulateCombat — role behaviours', () => {
     expect(r.outcome).toBe('loss')
   })
 
+  it('damage schools: per-school resists mitigate the matching school, weaknesses take full damage', () => {
+    // Same caster, same enemy stats — only the enemy's fire resistance differs (ADR-0033).
+    const pyro: Combatant = {
+      id: 'pyro',
+      role: 'damage',
+      stats: { spellPower: 60, intelligence: 40, health: 500, speed: 10 },
+      damageSchool: 'fire',
+    }
+    const dmgVs = (resistances?: Partial<Record<'fire' | 'ice', number>>) => {
+      const foe: Enemy = { id: 'foe', health: 100000, attack: 0, damageType: 'physical', speed: 10, resistances }
+      const r = simulateCombat({ party: [pyro], encounter: encounterWith([foe], 30), seed: 'run-1' })
+      const hit = r.log.find((e) => e.type === 'attack' && e.source === 'pyro')
+      return hit ? hit.amount : 0
+    }
+    const vsNothing = dmgVs(undefined) // falls back to generic resistance (0) → full 100
+    const vsFireWall = dmgVs({ fire: 100 }) // 100/(100+100) = 50% DR
+    const vsIceWall = dmgVs({ ice: 100 }) // wrong school — fire passes untouched
+    expect(vsNothing).toBeCloseTo(100)
+    expect(vsFireWall).toBeCloseTo(50)
+    expect(vsIceWall).toBeCloseTo(100)
+  })
+
+  it('neutral magic is mitigated by the generic resistance stat', () => {
+    const caster: Combatant = {
+      id: 'caster',
+      role: 'damage',
+      stats: { spellPower: 60, intelligence: 40, health: 500, speed: 10 }, // no damageSchool → 'magic'
+    }
+    const foe: Enemy = { id: 'foe', health: 100000, attack: 0, damageType: 'physical', speed: 10, resistance: 100 }
+    const r = simulateCombat({ party: [caster], encounter: encounterWith([foe], 30), seed: 'run-1' })
+    const hit = r.log.find((e) => e.type === 'attack' && e.source === 'caster')
+    expect(hit?.amount).toBeCloseTo(50)
+    expect(hit?.school).toBe('magic')
+  })
+
+  it('speed has diminishing returns above baseline; at/below baseline is untouched', () => {
+    // A speed-110 unit acted 11× as often as baseline under linear scaling; with the DR curve
+    // (ADR-0030, K=30) its effective speed is ~33 → ~3.3×. Baseline speed 10 must be exactly 3s.
+    const count = (speed: number) => {
+      const attacker: Combatant = { id: 'a', role: 'damage', stats: { attack: 1, health: 1000, speed } }
+      const wall: Enemy = { id: 'wall', health: 100000, attack: 0, damageType: 'physical', speed: 10, defense: 200 }
+      const r = simulateCombat({ party: [attacker], encounter: encounterWith([wall], 60), seed: 'run-1' })
+      return r.log.filter((e) => e.source === 'a').length
+    }
+    const baseline = count(10)
+    expect(baseline).toBe(21) // 60s / 3s inclusive of t=0 — the baseline interval is untouched
+    const ratio = count(110) / baseline
+    expect(ratio).toBeGreaterThan(2.5) // still clearly faster…
+    expect(ratio).toBeLessThan(4.5) // …but nowhere near the linear 11×
+  })
+
+  it('party dodge is capped: an 80-dodge unit avoids only ~DODGE_CAP% of hits', () => {
+    const evader: Combatant = {
+      id: 'evader',
+      role: 'damage',
+      stats: { health: 10000, speed: 10, dodge: 80 },
+    }
+    const pecker: Enemy = { id: 'pecker', health: 100000, attack: 10, damageType: 'physical', speed: 30 }
+    const r = simulateCombat({ party: [evader], encounter: encounterWith([pecker], 120), seed: 'run-1' })
+    const swings = r.log.filter((e) => e.source === 'pecker')
+    const dodged = swings.filter((e) => e.type === 'dodge').length / swings.length
+    expect(swings.length).toBeGreaterThan(50)
+    expect(dodged).toBeGreaterThan(0.15) // uncapped 80% dodge would sit near 0.8
+    expect(dodged).toBeLessThan(0.35)
+  })
+
+  it('regen is time-normalized: a fast unit cannot out-regen sustained damage per action', () => {
+    // speed 30 = 3 actions per enemy swing. Per-action regen made this unit immortal
+    // (30 HP × 3/s > 15 dmg/s incoming); time-normalized (ADR-0028) it is 10 HP/s and bleeds out.
+    const speedster: Combatant = {
+      id: 'speedster',
+      role: 'damage',
+      stats: { attack: 5, health: 200, speed: 30, healthRegen: 30 },
+    }
+    const juggernaut: Enemy = { id: 'juggernaut', health: 5000, attack: 45, damageType: 'physical', speed: 10, defense: 200 }
+    const r = simulateCombat({ party: [speedster], encounter: encounterWith([juggernaut], 120), seed: 'run-1' })
+    expect(r.reason).toBe('party-wiped')
+    expect(r.endingHp.speedster).toBe(0)
+  })
+
   it('a healer attacks while the party is above the heal threshold', () => {
     // Enemy deals 0 damage → no party member ever drops below HEALER_HEAL_THRESHOLD.
     // Healer has real spell power so its attack power is non-zero.

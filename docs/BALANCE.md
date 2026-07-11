@@ -92,10 +92,63 @@ The report opens with rule-based flags so regressions jump out without reading 6
 4. **Change one thing.** Constants in code; authored-stat conclusions go back to Sanity.
 5. **Re-run, diff the reports.** Anomaly counts and the target bands below say whether it helped.
 6. **Record the accepted change as an ADR** (combat math revisions supersede ADR-0015 values).
+7. **Update the player guide** — if the change alters what a player would feel or plan around
+   (caps, thresholds, curve behavior, reward rules), update the affected entry in
+   `src/pages/gameStatsContent.ts` (the `/game-stats` page) in the same branch.
    Repeat.
 
 Keep sweeps deterministic: seeds are derived from cell coordinates, so two runs at the same
 seeds-per-cell are exactly comparable, run-to-run and machine-to-machine.
+
+## Agent playbook — how a tuning iteration is actually executed
+
+The 2026-07-10 session (ADR-0024…0030) followed this recipe. Future agents: replicate it.
+
+**Setup (once per session)**
+1. Read `src/lib/combat.ts` + the combat ADRs before touching anything. If the roster fixture is
+   stale (characterDef baseStats/growth changed in Sanity), re-snapshot `roster.ts` first.
+2. Confirm the latest committed report matches a fresh sweep at the current constants (sanity
+   check that master's engine = the last "after" state).
+
+**Per iteration (one branch → one change → one ADR → one PR)**
+3. Pick ONE issue from the newest report's anomaly list (or the queue in the tuning log). Name the
+   hypothesis: which constant, formula, or authored content is responsible — and decide
+   **engine vs content**: growth/authoring problems get fixed in Sanity, not with a new engine knob.
+4. If a constant needs a value: run quick candidate sweeps
+   (`node scripts/balance/sweep.ts 200 <label>` per candidate), look for the **plateau**, take the
+   smallest value on it. Robustness beats optimality — if candidates are indistinguishable, say so
+   in the ADR (that's evidence the knob is safe, not a failed experiment).
+5. Make the change. Then write a **discriminating regression test**: one that FAILS on the old
+   behavior and passes on the new. Verify the failure for real — temporarily flip the constant
+   back, run the test, watch it fail, restore. A test that can't fail proves nothing.
+6. Run the canonical sweep: `node scripts/balance/sweep.ts 500 <adr-slug>`. Delete the candidate
+   experiment reports; commit only baseline-quality evidence (md + csv).
+7. **Diff the CSVs, don't just read anomaly counts.** Join old/new on
+   (comp, level, tier, shape, limit); list every cell whose win rate moved >15pts; explain each
+   mover in both directions. An unexplained mover means STOP — you don't understand your change.
+8. Interrogate suspicious metrics before "fixing" them. Two real examples: most "threat failures"
+   were doomed fights where the tank correctly dies first (the metric got refined, not the
+   engine); the solo-tank 100% sweep peeled like an onion — regen → dodge → speed → authored stat
+   breadth — and each layer needed its own iteration. When a hypothesis turns out wrong, record
+   the correction in the ADR ("speed DR does NOT break X because…") — wrong-but-documented beats
+   silently-adjusted.
+9. Check for **blind spots**: if a stat or mechanic has no comp probing it, add a probe comp to
+   the grid (e.g. `solo-crit` was added because the only crit-growth character sat in no comp and
+   crit stacking had never been measured).
+10. Close out: ADR in `docs/DECISIONS.md` (context → decision → evidence → alternatives →
+    consequences, including the mission-claim redeploy note), a row + outcome paragraph in the
+    tuning log below, player-guide entry if player-visible (step 7 of the loop), memory update,
+    `lint`+`build`+`test`, commit, stacked PR.
+
+**Mechanics that keep results trustworthy**
+- Never overwrite reports: always pass a label; the constants header in each report is the
+  provenance record.
+- Seeds derive from cell coordinates — identical grids are exactly comparable across runs and
+  machines; a single anomalous fight can be replayed by reconstructing its seed string.
+- Merge stacked PRs bottom-up and DELETE each base branch immediately — twice this session, PRs
+  merged into stale stacked bases and never reached master (rescued by #33/#37).
+- Windows note: edit source with proper tools; if scripting a constant flip, write files back as
+  UTF-8 **without BOM** or the diff grows a phantom first-line change.
 
 ### Target bands (proposal — first tuning goal, not yet met)
 
@@ -132,6 +185,11 @@ reproducible offline. When baseStats/growth change in Sanity, re-pull with:
 | 2026-07-10 | Time limit 180s flat (was 60s); grid limits now 180/300 | `2026-07-10-limit-180` | ADR-0025 |
 | 2026-07-10 | Healer AI: heal threshold 0.7 + hysteresis (engine change) | `2026-07-10-healer-threshold` | ADR-0026 |
 | 2026-07-10 | Tank threat: passive (def + maxHp/10) × 3 × t accrual (engine change) | `2026-07-10-threat-stat` | ADR-0027 |
+| 2026-07-10 | healthRegen time-normalized: HP per 3s, not per action (engine change) | `2026-07-10-regen-cadence` | ADR-0028 |
+| 2026-07-10 | Party dodge capped at 25% + percent-stat audit; `solo-crit` probe comp added | `2026-07-10-dodge-cap` | ADR-0029 |
+| 2026-07-10 | Speed DR above baseline (K=30, asymptote 4× actions; haste pre-curve) | `2026-07-10-speed-dr` | ADR-0030 |
+| 2026-07-10 | Roster re-costed to point-buy budgets + rarity | `2026-07-10-budget-recost` | ADR-0031 |
+| 2026-07-11 | Elemental schools + tier-gated enemy resistances | `2026-07-11-schools` | ADR-0033 |
 
 **v2 outcome (ADR-0024):** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band
 appears (`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP
@@ -158,7 +216,30 @@ winnable fights the sub-60%-absorption flag drops to ZERO grid-wide (~89% avg ta
 remaining low-absorption cells are doomed fights where the tank correctly dies first — the
 threat-failure anomaly rule now only counts cells with win rate ≥50% for this reason. Defensive
 stats double as aggro tools — price into tank gear/blessing authoring.
-Remaining queue: regen cadence (cliffs ~75 persist, wipe-driven — the tier ×1.4 stat jump itself).
+
+**Regen-cadence outcome (ADR-0028, engine change):** `healthRegen` now = HP per 3s of combat time
+(applied per action scaled by interval) instead of full value per action — speed no longer buys
+regen. 23 cells move >15pts, both directions, all explainable: regen-carried overtier immortality
+collapses (`solo-tank` L20 T6 boss 100%→0%), slow sustain comps correctly buffed. Anomalies stable
+(inversions 0, threat 1 marginal cell, cliffs ~79 = the tier ×1.4 jump itself, a design-feel call).
+**Newly identified queue item: authored dodge growth** — Mordrek's +1 dodge/level = 53% at L50
+keeps solo-tank sweeping the grid; content fix (rarer dodge growth) or engine dodge cap, TBD.
+
+**Dodge-cap outcome (ADR-0029, engine change):** party dodge clamped at 25% (enemies uncapped —
+authored gimmicks stay legal). 18 cells move, all downward, all dodge-stacked comps at overtier
+edges (`solo-dps` L50 T7 pack 83%→19%). Percent-stat audit alongside: crit healthy (new `solo-crit`
+probe comp — clean gradient, no cap), block bounded (worst case −50% damage; authoring guidance
+only), defense/armorPen/heals self-limiting. **Remaining runaway = SPEED**: linear action rate ×
+authored speed growth (Mordrek 55, Dace/Lyra 110 at L50) still carries solo-tank to 100% grid-wide.
+Design decision pending: authoring guidelines vs engine diminishing returns on action rate.
+
+**Speed-DR outcome (ADR-0030, engine change):** effective speed saturates above baseline
+(K=30, asymptote 4× actions; haste folds in pre-curve; at/below speed 10 untouched — enemies keep
+exact behavior). Gentle global compression (grid mean win rate 0.607→0.585), no comp breaks.
+**Honest correction:** speed DR does NOT break Mordrek's L50 solo sweep — the cause is authored
+stat BREADTH (every defensive growth at once), not any single engine channel. All engine-side
+runaway guards are now closed (regen · dodge · speed · threat); the remaining fix is a **content
+rebalance of Mordrek's defensive growth spread in Sanity**, then re-sweep.
 
 ## Baseline findings — 2026-07-10 (untuned v1 constants)
 

@@ -14,6 +14,7 @@ import UpgradesPage from './pages/UpgradesPage'
 import BlessingsPage from './pages/BlessingsPage'
 import TranscendencePage from './pages/TranscendencePage'
 import StatisticsPage from './pages/StatisticsPage'
+import GameStatsPage from './pages/GameStatsPage'
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/blessings" element={<BlessingsPage />} />
           <Route path="/transcendence" element={<TranscendencePage />} />
           <Route path="/statistics" element={<StatisticsPage />} />
+          <Route path="/game-stats" element={<GameStatsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/missions" replace />} />

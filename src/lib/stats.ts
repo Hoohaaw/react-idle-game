@@ -122,16 +122,17 @@ export function collectBlessingBonuses(
 // ---- Layer 2b: equipped-gear bonuses ----------------------------------------------------------
 
 /**
- * Per-rarity multiplier on an item's BASE (Common) stat bonuses (first-pass, ADR-0017). Authored
- * `itemDef.statBonuses` are the Common values; a rarer copy of the same item multiplies EACH bonus
- * (flat and pct) by this factor. Steep ×2 per step — provisional like the combat constants.
+ * Per-rarity multiplier on an item's BASE (Common) stat bonuses (ADR-0032, supersedes the ADR-0017
+ * ×2/step values). Authored `itemDef.statBonuses` are the Common values; a rarer copy multiplies
+ * EACH bonus (flat and pct) by this factor. Flattened curve: every tier matters, Legendary jumps
+ * hardest (decided by Alex) — the old ×16 Legendary out-valued a character's whole growth ladder.
  */
 export const RARITY_MULT: Record<string, number> = {
   Common: 1,
-  Uncommon: 2,
-  Rare: 4,
-  Epic: 8,
-  Legendary: 16,
+  Uncommon: 1.2,
+  Rare: 1.45,
+  Epic: 1.75,
+  Legendary: 2.25,
 }
 
 /** A single equip-time stat bonus authored on an item (base/Common values). */

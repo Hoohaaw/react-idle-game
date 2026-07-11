@@ -20,6 +20,7 @@ import {
 } from '../../../src/lib/stats.ts'
 import { applyXp } from '../../../src/lib/leveling.ts'
 import { resolveRole, type CharacterRole } from '../../../src/lib/roles.ts'
+import type { School } from '../../../src/lib/schools.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -45,10 +46,11 @@ type EnemyRow = {
   enemyKey: string
   health: number
   attack: number
-  damageType: 'physical' | 'magic'
+  damageType: School
   speed: number
   defense?: number
   resistance?: number
+  resistances?: { school: School; value: number }[]
   block?: number
   critChance?: number
   critDamage?: number
@@ -72,6 +74,7 @@ type CharDefRow = {
   charKey: string
   charClass: string
   role?: CharacterRole | null
+  damageSchool?: School | null
   baseStats?: StatValue[]
   growth?: StatGrowth[]
   blessingTree?: BlessingNodeDef[]
@@ -95,12 +98,12 @@ const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
   loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
   encounter->{
     timeLimitSeconds,
-    enemies[]{ count, "enemy": enemy->{ enemyKey, health, attack, damageType, speed, defense, resistance, block, critChance, critDamage, armorPen, dodge, healthRegen } }
+    enemies[]{ count, "enemy": enemy->{ enemyKey, health, attack, damageType, speed, defense, resistance, resistances[]{ school, value }, block, critChance, critDamage, armorPen, dodge, healthRegen } }
   }
 }`
 
 const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
-  charKey, charClass, role,
+  charKey, charClass, role, damageSchool,
   baseStats[]{ stat, value },
   growth[]{ stat, perLevel, milestones[]{ level, bonus } },
   blessingTree[]{ nodeId, effects[]{ stat, kind, perRank } }
@@ -223,6 +226,7 @@ Deno.serve(async (req) => {
       role: resolveRole(def.charClass, def.role),
       stats,
       currentHp: c.current_hp ?? undefined, // null = full → sim uses maxHp
+      damageSchool: def.damageSchool ?? undefined, // ADR-0033; sim defaults to neutral 'magic'
     })
   }
 
@@ -239,6 +243,9 @@ Deno.serve(async (req) => {
         speed: e.speed,
         defense: e.defense,
         resistance: e.resistance,
+        resistances: e.resistances
+          ? Object.fromEntries(e.resistances.map((r) => [r.school, r.value]))
+          : undefined,
         block: e.block,
         critChance: e.critChance,
         critDamage: e.critDamage,

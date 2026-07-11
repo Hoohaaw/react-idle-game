@@ -14,6 +14,7 @@
 // and the client can replay `log` as the visual fight without being trusted for the outcome.
 
 import type { StatMap } from './stats.ts'
+import type { School } from './schools.ts'
 
 // ---- Tuning (ADR-0015 — first-pass; refine against simulated fights) --------------------------
 
@@ -24,8 +25,24 @@ export const COMBAT = {
   BASE_INTERVAL: 3,
   /** The `speed` value that equals one baseline interval. */
   REF_SPEED: 10,
+  /**
+   * Diminishing returns on speed ABOVE the baseline (ADR-0030): effective speed saturates at
+   * REF_SPEED + SPEED_DR_K, so action rate caps at (REF_SPEED + K)/REF_SPEED × baseline. Speed at
+   * or below REF_SPEED is untouched (enemies and slow units keep exact v1 behavior). Haste folds
+   * into speed BEFORE the curve so it cannot reopen the linear channel. Raw linear action rate was
+   * the last stat runaway: authored +1–2 speed/level reached speed 55–110 at L50 (5.5–11× actions),
+   * multiplying damage AND threat, and carried solo tanks to 100% win against every tier.
+   */
+  SPEED_DR_K: 30,
   /** Crit adds this on top of critDamage%: multiplier = 1 + CRIT_BASE + critDamage/100. */
   CRIT_BASE: 0.5,
+  /**
+   * Party dodge is capped at this % (ADR-0029). Dodge is full avoidance, so growth/gear stacking
+   * runs away: authored +1/level growth alone reaches 50%+ at L50 and made solo tanks sweep every
+   * tier. Enemies are NOT capped — their stats are hand-authored (an untouchable ghost stays a
+   * legitimate encounter design tool).
+   */
+  DODGE_CAP: 25,
   /** A blocked hit loses this fraction of its damage. */
   BLOCK_FACTOR: 0.5,
   /** Tanks generate this much more threat per point of damage than everyone else. */
@@ -68,6 +85,9 @@ export type Combatant = {
   stats: StatMap
   /** Current HP carried from prior fights; defaults to full (`stats.health`) when omitted. */
   currentHp?: number
+  /** School of the character's MAGIC damage (ADR-0033); 'magic' (neutral) when unauthored.
+   *  Ignored when the physical routing wins — physical attacks are always school 'physical'. */
+  damageSchool?: School
 }
 
 /** A lean enemy instance (maps from Sanity `enemyDef`, minus the wrappers; swarms are pre-expanded). */
@@ -75,10 +95,14 @@ export type Enemy = {
   id: string
   health: number
   attack: number
-  damageType: 'physical' | 'magic'
+  /** School of the enemy's attacks. vs the party: 'physical' → Defense, anything else → Resistance. */
+  damageType: School
   speed: number
   defense?: number
   resistance?: number
+  /** Per-school resistances (ADR-0033), same DR-curve units as defense. A named-school attack
+   *  checks its entry here and falls back to the generic `resistance` when absent. */
+  resistances?: Partial<Record<School, number>>
   block?: number
   critChance?: number
   critDamage?: number
@@ -99,6 +123,8 @@ export type CombatEvent = {
   source: string
   target: string
   amount: number
+  /** Damage school of attack/dodge events (ADR-0033) — for replay tinting; absent on heal/defeat. */
+  school?: School
 }
 
 export type CombatResult = {
@@ -139,12 +165,14 @@ type Unit = {
   maxHp: number
   hp: number
   power: number
-  damageType: 'physical' | 'magic'
+  damageType: School
   isHealer: boolean
   healPower: number
   healingCrit: number
   defense: number
   resistance: number
+  /** Per-school resistances (enemies only, ADR-0033); named-school hits check here first. */
+  resists?: Partial<Record<School, number>>
   block: number
   dodge: number
   critChance: number
@@ -164,8 +192,13 @@ type Unit = {
 const num = (m: StatMap, k: string) => m[k] ?? 0
 
 function actionInterval(speed: number, haste: number): number {
-  const s = Math.max(1, speed)
-  return (COMBAT.BASE_INTERVAL * COMBAT.REF_SPEED) / (s * (1 + haste / 100))
+  const raw = Math.max(1, speed) * (1 + haste / 100)
+  const surplus = raw - COMBAT.REF_SPEED
+  const eff =
+    surplus <= 0
+      ? raw
+      : COMBAT.REF_SPEED + (surplus * COMBAT.SPEED_DR_K) / (surplus + COMBAT.SPEED_DR_K)
+  return (COMBAT.BASE_INTERVAL * COMBAT.REF_SPEED) / eff
 }
 
 function partyUnit(c: Combatant, order: number): Unit {
@@ -183,14 +216,14 @@ function partyUnit(c: Combatant, order: number): Unit {
     maxHp,
     hp: Math.min(maxHp, c.currentHp ?? maxHp),
     power: Math.max(pAtk, mAtk),
-    damageType: usePhysical ? 'physical' : 'magic',
+    damageType: usePhysical ? 'physical' : (c.damageSchool ?? 'magic'),
     isHealer: c.role === 'healer',
     healPower: hPow,
     healingCrit: num(s, 'healingCrit'),
     defense: num(s, 'defense'),
     resistance: num(s, 'resistance'),
     block: num(s, 'block'),
-    dodge: num(s, 'dodge'),
+    dodge: Math.min(num(s, 'dodge'), COMBAT.DODGE_CAP),
     critChance: num(s, 'critChance'),
     critDamage: num(s, 'critDamage'),
     armorPen: num(s, 'armorPen'),
@@ -221,6 +254,7 @@ function enemyUnit(e: Enemy, order: number): Unit {
     healingCrit: 0,
     defense: e.defense ?? 0,
     resistance: e.resistance ?? 0,
+    resists: e.resistances,
     block: e.block ?? 0,
     dodge: e.dodge ?? 0,
     critChance: e.critChance ?? 0,
@@ -236,11 +270,18 @@ function enemyUnit(e: Enemy, order: number): Unit {
   }
 }
 
-// ---- Hit resolution (ADR-0015 B: dodge → crit → armor DR → block) ------------------------------
+// ---- Hit resolution (ADR-0015 B: dodge → crit → armor DR → block; schools ADR-0033) -------------
 
 function drMitigate(power: number, mitigation: number, armorPen: number): number {
   const eff = Math.max(0, mitigation - armorPen)
   return power * (1 - eff / (eff + COMBAT.ARMOR_K))
+}
+
+/** The defender's mitigation stat against a school: physical → Defense; named schools check the
+ *  defender's per-school resistances (enemies) and fall back to generic Resistance (ADR-0033). */
+function mitigationFor(defender: Unit, school: School): number {
+  if (school === 'physical') return defender.defense
+  return defender.resists?.[school] ?? defender.resistance
 }
 
 function resolveAttack(attacker: Unit, defender: Unit, rng: () => number): number {
@@ -249,7 +290,7 @@ function resolveAttack(attacker: Unit, defender: Unit, rng: () => number): numbe
   if (attacker.critChance > 0 && rng() * 100 < attacker.critChance) {
     dmg *= 1 + COMBAT.CRIT_BASE + attacker.critDamage / 100
   }
-  const mit = attacker.damageType === 'magic' ? defender.resistance : defender.defense
+  const mit = mitigationFor(defender, attacker.damageType)
   dmg = drMitigate(dmg, mit, attacker.armorPen)
   if (defender.block > 0 && rng() * 100 < defender.block) {
     dmg *= 1 - COMBAT.BLOCK_FACTOR
@@ -337,7 +378,13 @@ export function simulateCombat(args: {
     if (!actor || actor.nextAt > timeLimit) break // timeout
 
     t = actor.nextAt
-    if (actor.healthRegen > 0) actor.hp = Math.min(actor.maxHp, actor.hp + actor.healthRegen)
+    // Regen is time-normalized (ADR-0028): healthRegen = HP per BASE_INTERVAL of combat time,
+    // applied on the unit's own action scaled by its interval. Per-action regen double-dipped
+    // with speed (a fast unit regenerated per ACTION), making high-speed/high-regen tanks immortal.
+    if (actor.healthRegen > 0) {
+      const regen = actor.healthRegen * (actor.interval / COMBAT.BASE_INTERVAL)
+      actor.hp = Math.min(actor.maxHp, actor.hp + regen)
+    }
 
     if (actor.isHealer) {
       // Threshold + hysteresis (ADR-0026): start healing when an ally drops below the threshold,
@@ -359,11 +406,11 @@ export function simulateCombat(args: {
     if (target) {
       const dmg = resolveAttack(actor, target, rng)
       if (dmg <= 0) {
-        log.push({ t, type: 'dodge', source: actor.id, target: target.id, amount: 0 })
+        log.push({ t, type: 'dodge', source: actor.id, target: target.id, amount: 0, school: actor.damageType })
       } else {
         target.hp = Math.max(0, target.hp - dmg)
         if (actor.side === 'party') actor.threat += dmg * actor.threatMult
-        log.push({ t, type: 'attack', source: actor.id, target: target.id, amount: dmg })
+        log.push({ t, type: 'attack', source: actor.id, target: target.id, amount: dmg, school: actor.damageType })
         if (target.hp === 0) log.push({ t, type: 'defeat', source: actor.id, target: target.id, amount: 0 })
       }
     }

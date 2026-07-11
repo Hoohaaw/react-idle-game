@@ -105,4 +105,10 @@ main context what an agent can do in its own.
   JSONB — adding one is a one-line change, no migration.
 - **Record notable decisions** as a new numbered ADR in `docs/DECISIONS.md`; mark superseded
   entries rather than deleting them.
+- **Combat/balance changes follow the agent playbook** in [`docs/BALANCE.md`](./docs/BALANCE.md):
+  one change per branch, before/after sweep evidence, a discriminating regression test, an ADR,
+  and a player-guide update (`src/pages/gameStatsContent.ts`) when player-visible.
+- **Characters are authored on the point-buy budget** (ADR-0031): prices + rarity budgets in
+  `src/lib/characterBudget.ts`, guideline in [`docs/CHARACTERS.md`](./docs/CHARACTERS.md),
+  enforced by the studio schema validation.
 - Components target ~200 lines; presentation and logic stay separate.

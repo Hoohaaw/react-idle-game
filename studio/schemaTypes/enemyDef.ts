@@ -1,5 +1,6 @@
-import { defineType, defineField } from 'sanity'
+import { defineType, defineField, defineArrayMember } from 'sanity'
 import { WarningOutlineIcon } from '@sanity/icons'
+import { SCHOOL_DEFS, RESISTIBLE_SCHOOLS, SCHOOL_LABELS } from '../../src/lib/schools'
 
 // A single enemy — the SIMPLIFIED opponent block for the combat sim (ADR-0013). Unlike a characterDef,
 // an enemy does NOT use the 23-stat registry and does NOT derive Attack from primaries (STR/AGI/INT):
@@ -16,10 +17,14 @@ const ARCHETYPE_OPTIONS = [
   { title: 'Boss', value: 'boss' },
 ]
 
-const DAMAGE_TYPE_OPTIONS = [
-  { title: 'Physical (mitigated by target Defense)', value: 'physical' },
-  { title: 'Magic (mitigated by target Resistance)', value: 'magic' },
-]
+// Damage schools (ADR-0033): physical is mitigated by target Defense; every other school by
+// target Resistance (party side). Against enemies, named schools check per-school resistances.
+const DAMAGE_TYPE_OPTIONS = SCHOOL_DEFS.map((s) => ({
+  title: s.key === 'physical' ? 'Physical (mitigated by target Defense)' : `${s.label} ${s.icon}`,
+  value: s.key,
+}))
+
+const RESIST_SCHOOL_OPTIONS = RESISTIBLE_SCHOOLS.map((k) => ({ title: SCHOOL_LABELS[k], value: k }))
 
 export const enemyDef = defineType({
   name: 'enemyDef',
@@ -98,10 +103,11 @@ export const enemyDef = defineType({
     }),
     defineField({
       name: 'damageType',
-      title: 'Damage type',
-      description: 'Decides which party stat mitigates this enemy: Defense (physical) or Resistance (magic).',
+      title: 'Damage school',
+      description:
+        'School of this enemy’s attacks (ADR-0033). Physical is mitigated by the party’s Defense; every other school by their Resistance.',
       type: 'string',
-      options: { list: DAMAGE_TYPE_OPTIONS, layout: 'radio' },
+      options: { list: DAMAGE_TYPE_OPTIONS },
       fieldset: 'offense',
       initialValue: 'physical',
       validation: (rule) => rule.required(),
@@ -127,11 +133,35 @@ export const enemyDef = defineType({
     }),
     defineField({
       name: 'resistance',
-      title: 'Resistance (mitigates magic)',
+      title: 'Resistance (mitigates magic — the fallback for schools not listed below)',
       type: 'number',
       fieldset: 'defense',
       initialValue: 0,
       validation: (rule) => rule.min(0),
+    }),
+    defineField({
+      name: 'resistances',
+      title: 'Per-school resistances (ADR-0033)',
+      description:
+        'Same DR-curve units as Defense. A named-school hit checks its entry here and falls back to the generic Resistance when absent. Guideline: strong resist 100–150, weakness 0 (omit + generic 0), immunity ≥1000 for gimmicks.',
+      type: 'array',
+      fieldset: 'defense',
+      of: [
+        defineArrayMember({
+          type: 'object',
+          name: 'schoolResistance',
+          fields: [
+            defineField({
+              name: 'school',
+              type: 'string',
+              options: { list: RESIST_SCHOOL_OPTIONS },
+              validation: (rule) => rule.required(),
+            }),
+            defineField({ name: 'value', type: 'number', validation: (rule) => rule.required().min(0) }),
+          ],
+          preview: { select: { title: 'school', subtitle: 'value' } },
+        }),
+      ],
     }),
     defineField({
       name: 'block',

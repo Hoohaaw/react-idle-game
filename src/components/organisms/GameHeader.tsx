@@ -24,6 +24,7 @@ const NAV = [
   { label: 'Blessings', to: '/blessings' },
   { label: 'Transcendence', to: '/transcendence' },
   { label: 'Statistics', to: '/statistics' },
+  { label: 'Game Stats', to: '/game-stats' },
   { label: 'Design', to: '/design' }, // dev-only — remove before production
 ]
 

@@ -24,6 +24,29 @@ and ADRs 0012–0017. Done since the sections below were written:
 (profile hook); gather start/claim loop; transcendence flow; balance combat constants + loot odds;
 character sprite art. Older open items below may be stale — trust the milestone + ARCHITECTURE.md §5.3.
 
+## Decisions queue — 2026-07-10 (post balance-tuning + character-budget session)
+- [ ] **Elemental damage schools + enemy resistances** — damage schools (holy, shadow, fire, ice,
+  earth, …) with per-school resistances so squad composition against an enemy's element is a real
+  choice; enemies also get fuller defensive blocks. Big design+build: stat registry, enemy schema,
+  sim hit pipeline, character-side resists. Design sketch proposed; awaiting go.
+  `↳ context: project-design-decisions, project-combat (hit pipeline), src/lib/combat.ts, studio/schemaTypes/enemyDef.ts`
+- [ ] **Blessing trees = real build choices** — trees must change how a character plays (a tank
+  specs deeper tankiness OR real damage), priced with the ADR-0031 stat prices + a per-tree budget
+  so trees don't reopen the runaway problem. Decide tree budget size when authoring the first tree.
+  `↳ context: project-character-budget, project-character-development · docs/CHARACTERS.md`
+- [x] **Item rarity multiplier flattened** (was ×2/step = ×16 Legendary) — see ADR-0032.
+- [ ] **Mission failed screen** — distinguish *ran out of time* (team alive, enemy stood) from
+  *party wiped*; claim UI needs a failure state that explains the loss honestly.
+  `↳ context: project-combat (timeout = loss), feedback-game-stats-guide · src/features/missions/components/ClaimReward.tsx`
+- [ ] **History / activity log component** — a place where the player can look back at what
+  happened: missions run (win/loss, loot, XP), characters recruited/leveled/downed, gathers
+  collected, upgrades made. Needs an events table (or derive from existing rows) + a page.
+  `↳ context: project-next-steps · supabase/ (new events table?), src/features/`
+- [ ] **Character acquisition economy** — recruit costs/sources per rarity (rarity now exists,
+  ADR-0031); is the empty Legendary tier a launch character or long-term carrot?
+  `↳ context: project-character-budget, project-undecided · docs/CHARACTERS.md`
+- Party size: **3 is the law** (max 3, sending 1–2 allowed) — recorded in ADR-0032 consequences.
+
 ## Backend (Supabase)
 - [ ] First Edge Function (recruit / level-up) — the server-authoritative write path
   `↳ context: project-data-architecture, project-tech-stack · supabase/functions/, src/lib/supabase.ts`

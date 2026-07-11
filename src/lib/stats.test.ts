@@ -142,20 +142,20 @@ describe('collectGearBonuses', () => {
     'ruby-ring': { statBonuses: [{ stat: 'attack', kind: 'pct', value: 5 }, { stat: 'health', kind: 'flat', value: 20 }] },
   }
 
-  it('scales each base bonus by the equipped rarity (ADR-0017 ×2/step)', () => {
+  it('scales each base bonus by the equipped rarity (ADR-0032 flattened ladder)', () => {
     const equipped: Record<string, EquippedItem> = { weapon: { itemDefId: 'iron-sword', rarity: 'Epic' } }
-    // Epic ×8 → base +10 attack becomes +80.
-    expect(collectGearBonuses(equipped, itemDefs).attack).toEqual({ flat: 80, pct: 0 })
+    // Epic ×1.75 → base +10 attack becomes +17.5.
+    expect(collectGearBonuses(equipped, itemDefs).attack).toEqual({ flat: 17.5, pct: 0 })
   })
 
   it('accumulates flat and pct across slots at their own rarities', () => {
     const equipped: Record<string, EquippedItem> = {
       weapon: { itemDefId: 'iron-sword', rarity: 'Common' }, // attack +10 flat
-      ring: { itemDefId: 'ruby-ring', rarity: 'Rare' }, // ×4 → attack +20% pct, health +80 flat
+      ring: { itemDefId: 'ruby-ring', rarity: 'Rare' }, // ×1.45 → attack +7.25% pct, health +29 flat
     }
     const out = collectGearBonuses(equipped, itemDefs)
-    expect(out.attack).toEqual({ flat: 10, pct: 20 })
-    expect(out.health).toEqual({ flat: 80, pct: 0 })
+    expect(out.attack).toEqual({ flat: 10, pct: 7.25 })
+    expect(out.health).toEqual({ flat: 29, pct: 0 })
   })
 
   it('skips unknown items and falls back to ×1 for an unknown rarity', () => {
@@ -165,7 +165,7 @@ describe('collectGearBonuses', () => {
   })
 
   it('exposes the full rarity ladder', () => {
-    expect(RARITY_MULT).toEqual({ Common: 1, Uncommon: 2, Rare: 4, Epic: 8, Legendary: 16 })
+    expect(RARITY_MULT).toEqual({ Common: 1, Uncommon: 1.2, Rare: 1.45, Epic: 1.75, Legendary: 2.25 })
   })
 })
 
@@ -185,11 +185,11 @@ describe('effectiveStats', () => {
       growth: [{ stat: 'attack', perLevel: 5 }], // → baseline attack 30
       blessingAllocations: { might: 2 },
       blessingNodes: [{ nodeId: 'might', effects: [{ stat: 'attack', kind: 'pct', perRank: 10 }] }], // +20% pct
-      equipped: { weapon: { itemDefId: 'sword', rarity: 'Uncommon' } }, // ×2 → +10 flat attack
+      equipped: { weapon: { itemDefId: 'sword', rarity: 'Uncommon' } }, // ×1.2 → +6 flat attack
       itemDefs: { sword: { statBonuses: [{ stat: 'attack', kind: 'flat', value: 5 }] } },
     })
-    // attack: baseline 30 + gear flat 10 + 30×20% = 46
-    expect(out.attack).toBeCloseTo(46)
+    // attack: baseline 30 + gear flat 6 + 30×20% = 42
+    expect(out.attack).toBeCloseTo(42)
     expect(out.health).toBe(100)
   })
 })
