@@ -1,6 +1,7 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 import { UserIcon } from '@sanity/icons'
 import { CLASS_ROLE, ROLE_STYLES } from '../../src/lib/roles'
+import { SCHOOL_DEFS } from '../../src/lib/schools'
 import {
   CHARACTER_RARITIES,
   auditCharacter,
@@ -14,6 +15,11 @@ import {
 const CLASS_OPTIONS = Object.keys(CLASS_ROLE).map((c) => ({ title: c, value: c }))
 const ROLE_OPTIONS = Object.entries(ROLE_STYLES).map(([value, s]) => ({ title: s.label, value }))
 const RARITY_OPTIONS = CHARACTER_RARITIES.map((r) => ({ title: r, value: r }))
+// Casters only; physical-routed characters always deal 'physical' regardless. 'magic' = neutral.
+const SCHOOL_OPTIONS = SCHOOL_DEFS.filter((s) => s.key !== 'physical').map((s) => ({
+  title: `${s.label} ${s.icon}`,
+  value: s.key,
+}))
 
 type BlessingNodeValue = { isUltimate?: boolean }
 
@@ -75,6 +81,14 @@ export const characterDef = defineType({
         'Leave blank to use the class default. Set it to OVERRIDE — e.g. a Mage authored as a Healer (ADR-0008).',
       type: 'string',
       options: { list: ROLE_OPTIONS },
+    }),
+    defineField({
+      name: 'damageSchool',
+      title: 'Damage school (casters)',
+      description:
+        'School of this character’s MAGIC damage (ADR-0033). Leave blank for neutral magic; ignored while the physical routing is stronger. Costs no budget points — a matchup axis, not raw power.',
+      type: 'string',
+      options: { list: SCHOOL_OPTIONS },
     }),
     defineField({
       name: 'rarity',

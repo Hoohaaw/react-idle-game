@@ -188,6 +188,8 @@ reproducible offline. When baseStats/growth change in Sanity, re-pull with:
 | 2026-07-10 | healthRegen time-normalized: HP per 3s, not per action (engine change) | `2026-07-10-regen-cadence` | ADR-0028 |
 | 2026-07-10 | Party dodge capped at 25% + percent-stat audit; `solo-crit` probe comp added | `2026-07-10-dodge-cap` | ADR-0029 |
 | 2026-07-10 | Speed DR above baseline (K=30, asymptote 4× actions; haste pre-curve) | `2026-07-10-speed-dr` | ADR-0030 |
+| 2026-07-10 | Roster re-costed to point-buy budgets + rarity | `2026-07-10-budget-recost` | ADR-0031 |
+| 2026-07-11 | Elemental schools + tier-gated enemy resistances | `2026-07-11-schools` | ADR-0033 |
 
 **v2 outcome (ADR-0024):** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band
 appears (`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP

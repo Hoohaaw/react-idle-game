@@ -109,6 +109,41 @@ describe('simulateCombat — role behaviours', () => {
     expect(r.outcome).toBe('loss')
   })
 
+  it('damage schools: per-school resists mitigate the matching school, weaknesses take full damage', () => {
+    // Same caster, same enemy stats — only the enemy's fire resistance differs (ADR-0033).
+    const pyro: Combatant = {
+      id: 'pyro',
+      role: 'damage',
+      stats: { spellPower: 60, intelligence: 40, health: 500, speed: 10 },
+      damageSchool: 'fire',
+    }
+    const dmgVs = (resistances?: Partial<Record<'fire' | 'ice', number>>) => {
+      const foe: Enemy = { id: 'foe', health: 100000, attack: 0, damageType: 'physical', speed: 10, resistances }
+      const r = simulateCombat({ party: [pyro], encounter: encounterWith([foe], 30), seed: 'run-1' })
+      const hit = r.log.find((e) => e.type === 'attack' && e.source === 'pyro')
+      return hit ? hit.amount : 0
+    }
+    const vsNothing = dmgVs(undefined) // falls back to generic resistance (0) → full 100
+    const vsFireWall = dmgVs({ fire: 100 }) // 100/(100+100) = 50% DR
+    const vsIceWall = dmgVs({ ice: 100 }) // wrong school — fire passes untouched
+    expect(vsNothing).toBeCloseTo(100)
+    expect(vsFireWall).toBeCloseTo(50)
+    expect(vsIceWall).toBeCloseTo(100)
+  })
+
+  it('neutral magic is mitigated by the generic resistance stat', () => {
+    const caster: Combatant = {
+      id: 'caster',
+      role: 'damage',
+      stats: { spellPower: 60, intelligence: 40, health: 500, speed: 10 }, // no damageSchool → 'magic'
+    }
+    const foe: Enemy = { id: 'foe', health: 100000, attack: 0, damageType: 'physical', speed: 10, resistance: 100 }
+    const r = simulateCombat({ party: [caster], encounter: encounterWith([foe], 30), seed: 'run-1' })
+    const hit = r.log.find((e) => e.type === 'attack' && e.source === 'caster')
+    expect(hit?.amount).toBeCloseTo(50)
+    expect(hit?.school).toBe('magic')
+  })
+
   it('speed has diminishing returns above baseline; at/below baseline is untouched', () => {
     // A speed-110 unit acted 11× as often as baseline under linear scaling; with the DR curve
     // (ADR-0030, K=30) its effective speed is ~33 → ~3.3×. Baseline speed 10 must be exactly 3s.

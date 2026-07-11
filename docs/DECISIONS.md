@@ -1483,3 +1483,53 @@ wants more (e.g. ADR-0020 expeditions), that mode gets its own balance pass firs
 - `itemStats.ts` display helper shows fractional bonuses (e.g. +17.5) — round in UI when item
   authoring starts.
 - Player guide gear entry updated ("twice as strong per step" → flattened wording).
+
+## ADR-0033 — Elemental damage schools + per-school enemy resistances
+**Date:** 2026-07-11 · **Status:** Accepted (design: docs/ELEMENTS.md; decided by Alex)
+
+**Context.** Enemy resistance was a single generic stat authored at 0 everywhere — magic ignored
+mitigation entirely, and dispatch had no "who should I send against WHAT" decision. Alex wants
+squad composition against an enemy's element to be a real choice, surfacing mid/late game.
+
+**Decision.**
+- **Schools registry** (`src/lib/schools.ts`, registry-driven per ADR-0004): `physical`, `magic`
+  (the NEUTRAL school — deliberately plain-named, not "arcane"), `fire`, `ice`, `earth`, `wind`,
+  `holy`, `shadow`. Healing is schoolless.
+- **Resolution (v1 asymmetry):** party attacks carry a school — physical routing is always
+  `physical` (vs enemy Defense); magic routing uses the character's authored `damageSchool`
+  (neutral `magic` when blank). Against enemies, named schools check the enemy's per-school
+  `resistances` (same DR curve as armor, K=100) and FALL BACK to generic Resistance when unlisted.
+  Enemy attacks on the party are unchanged (physical→Defense, else→Resistance); character-side
+  school resists arrive later as gear affixes, not base stats (keeps the sheet readable and the
+  ADR-0031 budgets intact).
+- **A school costs no budget points** — matchup axis, not raw power.
+- **Tier-gated appearance** (Alex: mid/late game): template gives tiers 1–2 nothing; tiers 3–5
+  put an own-school resist (100) on caster/boss archetypes; tiers 6+ broaden (own 120 + adjacent
+  40; bosses also `magic` 40; tanks/basics small). Resist DR is level-independent, so flat values
+  hold at every tier. Guideline: strong 100–150, weakness = unlisted (generic 0 → full damage),
+  immunity ≥1000 for gimmicks. Target: right-vs-wrong school ≈ 30–50% damage swing.
+- **Content:** schools authored on the six casters (Callum fire, Mira shadow, Aldric holy, Tyla
+  wind, Yenna earth, Fenn earth; Lyra/Elia/Torvin neutral); Bone Colossus (T5 boss) gets
+  shadow 120 / earth 60 / ice 40 with holy as its weakness; Rotting Ghoul (T1) stays clean.
+- **Engine details:** `CombatEvent` gains an optional `school` (replay tinting later); enemy
+  `damageType` widened to the school union ('magic' remains valid — no content migration needed).
+
+**Evidence (`2026-07-11-schools` report vs `budget-recost`, 500 seeds).** Discriminating tests:
+fire caster deals 100 vs no resist, 50 vs fire-100, 100 vs ice-100; neutral magic mitigated by
+generic Resistance. Grid: only 4 cells move >15pts — matchup texture, not upheaval. All explained,
+one worth recording: **resists couple into damage-based threat** — trio-casters L50 T7 pack
+flipped 0%→100% because the fire resist LOWERED Callum's damage → lowered his threat → enemies
+spread hits instead of executing him. In tankless comps, an enemy's resist profile changes who
+gets focused. Emergent, legitimate, and exactly the kind of texture the system wants.
+
+**Alternatives considered.** Rock-paper-scissors advantage table — rejected: authored matchups
+give content freedom without system dogma. Character base resist stats now — rejected (v2 as gear
+affixes). "Arcane" as the neutral school's name — rejected by Alex: it's just "magic".
+
+**Consequences.**
+- `mission-claim` GROQ + combatant mapping updated; **deploy AFTER the PR chain merges** (the CLI
+  bundles src/lib from the working tree — deploying early would ship unmerged engine changes).
+- UI surfaces are the required follow-up (mission resist pips + weakness icon, roster school
+  badges) — without them the system is invisible to players.
+- Enemy authoring: set a school + resistances from tier 3 up; leave early-game enemies clean.
+- Blessing/gear layers can later add school-specific power ("+15% fire damage") — price when built.

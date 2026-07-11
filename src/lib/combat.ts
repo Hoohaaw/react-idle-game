@@ -14,6 +14,7 @@
 // and the client can replay `log` as the visual fight without being trusted for the outcome.
 
 import type { StatMap } from './stats.ts'
+import type { School } from './schools.ts'
 
 // ---- Tuning (ADR-0015 — first-pass; refine against simulated fights) --------------------------
 
@@ -84,6 +85,9 @@ export type Combatant = {
   stats: StatMap
   /** Current HP carried from prior fights; defaults to full (`stats.health`) when omitted. */
   currentHp?: number
+  /** School of the character's MAGIC damage (ADR-0033); 'magic' (neutral) when unauthored.
+   *  Ignored when the physical routing wins — physical attacks are always school 'physical'. */
+  damageSchool?: School
 }
 
 /** A lean enemy instance (maps from Sanity `enemyDef`, minus the wrappers; swarms are pre-expanded). */
@@ -91,10 +95,14 @@ export type Enemy = {
   id: string
   health: number
   attack: number
-  damageType: 'physical' | 'magic'
+  /** School of the enemy's attacks. vs the party: 'physical' → Defense, anything else → Resistance. */
+  damageType: School
   speed: number
   defense?: number
   resistance?: number
+  /** Per-school resistances (ADR-0033), same DR-curve units as defense. A named-school attack
+   *  checks its entry here and falls back to the generic `resistance` when absent. */
+  resistances?: Partial<Record<School, number>>
   block?: number
   critChance?: number
   critDamage?: number
@@ -115,6 +123,8 @@ export type CombatEvent = {
   source: string
   target: string
   amount: number
+  /** Damage school of attack/dodge events (ADR-0033) — for replay tinting; absent on heal/defeat. */
+  school?: School
 }
 
 export type CombatResult = {
@@ -155,12 +165,14 @@ type Unit = {
   maxHp: number
   hp: number
   power: number
-  damageType: 'physical' | 'magic'
+  damageType: School
   isHealer: boolean
   healPower: number
   healingCrit: number
   defense: number
   resistance: number
+  /** Per-school resistances (enemies only, ADR-0033); named-school hits check here first. */
+  resists?: Partial<Record<School, number>>
   block: number
   dodge: number
   critChance: number
@@ -204,7 +216,7 @@ function partyUnit(c: Combatant, order: number): Unit {
     maxHp,
     hp: Math.min(maxHp, c.currentHp ?? maxHp),
     power: Math.max(pAtk, mAtk),
-    damageType: usePhysical ? 'physical' : 'magic',
+    damageType: usePhysical ? 'physical' : (c.damageSchool ?? 'magic'),
     isHealer: c.role === 'healer',
     healPower: hPow,
     healingCrit: num(s, 'healingCrit'),
@@ -242,6 +254,7 @@ function enemyUnit(e: Enemy, order: number): Unit {
     healingCrit: 0,
     defense: e.defense ?? 0,
     resistance: e.resistance ?? 0,
+    resists: e.resistances,
     block: e.block ?? 0,
     dodge: e.dodge ?? 0,
     critChance: e.critChance ?? 0,
@@ -257,11 +270,18 @@ function enemyUnit(e: Enemy, order: number): Unit {
   }
 }
 
-// ---- Hit resolution (ADR-0015 B: dodge → crit → armor DR → block) ------------------------------
+// ---- Hit resolution (ADR-0015 B: dodge → crit → armor DR → block; schools ADR-0033) -------------
 
 function drMitigate(power: number, mitigation: number, armorPen: number): number {
   const eff = Math.max(0, mitigation - armorPen)
   return power * (1 - eff / (eff + COMBAT.ARMOR_K))
+}
+
+/** The defender's mitigation stat against a school: physical → Defense; named schools check the
+ *  defender's per-school resistances (enemies) and fall back to generic Resistance (ADR-0033). */
+function mitigationFor(defender: Unit, school: School): number {
+  if (school === 'physical') return defender.defense
+  return defender.resists?.[school] ?? defender.resistance
 }
 
 function resolveAttack(attacker: Unit, defender: Unit, rng: () => number): number {
@@ -270,7 +290,7 @@ function resolveAttack(attacker: Unit, defender: Unit, rng: () => number): numbe
   if (attacker.critChance > 0 && rng() * 100 < attacker.critChance) {
     dmg *= 1 + COMBAT.CRIT_BASE + attacker.critDamage / 100
   }
-  const mit = attacker.damageType === 'magic' ? defender.resistance : defender.defense
+  const mit = mitigationFor(defender, attacker.damageType)
   dmg = drMitigate(dmg, mit, attacker.armorPen)
   if (defender.block > 0 && rng() * 100 < defender.block) {
     dmg *= 1 - COMBAT.BLOCK_FACTOR
@@ -386,11 +406,11 @@ export function simulateCombat(args: {
     if (target) {
       const dmg = resolveAttack(actor, target, rng)
       if (dmg <= 0) {
-        log.push({ t, type: 'dodge', source: actor.id, target: target.id, amount: 0 })
+        log.push({ t, type: 'dodge', source: actor.id, target: target.id, amount: 0, school: actor.damageType })
       } else {
         target.hp = Math.max(0, target.hp - dmg)
         if (actor.side === 'party') actor.threat += dmg * actor.threatMult
-        log.push({ t, type: 'attack', source: actor.id, target: target.id, amount: dmg })
+        log.push({ t, type: 'attack', source: actor.id, target: target.id, amount: dmg, school: actor.damageType })
         if (target.hp === 0) log.push({ t, type: 'defeat', source: actor.id, target: target.id, amount: 0 })
       }
     }

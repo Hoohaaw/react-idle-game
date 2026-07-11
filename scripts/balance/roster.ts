@@ -11,6 +11,7 @@
 import { computeBaselines, type StatGrowth, type StatValue } from '../../src/lib/stats.ts'
 import { resolveRole, type CharacterRole } from '../../src/lib/roles.ts'
 import type { CharacterRarity } from '../../src/lib/characterBudget.ts'
+import type { School } from '../../src/lib/schools.ts'
 import type { Combatant } from '../../src/lib/combat.ts'
 
 export type RosterEntry = {
@@ -21,6 +22,8 @@ export type RosterEntry = {
   role: CharacterRole | null
   /** Budget tier (ADR-0031). */
   rarity: CharacterRarity
+  /** School of the character's magic damage (ADR-0033); undefined = neutral 'magic'. */
+  damageSchool?: School
   baseStats: StatValue[]
   growth: StatGrowth[]
 }
@@ -80,6 +83,7 @@ export const ROSTER: RosterEntry[] = [
   },
   {
     charKey: 'fenn-mosswhisper',
+    damageSchool: 'earth',
     name: "Fenn Mosswhisper",
     charClass: 'Druid',
     role: null,
@@ -89,6 +93,7 @@ export const ROSTER: RosterEntry[] = [
   },
   {
     charKey: 'callum-emberveil',
+    damageSchool: 'fire',
     name: "Callum Emberveil",
     charClass: 'Mage',
     role: null,
@@ -98,6 +103,7 @@ export const ROSTER: RosterEntry[] = [
   },
   {
     charKey: 'mira-ashbind',
+    damageSchool: 'shadow',
     name: "Mira Ashbind",
     charClass: 'Warlock',
     role: null,
@@ -107,6 +113,7 @@ export const ROSTER: RosterEntry[] = [
   },
   {
     charKey: 'yenna-stonecall',
+    damageSchool: 'earth',
     name: "Yenna Stonecall",
     charClass: 'Shaman',
     role: null,
@@ -143,6 +150,7 @@ export const ROSTER: RosterEntry[] = [
   },
   {
     charKey: 'aldric-faithward',
+    damageSchool: 'holy',
     name: "Aldric Faithward",
     charClass: 'Priest',
     role: null,
@@ -179,6 +187,7 @@ export const ROSTER: RosterEntry[] = [
   },
   {
     charKey: 'tyla-windcarrier',
+    damageSchool: 'wind',
     name: "Tyla Windcarrier",
     charClass: 'Shaman',
     role: 'healer',
@@ -216,6 +225,7 @@ export function buildCombatant(charKey: string, level: number): Combatant {
     id: def.charKey,
     role: resolveRole(def.charClass, def.role),
     stats: computeBaselines(level, def.baseStats, def.growth),
+    damageSchool: def.damageSchool,
   }
 }
 

@@ -14,6 +14,7 @@
 // surface what that does to caster parties.
 
 import type { Enemy, Encounter } from '../../src/lib/combat.ts'
+import type { School } from '../../src/lib/schools.ts'
 
 export type Archetype = 'basic' | 'tank' | 'caster' | 'swarm' | 'boss'
 
@@ -37,6 +38,32 @@ const ARCHETYPE_MODS: Record<Archetype, { hp: number; atk: number; def: number; 
   boss: { hp: 5, atk: 1.5, def: 1 },
 }
 
+// Damage schools + resistances are TIER-GATED (ADR-0033, Alex: schools surface mid/late game).
+// Resist values are DR-curve absolute (% mitigation is level-independent), so flat numbers work
+// at every tier: strong ≈ 120 (55% DR), broad ≈ 40 (29%). Weakness = simply not listed (generic
+// resistance is 0 in the template, so off-school magic hits full).
+const ELEMENT_CYCLE: School[] = ['fire', 'ice', 'earth', 'wind', 'holy', 'shadow']
+const elementFor = (tier: number): School => ELEMENT_CYCLE[(tier - 1) % ELEMENT_CYCLE.length]
+
+function resistancesFor(tier: number, archetype: Archetype): Partial<Record<School, number>> | undefined {
+  if (tier <= 2) return undefined // early game: schools invisible
+  const own = elementFor(tier)
+  const next = ELEMENT_CYCLE[(tier) % ELEMENT_CYCLE.length]
+  if (tier <= 5) {
+    // mid game: casters/bosses resist their own school — first squad-choice moments
+    if (archetype === 'caster' || archetype === 'boss') return { [own]: 100 }
+    return undefined
+  }
+  // late game: broader walls, still always a way through
+  switch (archetype) {
+    case 'caster': return { [own]: 120, [next]: 40 }
+    case 'boss': return { [own]: 120, [next]: 40, magic: 40 }
+    case 'tank': return { [own]: 40, [next]: 40 }
+    case 'basic': return { [own]: 40 }
+    case 'swarm': return undefined
+  }
+}
+
 export function makeEnemy(tier: number, archetype: Archetype, index = 0): Enemy {
   const scale = TIER_GROWTH ** (tier - 1)
   const mod = ARCHETYPE_MODS[archetype]
@@ -44,9 +71,10 @@ export function makeEnemy(tier: number, archetype: Archetype, index = 0): Enemy 
     id: `t${tier}-${archetype}-${index}`,
     health: Math.round(TIER1.health * scale * mod.hp),
     attack: Math.round(TIER1.attack * scale * mod.atk),
-    damageType: mod.magic ? 'magic' : 'physical',
+    damageType: mod.magic ? elementFor(tier) : 'physical',
     speed: TIER1.speed, // flat across tiers (ADR-0024)
     defense: Math.round(TIER1.defense * scale * mod.def),
+    resistances: resistancesFor(tier, archetype),
   }
 }
 
