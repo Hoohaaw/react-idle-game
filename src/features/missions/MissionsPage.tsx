@@ -9,6 +9,7 @@ import { ClaimReward } from './components/ClaimReward'
 import type { DispatchChar, DispatchMission } from './components/dispatchSamples'
 import type { ClaimResultView, ClaimBonus } from './components/claimSamples'
 import { useMissions, useStartMission, useClaimMission } from './hooks'
+import { summarizeResistances } from './resistSummary'
 import { useMissionRuns, useRoster, type RosterMember } from '@/hooks/useRoster'
 
 const fmtDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
@@ -29,6 +30,7 @@ function toDispatchMission(m: GameMission): DispatchMission {
     duration: fmtDuration(m.durationSeconds),
     baseXp: m.baseXp,
     loot: m.loot.map((l) => ({ name: l.name, slot: l.slot, chances: l.chances })),
+    enemies: m.enemies,
   }
 }
 
@@ -114,6 +116,7 @@ export default function MissionsPage() {
     charClass: m.charClass,
     level: m.level,
     role: m.role,
+    damageSchool: m.damageSchool,
     busy: m.busy === 'mission' ? 'On mission' : m.busy === 'gathering' ? 'Gathering' : m.busy === 'infirmary' ? 'In Infirmary' : undefined,
     downed: m.currentHp === 0,
   }))
@@ -168,17 +171,22 @@ export default function MissionsPage() {
           <p style={NOTE}>No missions authored yet.</p>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
-            {missions.map((m) => (
-              <MissionCard
-                key={m.missionKey}
-                name={m.name}
-                gold={m.baseGold}
-                xp={m.baseXp}
-                duration={fmtDuration(m.durationSeconds)}
-                dropCount={m.loot.length}
-                onSend={() => setDispatchKey(m.missionKey)}
-              />
-            ))}
+            {missions.map((m) => {
+              const { strong, weak } = summarizeResistances(m.enemies)
+              return (
+                <MissionCard
+                  key={m.missionKey}
+                  name={m.name}
+                  gold={m.baseGold}
+                  xp={m.baseXp}
+                  duration={fmtDuration(m.durationSeconds)}
+                  dropCount={m.loot.length}
+                  resists={strong}
+                  weakTo={weak}
+                  onSend={() => setDispatchKey(m.missionKey)}
+                />
+              )
+            })}
           </div>
         )}
       </section>

@@ -7,6 +7,7 @@ import { fetchItemDefs } from '@/services/items'
 import { fetchCharacterDefs } from '@/services/characters'
 import { effectiveStats } from '@/lib/stats'
 import { resolveRole, type CharacterRole } from '@/lib/roles'
+import type { School } from '@/lib/schools'
 
 // Shared player-state reads + the composed roster. Used by every feature that needs "the player's
 // characters and what they're doing" — missions (dispatch/claim), infirmary (heal), gather (assign).
@@ -44,6 +45,7 @@ export type RosterMember = {
   name: string
   charClass: string
   role: CharacterRole
+  damageSchool?: School
   level: number
   xp: number
   maxHp: number
@@ -86,6 +88,7 @@ export function useRoster() {
         name: def.name,
         charClass: def.charClass,
         role: resolveRole(def.charClass, def.role),
+        damageSchool: def.damageSchool,
         level: c.level,
         xp: c.xp,
         maxHp: Math.max(1, Math.round(stats.health ?? 0)),

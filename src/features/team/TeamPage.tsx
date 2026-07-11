@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { Avatar } from '@/components/atoms/Avatar'
 import { RoleBadge } from '@/components/atoms/RoleBadge'
 import { ClassBadge } from '@/components/atoms/ClassBadge'
+import { SchoolBadge } from '@/components/atoms/SchoolBadge'
 import { Modal } from '@/components/organisms/Modal'
 import { CharacterCard } from '@/components/organisms/CharacterCard'
 import { useCharacters } from '@/hooks/useCharacters'
@@ -70,6 +71,7 @@ export default function TeamPage() {
             xpCurrent={openMember.xp}
             xpNeeded={xpToNext(openMember.level)}
             role={openDef.role}
+            damageSchool={openDef.damageSchool}
             baseStats={openDef.baseStats}
             growth={openDef.growth}
             gear={{
@@ -129,6 +131,7 @@ function PartyMemberCard({ member, onOpen }: { member: RosterMember; onOpen: () 
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
         <ClassBadge charClass={member.charClass} size="sm" />
         <RoleBadge role={member.role} size="sm" />
+        {member.damageSchool && <SchoolBadge school={member.damageSchool} size="sm" />}
       </div>
     </div>
   )

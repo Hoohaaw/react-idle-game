@@ -67,6 +67,7 @@ export default function GatherPage() {
       charClass: m.charClass,
       level: m.level,
       role: m.role,
+      damageSchool: m.damageSchool,
       activity,
       detail: m.busy === 'gathering'
         ? assignments.find((a) => a.player_character_id === m.id)?.resource_id

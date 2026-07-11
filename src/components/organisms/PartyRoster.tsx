@@ -1,7 +1,9 @@
 import { Avatar } from '../atoms/Avatar'
 import { StatusTag } from '../atoms/StatusTag'
 import { RoleBadge } from '../atoms/RoleBadge'
+import { SchoolBadge } from '../atoms/SchoolBadge'
 import { resolveRole, type CharacterRole } from '../../lib/roles'
+import type { School } from '../../lib/schools'
 
 // A character row in the roster. `activity` is derived server-side from the
 // character's current assignment (on a mission / gathering / idle).
@@ -13,6 +15,7 @@ export type RosterCharacter = {
   activity: 'idle' | 'mission' | 'gather' | 'infirmary' | 'downed'
   detail?: string // mission name or resource being gathered
   role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
+  damageSchool?: School // the caster's magic school, when authored (ADR-0033)
 }
 
 // Select-mode roster: lists EVERY owned character (busy ones included, shown
@@ -70,6 +73,7 @@ function RosterRow({ char, selected, onSelect }: { char: RosterCharacter; select
         <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 7 }}>{char.charClass} · Lv {char.level}</p>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <RoleBadge role={resolveRole(char.charClass, char.role)} size="sm" />
+          {char.damageSchool && <SchoolBadge school={char.damageSchool} size="sm" />}
           <StatusTag tone={statusTone}>{status}</StatusTag>
         </div>
         {detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detail}</p>}

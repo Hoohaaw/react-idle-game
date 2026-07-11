@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { sanity } from './sanity'
+import type { School } from '@/lib/schools'
 import type { Tables } from '@/types/database.types'
 import { invokeError } from './_invoke'
 
@@ -12,6 +13,12 @@ import { invokeError } from './_invoke'
 
 export type LootRarityChance = { rarity: string; chance: number } // chance = P(this item drops at this rarity), %
 export type MissionLootView = { itemKey: string; name: string; slot: string; chances: LootRarityChance[] }
+export type MissionEnemyView = {
+  name: string
+  count: number
+  damageType: School
+  resistances: { school: School; value: number }[]
+}
 export type GameMission = {
   missionKey: string
   name: string
@@ -21,12 +28,14 @@ export type GameMission = {
   baseGold: number
   resources: { code: string; amount: number }[]
   loot: MissionLootView[]
+  enemies: MissionEnemyView[]
 }
 
 const MISSIONS_QUERY = `*[_type == "missionDef" && defined(missionKey)]{
   missionKey, name, description, durationSeconds, baseXp,
   rewards[]{ kind, code, amount },
-  loot[]{ dropChance, "itemKey": item->itemKey, "name": item->name, "slot": item->slot, rarityWeights[]{ rarity, weight } }
+  loot[]{ dropChance, "itemKey": item->itemKey, "name": item->name, "slot": item->slot, rarityWeights[]{ rarity, weight } },
+  "enemies": encounter->enemies[]{ count, "name": enemy->name, "damageType": enemy->damageType, "resistances": enemy->resistances[]{ school, value } }
 }`
 
 type RawMission = {
@@ -42,6 +51,12 @@ type RawMission = {
     name?: string
     slot?: string
     rarityWeights?: { rarity: string; weight: number }[]
+  }[]
+  enemies?: {
+    count?: number
+    name?: string
+    damageType?: School
+    resistances?: { school: School; value: number }[]
   }[]
 }
 
@@ -73,6 +88,14 @@ export async function fetchMissions(): Promise<GameMission[]> {
           name: l.name ?? l.itemKey!,
           slot: l.slot ?? '',
           chances: rarityChances(l.dropChance ?? 0, l.rarityWeights),
+        })),
+      enemies: (m.enemies ?? [])
+        .filter((e): e is typeof e & { name: string } => Boolean(e.name))
+        .map((e) => ({
+          name: e.name,
+          count: e.count ?? 1,
+          damageType: e.damageType ?? 'physical',
+          resistances: e.resistances ?? [],
         })),
     }
   })
