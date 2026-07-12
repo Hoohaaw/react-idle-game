@@ -55,7 +55,7 @@ function UpgradeFooter({ item }: { item: Item }) {
         color: '#8ee59c', border: '1px solid #2d6b45',
         background: 'linear-gradient(180deg, rgba(76,175,110,0.20) 0%, rgba(76,175,110,0.05) 100%)',
         whiteSpace: 'nowrap',
-      }}>⬆ Upgrade{times > 1 ? ` ×${times}` : ''}</span>
+      }}>Upgrade{times > 1 ? ` ×${times}` : ''}</span>
     )
   }
   if (qty > 1) {
@@ -130,7 +130,7 @@ export default function UpgradingPage() {
           Upgrading <span style={{ color: 'var(--color-text-muted)' }}>· {upgradableCount} upgradable</span>
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {upgradableCount > 0 && <SecondaryButton onClick={() => setBulkOpen(true)}>⬆ Upgrade All</SecondaryButton>}
+          {upgradableCount > 0 && <SecondaryButton onClick={() => setBulkOpen(true)}>Upgrade All</SecondaryButton>}
           <SegmentedControl options={FILTERS} value={filter} onChange={setFilter} />
         </div>
       </div>

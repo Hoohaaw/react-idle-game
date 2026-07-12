@@ -1,4 +1,5 @@
 import { GUIDE_SECTIONS, type GuideSection } from './gameStatsContent'
+import { IconSlot } from '@/components/atoms/IconSlot'
 
 // Game Stats — a player-facing guide to the character stats and the general workings of the game.
 // All content lives in gameStatsContent.ts (kept in sync with rule changes); this file only renders.
@@ -27,8 +28,9 @@ function Section({ section }: { section: GuideSection }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
           {section.entries.map((e) => (
             <div key={e.name} className="atom-heavy" style={{ padding: '12px 14px', borderRadius: 6 }}>
-              <h3 style={{ color: 'var(--color-gold-light)', fontSize: 13, marginBottom: 6 }}>
-                {e.icon && <span style={{ marginRight: 6 }}>{e.icon}</span>}
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-gold-light)', fontSize: 13, marginBottom: 6 }}>
+                {/* entry.icon stays as data; render a placeholder until real icons land (no emoji icons) */}
+                {e.icon && <IconSlot size={13} />}
                 {e.name}
               </h3>
               <p style={{ color: 'var(--color-text-muted)', fontSize: 12.5, lineHeight: 1.65 }}>{e.body}</p>

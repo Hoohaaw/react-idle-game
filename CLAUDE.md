@@ -112,3 +112,8 @@ main context what an agent can do in its own.
   `src/lib/characterBudget.ts`, guideline in [`docs/CHARACTERS.md`](./docs/CHARACTERS.md),
   enforced by the studio schema validation.
 - Components target ~200 lines; presentation and logic stay separate.
+- **No emoji as UI icons** (design rule, 2026-07-12): real icon assets arrive later — until then,
+  anywhere an icon belongs renders the `IconSlot` placeholder (`src/components/atoms/IconSlot`);
+  purely decorative emoji are removed. Registry `icon` fields (e.g. `SCHOOL_DEFS`, `ROLE_STYLES`)
+  may keep emoji as *data* for the future mapping, but components never render them as glyphs.
+  Typographic marks (✓ ✕ + ★ → ▲▼) are fine.

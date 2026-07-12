@@ -38,7 +38,7 @@ export function ActiveMissionCard({ name, partySize, startedAt, endsAt, onClaim 
           <span style={{
             fontFamily: '"Consolas", ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', fontSize: 13,
             color: done ? '#8ee59c' : 'var(--color-text-gold)',
-          }}>{done ? '✓ Ready' : `⏱ ${formatRemaining(remaining)}`}</span>
+          }}>{done ? '✓ Ready' : formatRemaining(remaining)}</span>
           {done
             ? <span style={{ width: 130 }}><PrimaryButton fullWidth onClick={onClaim}>Claim</PrimaryButton></span>
             : <span style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic' }}>In progress…</span>}
