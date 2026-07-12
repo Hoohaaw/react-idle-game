@@ -39,7 +39,6 @@ const REASON_TEXT: Record<ClaimResultView['reason'], string> = {
 const LOSS_SCREENS = {
   'party-wiped': {
     title: 'Party Wiped',
-    icon: '💀',
     accent: '#e0635c',
     border: '#8a2e29',
     borderSoft: '#5c1f1c',
@@ -51,7 +50,6 @@ const LOSS_SCREENS = {
   },
   timeout: {
     title: 'Out of Time',
-    icon: '⌛',
     accent: '#d89a4f',
     border: '#8a5e29',
     borderSoft: '#5c3f1c',
@@ -91,7 +89,7 @@ export function ClaimReward({ result = SAMPLE_CLAIM_WIN, onDone }: { result?: Cl
           : `linear-gradient(180deg, color-mix(in srgb, ${accent} 20%, transparent) 0%, color-mix(in srgb, ${accent} 4%, transparent) 100%)`,
       }}>
         <p style={{ color: accent, fontSize: '18px', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase', textShadow: `0 0 14px color-mix(in srgb, ${win ? '#f0d060' : accent} 55%, transparent), 0 2px 4px rgba(0,0,0,0.9)` }}>
-          {loss ? `${loss.icon} ${loss.title}` : 'Victory'}
+          {loss ? loss.title : 'Victory'}
         </p>
         <p style={{ color: 'var(--color-text-primary)', fontSize: '13px', marginTop: '4px' }}>
           {result.missionName}{result.stage ? ` · Stage ${result.stage}` : ''}
