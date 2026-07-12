@@ -10,7 +10,10 @@ import type { DispatchChar, DispatchMission } from './components/dispatchSamples
 import type { ClaimResultView, ClaimBonus } from './components/claimSamples'
 import { useMissions, useStartMission, useClaimMission } from './hooks'
 import { summarizeResistances } from './resistSummary'
+import { sortedMaps, isMapUnlocked, isStageLocked, BOSS_STAGE } from './mapProgress'
+import { MapSelector } from './components/MapSelector'
 import { useMissionRuns, useRoster, type RosterMember } from '@/hooks/useRoster'
+import { useProfile } from '@/hooks/useProfile'
 
 const fmtDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
@@ -99,16 +102,34 @@ export default function MissionsPage() {
   const missionsQ = useMissions()
   const runsQ = useMissionRuns()
   const { roster } = useRoster()
+  const { data: profile } = useProfile()
   const startM = useStartMission()
   const claimM = useClaimMission()
 
   const [dispatchKey, setDispatchKey] = useState<string | null>(null) // missionKey of the open dispatch modal
   const [claimResult, setClaimResult] = useState<ClaimResultView | null>(null)
+  const [selectedMap, setSelectedMap] = useState<string | null>(null)
 
   const missions = missionsQ.data ?? []
   const runs = runsQ.data ?? []
   const missionByKey = new Map(missions.map((m) => [m.missionKey, m]))
   const dispatchMission = dispatchKey ? missionByKey.get(dispatchKey) : undefined
+
+  // World maps (ADR-0034): group missions by map, gate stages by profile progress. Missions
+  // without a map (legacy drafts) stay visible at the end of the list. No maps authored at
+  // all → the flat list renders unchanged.
+  const mapProgress = profile?.mapProgress ?? {}
+  const maps = sortedMaps(missions.map((m) => m.map))
+  const activeMap = selectedMap ?? maps[0]?.mapKey ?? null
+  const shownMissions = maps.length
+    ? [
+        ...missions.filter((m) => m.map?.mapKey === activeMap).sort((a, b) => (a.stage ?? 0) - (b.stage ?? 0)),
+        ...missions.filter((m) => !m.map),
+      ]
+    : missions
+  const activeMapUnlocked = activeMap == null || isMapUnlocked(maps, mapProgress, activeMap)
+  const missionLocked = (m: GameMission) =>
+    m.map != null && m.stage != null && (!activeMapUnlocked || isStageLocked(mapProgress, m.map.mapKey, m.stage))
 
   const dispatchRoster: DispatchChar[] = roster.map((m) => ({
     id: m.id,
@@ -170,24 +191,31 @@ export default function MissionsPage() {
         ) : missions.length === 0 ? (
           <p style={NOTE}>No missions authored yet.</p>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
-            {missions.map((m) => {
-              const { strong, weak } = summarizeResistances(m.enemies)
-              return (
-                <MissionCard
-                  key={m.missionKey}
-                  name={m.name}
-                  gold={m.baseGold}
-                  xp={m.baseXp}
-                  duration={fmtDuration(m.durationSeconds)}
-                  dropCount={m.loot.length}
-                  resists={strong}
-                  weakTo={weak}
-                  onSend={() => setDispatchKey(m.missionKey)}
-                />
-              )
-            })}
-          </div>
+          <>
+            <MapSelector maps={maps} progress={mapProgress} selected={activeMap} onSelect={setSelectedMap} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
+              {shownMissions.map((m) => {
+                const { strong, weak } = summarizeResistances(m.enemies)
+                const locked = missionLocked(m)
+                return (
+                  <MissionCard
+                    key={m.missionKey}
+                    name={m.name}
+                    stage={m.stage ?? undefined}
+                    boss={m.stage === BOSS_STAGE}
+                    locked={locked}
+                    gold={m.baseGold}
+                    xp={m.baseXp}
+                    duration={fmtDuration(m.durationSeconds)}
+                    dropCount={m.loot.length}
+                    resists={strong}
+                    weakTo={weak}
+                    onSend={locked ? undefined : () => setDispatchKey(m.missionKey)}
+                  />
+                )
+              })}
+            </div>
+          </>
         )}
       </section>
 
