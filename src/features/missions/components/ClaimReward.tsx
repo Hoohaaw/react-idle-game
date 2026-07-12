@@ -29,12 +29,43 @@ function HpBar({ hp, max }: { hp: number; max: number }) {
 
 const REASON_TEXT: Record<ClaimResultView['reason'], string> = {
   'enemies-defeated': 'Enemies defeated',
-  'party-wiped': 'Party wiped',
-  timeout: 'Ran out of time',
+  'party-wiped': 'All heroes downed',
+  timeout: 'Combat clock expired',
 }
+
+// The two failure screens (win/loss comes from the server sim; reason discriminates them):
+//  'party-wiped' = every hero hit 0 HP before the enemies died → red, infirmary-focused
+//  'timeout'     = the combat clock ran out with enemies still standing → amber, kill-faster-focused
+const LOSS_SCREENS = {
+  'party-wiped': {
+    title: 'Party Wiped',
+    icon: '💀',
+    accent: '#e0635c',
+    border: '#8a2e29',
+    borderSoft: '#5c1f1c',
+    headline: 'Your party has fallen — no rewards',
+    body:
+      'Every hero was struck down before the enemies were. Nothing was earned, and downed heroes ' +
+      'must be stabilized at the Infirmary before they can fight again. Come back stronger — or ' +
+      'come back with a different party.',
+  },
+  timeout: {
+    title: 'Out of Time',
+    icon: '⌛',
+    accent: '#d89a4f',
+    border: '#8a5e29',
+    borderSoft: '#5c3f1c',
+    headline: 'The clock ran out — no rewards',
+    body:
+      'The battle dragged on too long with enemies still standing, and that counts as a loss — ' +
+      'nothing was earned. Your party survived but carries its wounds. To beat the clock, bring ' +
+      'more damage or heroes the enemies cannot resist.',
+  },
+} as const
 
 export function ClaimReward({ result = SAMPLE_CLAIM_WIN, onDone }: { result?: ClaimResultView; onDone?: () => void }) {
   const win = result.outcome === 'win'
+  const loss = win ? null : LOSS_SCREENS[result.reason === 'party-wiped' ? 'party-wiped' : 'timeout']
   const multiplier = result.bonuses.reduce((m, b) => m * (1 + b.pct / 100), 1)
   const finalGold = Math.round(result.baseGold * multiplier)
   // Cumulative coin value after each bonus is applied (the transparency trail).
@@ -43,24 +74,24 @@ export function ClaimReward({ result = SAMPLE_CLAIM_WIN, onDone }: { result?: Cl
     value: Math.round(result.bonuses.slice(0, i + 1).reduce((acc, x) => acc * (1 + x.pct / 100), result.baseGold)),
   }))
   const labelStyle: CSSProperties = { color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }
-  const accent = win ? 'var(--color-gold-light)' : '#e0635c'
+  const accent = loss ? loss.accent : 'var(--color-gold-light)'
 
   return (
     <div style={{
-      width: 440, borderRadius: 8, border: `3px solid ${win ? 'var(--color-gold-mid)' : '#8a2e29'}`,
+      width: 440, borderRadius: 8, border: `3px solid ${loss ? loss.border : 'var(--color-gold-mid)'}`,
       background: 'linear-gradient(180deg, #1e0a0c 0%, #130406 100%)',
       boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', 'inset 0 2px 8px rgba(0,0,0,0.6)', '0 6px 20px rgba(0,0,0,0.8)'].join(', '),
       overflow: 'hidden',
     }}>
       {/* Header */}
       <div style={{
-        textAlign: 'center', padding: '16px', borderBottom: `2px solid ${win ? 'var(--color-gold-dark)' : '#5c1f1c'}`,
+        textAlign: 'center', padding: '16px', borderBottom: `2px solid ${loss ? loss.borderSoft : 'var(--color-gold-dark)'}`,
         background: win
           ? 'linear-gradient(180deg, rgba(200,145,42,0.18) 0%, rgba(200,145,42,0.04) 100%)'
-          : 'linear-gradient(180deg, rgba(160,45,40,0.20) 0%, rgba(160,45,40,0.04) 100%)',
+          : `linear-gradient(180deg, color-mix(in srgb, ${accent} 20%, transparent) 0%, color-mix(in srgb, ${accent} 4%, transparent) 100%)`,
       }}>
-        <p style={{ color: accent, fontSize: '18px', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase', textShadow: win ? '0 0 14px rgba(240,208,96,0.55), 0 2px 4px rgba(0,0,0,0.9)' : '0 0 14px rgba(224,99,92,0.5), 0 2px 4px rgba(0,0,0,0.9)' }}>
-          {win ? 'Victory' : 'Defeat'}
+        <p style={{ color: accent, fontSize: '18px', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase', textShadow: `0 0 14px color-mix(in srgb, ${win ? '#f0d060' : accent} 55%, transparent), 0 2px 4px rgba(0,0,0,0.9)` }}>
+          {loss ? `${loss.icon} ${loss.title}` : 'Victory'}
         </p>
         <p style={{ color: 'var(--color-text-primary)', fontSize: '13px', marginTop: '4px' }}>
           {result.missionName}{result.stage ? ` · Stage ${result.stage}` : ''}
@@ -151,16 +182,16 @@ export function ClaimReward({ result = SAMPLE_CLAIM_WIN, onDone }: { result?: Cl
               </p>
             </div>
           </>
-        ) : (
-          /* Loss: no rewards, party carries persistent damage */
+        ) : loss && (
+          /* Loss: no rewards, party carries persistent damage. Copy is reason-specific. */
           <div className="atom-heavy" style={{
             padding: '12px 14px', borderRadius: '5px', marginBottom: '4px',
-            border: '2px solid #5c1f1c', background: 'linear-gradient(180deg, #2a0d0e 0%, #160607 100%)',
+            border: `2px solid ${loss.borderSoft}`,
+            background: `linear-gradient(180deg, color-mix(in srgb, ${loss.accent} 12%, #160607) 0%, #160607 100%)`,
           }}>
-            <p style={{ color: '#e0635c', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.5px' }}>No rewards</p>
+            <p style={{ color: loss.accent, fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.5px' }}>{loss.headline}</p>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', lineHeight: 1.5, marginTop: '4px' }}>
-              The mission failed, so nothing was earned — but your party carries its wounds. Heal them at the
-              infirmary (or bring a healer) before redeploying; a downed character can't be sent out.
+              {loss.body}
             </p>
           </div>
         )}

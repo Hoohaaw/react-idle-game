@@ -9,7 +9,7 @@ export { MissionCard } from './components/MissionCard'
 export { ActiveMissionCard } from './components/ActiveMissionCard'
 export { MissionDispatch } from './components/MissionDispatch'
 export { ClaimReward } from './components/ClaimReward'
-export { SAMPLE_CLAIM_WIN, SAMPLE_CLAIM_LOSS, type ClaimResultView } from './components/claimSamples'
+export { SAMPLE_CLAIM_WIN, SAMPLE_CLAIM_LOSS, SAMPLE_CLAIM_WIPE, type ClaimResultView } from './components/claimSamples'
 
 // The shared roster read now lives in @/hooks/useRoster (three consumers: missions, infirmary, gather) —
 // import it from there, not through this barrel.

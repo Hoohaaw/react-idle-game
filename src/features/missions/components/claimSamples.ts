@@ -57,6 +57,7 @@ export const SAMPLE_CLAIM_WIN: ClaimResultView = {
   ],
 }
 
+// Timeout loss: the clock expired with enemies alive — survivors keep their (reduced) HP.
 export const SAMPLE_CLAIM_LOSS: ClaimResultView = {
   outcome: 'loss',
   reason: 'timeout',
@@ -66,6 +67,24 @@ export const SAMPLE_CLAIM_LOSS: ClaimResultView = {
   survivingHpPct: 0.18,
   party: [
     { name: 'Lyra Swift', class: 'Rogue', level: 12, endingHp: 22, maxHp: 140, xpGained: 0 },
+    { name: 'Sally Whitemane', class: 'Priest', level: 15, endingHp: 0, maxHp: 180, xpGained: 0 },
+  ],
+  baseGold: 0,
+  resources: [],
+  loot: [],
+  bonuses: [],
+}
+
+// Wipe loss: every hero at 0 HP before the enemies died.
+export const SAMPLE_CLAIM_WIPE: ClaimResultView = {
+  outcome: 'loss',
+  reason: 'party-wiped',
+  missionName: 'Frozen Pass',
+  stage: 5,
+  durationSeconds: 74,
+  survivingHpPct: 0,
+  party: [
+    { name: 'Lyra Swift', class: 'Rogue', level: 12, endingHp: 0, maxHp: 140, xpGained: 0 },
     { name: 'Sally Whitemane', class: 'Priest', level: 15, endingHp: 0, maxHp: 180, xpGained: 0 },
   ],
   baseGold: 0,
