@@ -41,11 +41,24 @@ Deno.serve(async (req) => {
     return json({ error: 'party must be 1–3 character ids' }, 400)
   }
 
-  // Authored mission duration (server-trusted). Also validates the mission exists.
-  let def: { durationSeconds?: number } | null
+  // Authored mission duration + map/stage placement (server-trusted). Also validates the mission
+  // exists. `prevMapKey` = the map immediately before this mission's map in world order — the RPC
+  // gates on its boss being cleared (ADR-0034); null for the first map or unplaced legacy missions.
+  type MissionDef = {
+    durationSeconds?: number
+    stage?: number
+    map?: { mapKey?: string; order?: number; prevMapKey?: string | null } | null
+  }
+  let def: MissionDef | null
   try {
-    def = await sanityQuery<{ durationSeconds?: number } | null>(
-      '*[_type == "missionDef" && missionKey == $id][0]{ durationSeconds }',
+    def = await sanityQuery<MissionDef | null>(
+      `*[_type == "missionDef" && missionKey == $id][0]{
+        durationSeconds, stage,
+        "map": map->{
+          mapKey, order,
+          "prevMapKey": *[_type == "mapDef" && order < ^.order] | order(order desc)[0].mapKey
+        }
+      }`,
       { id: missionDefId },
     )
   } catch (e) {
@@ -62,6 +75,9 @@ Deno.serve(async (req) => {
     p_mission_def_id: missionDefId,
     p_party: party as string[],
     p_duration_seconds: def.durationSeconds,
+    p_map_key: def.map?.mapKey ?? null,
+    p_stage: def.stage ?? null,
+    p_prev_map_key: def.map?.prevMapKey ?? null,
   })
 
   if (rpcErr) {
