@@ -67,7 +67,7 @@ export function ActiveGatherCard({ resource, gatherer, intervalSec, yieldPerTick
           <span style={{
             fontFamily: '"Consolas", ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', fontSize: 12,
             color: 'var(--color-text-gold)', whiteSpace: 'nowrap',
-          }}>⏱ {formatRemaining(remainingMs)}</span>
+          }}>{formatRemaining(remainingMs)}</span>
         </div>
 
         {/* Gather bonus (if the character specializes in this resource) */}

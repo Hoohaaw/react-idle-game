@@ -1,8 +1,10 @@
+import { IconSlot } from './IconSlot'
+
 type Size = 'sm' | 'md'
 
-const SIZES: Record<Size, { padding: string; fontSize: string; letterSpacing: string; gap: number; borderRadius: number; iconSize: string }> = {
-  sm: { padding: '2px 7px',  fontSize: '9px',  letterSpacing: '1px',   gap: 4, borderRadius: 3, iconSize: '9px' },
-  md: { padding: '4px 10px', fontSize: '10px', letterSpacing: '1.5px', gap: 5, borderRadius: 4, iconSize: '10px' },
+const SIZES: Record<Size, { padding: string; fontSize: string; letterSpacing: string; gap: number; borderRadius: number; iconSize: number }> = {
+  sm: { padding: '2px 7px',  fontSize: '9px',  letterSpacing: '1px',   gap: 4, borderRadius: 3, iconSize: 9 },
+  md: { padding: '4px 10px', fontSize: '10px', letterSpacing: '1.5px', gap: 5, borderRadius: 4, iconSize: 10 },
 }
 
 // A character's CLASS (Death Knight, Mage, Rogue, …) — its fixed identity, shown
@@ -29,7 +31,8 @@ export function ClassBadge({ charClass, size = 'md' }: { charClass: string; size
         '0 3px 8px rgba(0,0,0,0.6)',
       ].join(', '),
     }}>
-      <span style={{ fontSize: z.iconSize, color: 'var(--color-gold-mid)' }}>❖</span>
+      {/* Icon placeholder until real class icons land (design rule: no emoji icons) */}
+      <IconSlot size={z.iconSize} />
       {charClass}
     </span>
   )

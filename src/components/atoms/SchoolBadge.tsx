@@ -1,10 +1,11 @@
 import { SCHOOL_DEFS, type School } from '../../lib/schools'
+import { IconSlot } from './IconSlot'
 
 type Size = 'sm' | 'md'
 
-const SIZES: Record<Size, { padding: string; fontSize: string; letterSpacing: string; gap: number; borderRadius: number; iconSize: string }> = {
-  sm: { padding: '2px 7px',  fontSize: '9px',  letterSpacing: '1px',   gap: 4, borderRadius: 3, iconSize: '10px' },
-  md: { padding: '4px 10px', fontSize: '10px', letterSpacing: '1.5px', gap: 5, borderRadius: 4, iconSize: '11px' },
+const SIZES: Record<Size, { padding: string; fontSize: string; letterSpacing: string; gap: number; borderRadius: number; iconSize: number }> = {
+  sm: { padding: '2px 7px',  fontSize: '9px',  letterSpacing: '1px',   gap: 4, borderRadius: 3, iconSize: 10 },
+  md: { padding: '4px 10px', fontSize: '10px', letterSpacing: '1.5px', gap: 5, borderRadius: 4, iconSize: 11 },
 }
 
 // A character's damage school (fire / ice / earth / wind / holy / shadow — ADR-0033).
@@ -31,7 +32,8 @@ export function SchoolBadge({ school, size = 'md' }: { school: School; size?: Si
         '0 3px 8px rgba(0,0,0,0.65)',
       ].join(', '),
     }}>
-      <span style={{ fontSize: z.iconSize }}>{s.icon}</span>
+      {/* Icon placeholder until real school icons land (design rule: no emoji icons) */}
+      <IconSlot size={z.iconSize} />
       {s.label}
     </span>
   )

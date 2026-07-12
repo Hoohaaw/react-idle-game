@@ -190,7 +190,6 @@ export default function BlessingsPage() {
                     <span style={{ fontSize: '13px', letterSpacing: '0.5px', opacity: unlocked ? 0.9 : 0.5, textShadow: unlocked ? '0 0 6px rgba(200,140,30,0.4)' : 'none' }}>{ROMAN[i]}</span>
                     {!unlocked && (
                       <>
-                        <span style={{ fontSize: '9px', opacity: 0.6 }}>🔒</span>
                         <span style={{ fontSize: '9px', whiteSpace: 'nowrap' }}>{have}/{need}</span>
                       </>
                     )}

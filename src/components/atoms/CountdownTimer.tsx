@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNow } from '../../hooks/useNow'
 import { formatRemaining } from '../../lib/time'
+import { IconSlot } from './IconSlot'
 
 export function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec: number; startedSecAgo?: number }) {
   const [endsAt] = useState(() => Date.now() + (durationSec - startedSecAgo) * 1000)
@@ -15,7 +16,8 @@ export function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec
       color: done ? '#8ee59c' : 'var(--color-text-gold)',
       textShadow: done ? '0 0 8px rgba(74,140,63,0.4)' : '0 0 6px rgba(232,192,80,0.3)',
     }}>
-      <span style={{ fontSize: 12 }}>{done ? '✓' : '⏱'}</span>
+      {/* Clock-icon placeholder until real icons land (design rule: no emoji icons) */}
+      {done ? <span style={{ fontSize: 12 }}>✓</span> : <IconSlot size={12} />}
       <span style={{
         // Monospace so each digit is fixed-width — the readout never reflows as it ticks.
         fontFamily: done ? 'Georgia, serif' : '"Consolas", "SF Mono", ui-monospace, monospace',

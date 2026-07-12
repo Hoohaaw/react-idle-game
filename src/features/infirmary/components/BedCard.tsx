@@ -29,7 +29,7 @@ export function BedCard({ member, admission, infirmaryLevel, onDischarge, discha
 
   const phaseLine =
     state.phase === 'stabilizing'
-      ? `✚ Stabilizing — ${formatRemaining(state.stabilizeRemainingSec * 1000)} · full in ${formatRemaining(state.secondsToFull * 1000)}`
+      ? `Stabilizing — ${formatRemaining(state.stabilizeRemainingSec * 1000)} · full in ${formatRemaining(state.secondsToFull * 1000)}`
       : state.phase === 'healing'
         ? `Healing +${regenPerSec(infirmaryLevel)} HP/s · full in ${formatRemaining(state.secondsToFull * 1000)}`
         : 'Fully healed'

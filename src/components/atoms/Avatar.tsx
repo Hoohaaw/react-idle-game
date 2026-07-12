@@ -16,7 +16,7 @@ export function Avatar({ size = 56, level, state = 'available' }: { size?: numbe
         opacity: state === 'locked' ? 0.5 : 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <span style={{ color: 'var(--color-text-muted)', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>{state === 'locked' ? '🔒' : 'IMG'}</span>
+        <span style={{ color: 'var(--color-text-muted)', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>{state === 'locked' ? 'LOCKED' : 'IMG'}</span>
       </div>
       {level !== undefined && (
         <span style={{
