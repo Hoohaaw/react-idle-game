@@ -19,6 +19,7 @@ export type MissionEnemyView = {
   damageType: School
   resistances: { school: School; value: number }[]
 }
+export type MissionMapView = { mapKey: string; name: string; order: number }
 export type GameMission = {
   missionKey: string
   name: string
@@ -29,10 +30,14 @@ export type GameMission = {
   resources: { code: string; amount: number }[]
   loot: MissionLootView[]
   enemies: MissionEnemyView[]
+  /** World map + stage (ADR-0034). null = mission not yet assigned to a map (legacy drafts). */
+  map: MissionMapView | null
+  stage: number | null
 }
 
 const MISSIONS_QUERY = `*[_type == "missionDef" && defined(missionKey)]{
-  missionKey, name, description, durationSeconds, baseXp,
+  missionKey, name, description, durationSeconds, baseXp, stage,
+  "map": map->{ mapKey, name, order },
   rewards[]{ kind, code, amount },
   loot[]{ dropChance, "itemKey": item->itemKey, "name": item->name, "slot": item->slot, rarityWeights[]{ rarity, weight } },
   "enemies": encounter->enemies[]{ count, "name": enemy->name, "damageType": enemy->damageType, "resistances": enemy->resistances[]{ school, value } }
@@ -44,6 +49,8 @@ type RawMission = {
   description?: string
   durationSeconds: number
   baseXp?: number
+  stage?: number
+  map?: { mapKey?: string; name?: string; order?: number } | null
   rewards?: { kind: 'currency' | 'resource'; code: string; amount: number }[]
   loot?: {
     dropChance?: number
@@ -97,6 +104,10 @@ export async function fetchMissions(): Promise<GameMission[]> {
           damageType: e.damageType ?? 'physical',
           resistances: e.resistances ?? [],
         })),
+      map: m.map?.mapKey
+        ? { mapKey: m.map.mapKey, name: m.map.name ?? m.map.mapKey, order: m.map.order ?? 0 }
+        : null,
+      stage: m.stage ?? null,
     }
   })
 }

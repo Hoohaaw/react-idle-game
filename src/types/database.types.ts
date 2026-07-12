@@ -201,6 +201,7 @@ export type Database = {
           created_at: string
           currencies: Json
           infirmary_level: number
+          map_progress: Json
           player_id: string
           resources: Json
           transcendence_count: number
@@ -209,6 +210,7 @@ export type Database = {
           created_at?: string
           currencies?: Json
           infirmary_level?: number
+          map_progress?: Json
           player_id: string
           resources?: Json
           transcendence_count?: number
@@ -217,6 +219,7 @@ export type Database = {
           created_at?: string
           currencies?: Json
           infirmary_level?: number
+          map_progress?: Json
           player_id?: string
           resources?: Json
           transcendence_count?: number

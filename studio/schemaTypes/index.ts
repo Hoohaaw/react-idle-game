@@ -2,6 +2,7 @@ import { characterDef } from './characterDef'
 import { enemyDef } from './enemyDef'
 import { encounterDef } from './encounterDef'
 import { itemDef } from './itemDef'
+import { mapDef } from './mapDef'
 import { missionDef } from './missionDef'
 import { statValue } from './objects/statValue'
 import { statGrowth } from './objects/statGrowth'
@@ -17,6 +18,7 @@ export const schemaTypes = [
   enemyDef,
   encounterDef,
   itemDef,
+  mapDef,
   missionDef,
   statValue,
   statGrowth,

@@ -42,6 +42,24 @@ export const missionDef = defineType({
     }),
     defineField({ name: 'description', type: 'text', rows: 2, fieldset: 'identity' }),
     defineField({
+      name: 'map',
+      title: 'Map',
+      description: 'The world map this mission belongs to (ADR-0034).',
+      type: 'reference',
+      to: [{ type: 'mapDef' }],
+      fieldset: 'identity',
+      validation: (rule) => rule.required(),
+    }),
+    defineField({
+      name: 'stage',
+      title: 'Stage (1–7)',
+      description:
+        'Position on the map: stages 1–6 rise in difficulty, stage 7 is the BOSS (harder, better loot, unlocks the next map). Stages unlock sequentially per player.',
+      type: 'number',
+      fieldset: 'identity',
+      validation: (rule) => rule.required().integer().min(1).max(7),
+    }),
+    defineField({
       name: 'encounter',
       title: 'Encounter (the fight)',
       description: 'The auto-battle resolved at claim.',
@@ -87,9 +105,10 @@ export const missionDef = defineType({
     }),
   ],
   preview: {
-    select: { title: 'name', encounter: 'encounter.name', duration: 'durationSeconds' },
-    prepare({ title, encounter, duration }) {
-      const subtitle = [encounter, duration != null ? `${duration}s` : null].filter(Boolean).join(' · ')
+    select: { title: 'name', encounter: 'encounter.name', duration: 'durationSeconds', map: 'map.name', stage: 'stage' },
+    prepare({ title, encounter, duration, map, stage }) {
+      const stageLabel = stage != null ? (stage === 7 ? 'BOSS' : `stage ${stage}`) : null
+      const subtitle = [map, stageLabel, encounter, duration != null ? `${duration}s` : null].filter(Boolean).join(' · ')
       return { title, subtitle }
     },
   },

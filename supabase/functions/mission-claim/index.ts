@@ -60,6 +60,8 @@ type EnemyRow = {
 }
 type MissionForClaim = {
   baseXp?: number
+  stage?: number
+  map?: { mapKey?: string } | null
   rewards?: { kind: 'currency' | 'resource'; code: string; amount: number }[]
   loot?: {
     itemKey: string | null
@@ -93,7 +95,8 @@ type CharRow = {
 }
 
 const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
-  baseXp,
+  baseXp, stage,
+  "map": map->{ mapKey },
   rewards[]{ kind, code, amount },
   loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
   encounter->{
@@ -311,7 +314,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 11. Apply everything atomically (the RPC owns the double-claim guard).
+  // 11. Apply everything atomically (the RPC owns the double-claim guard). Map progression
+  //     (ADR-0034) advances inside the RPC on a win; null map/stage = legacy mission, no-op.
   const { error: claimErr } = await admin.rpc('claim_mission', {
     p_player: playerId,
     p_run_id: run.id,
@@ -319,6 +323,9 @@ Deno.serve(async (req) => {
     p_loot: loot,
     p_currencies: currencies,
     p_resources: resources,
+    p_map_key: mission.map?.mapKey ?? null,
+    p_stage: mission.stage ?? null,
+    p_won: result.outcome === 'win',
   })
   if (claimErr) {
     // Most likely the double-claim guard: the row was already claimed or isn't finished.
