@@ -154,6 +154,16 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       'Infirmary before they can act again.',
   },
   {
+    title: 'Maps & Stages',
+    intro:
+      'Missions are grouped into MAPS, each with six stages of rising difficulty and a stage-7 ' +
+      'BOSS. Stages unlock one at a time — win a stage to open the next — and beating a map’s ' +
+      'boss unlocks the next map. Bosses hit harder than anything before them, but pay out the ' +
+      'best loot on their map. Cleared stages stay open, so you can always go back and farm an ' +
+      'easier fight. Each map leans toward one damage school (watch the resist line on its ' +
+      'missions) — but not every fight there follows the theme, so check before you send.',
+  },
+  {
     title: 'Rewards',
     intro: 'Winning a mission pays out its rewards, scaled up by a few bonuses that multiply together:',
     entries: [
