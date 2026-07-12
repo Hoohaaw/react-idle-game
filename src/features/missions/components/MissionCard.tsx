@@ -3,13 +3,18 @@ import { IconSlot } from '@/components/atoms/IconSlot'
 import { PrimaryButton } from '@/components/atoms/Button'
 import { SCHOOL_DEFS, type School } from '@/lib/schools'
 
-// Icon-only school list for the card's compact resist line; label on hover.
-function SchoolIcons({ schools }: { schools: School[] }) {
+// School-colored labels for the card's compact resist line (real school icons come later —
+// design rule: no emoji icons).
+function SchoolNames({ schools }: { schools: School[] }) {
   return (
     <>
-      {schools.map((key) => {
+      {schools.map((key, i) => {
         const s = SCHOOL_DEFS.find((d) => d.key === key)
-        return s ? <span key={key} title={s.label} style={{ color: s.color, fontSize: 11 }}>{s.icon}</span> : null
+        return s ? (
+          <span key={key} style={{ color: s.color, fontSize: 11 }}>
+            {s.label}{i < schools.length - 1 ? ',' : ''}
+          </span>
+        ) : null
       })}
     </>
   )
@@ -53,20 +58,22 @@ export function MissionCard({ name, stage, gold, xp, duration, dropCount, resist
             <IconSlot size={16} /><span style={{ color: 'var(--color-text-gold)', fontSize: 13, fontWeight: 'bold' }}>{gold}</span>
           </span>
           <span style={{ color: 'var(--color-xp)', fontSize: 12, fontWeight: 'bold' }}>{xp} XP</span>
-          <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>⏱ {duration}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--color-text-muted)', fontSize: 12 }}>
+            <IconSlot size={12} />{duration}
+          </span>
         </div>
         {(resists.length > 0 || weakTo.length > 0) && (
-          <p style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 10 }}>
-            {resists.length > 0 && <>Resists <SchoolIcons schools={resists} /></>}
+          <p style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 10 }}>
+            {resists.length > 0 && <>Resists <SchoolNames schools={resists} /></>}
             {resists.length > 0 && weakTo.length > 0 && <span style={{ opacity: 0.6 }}>·</span>}
-            {weakTo.length > 0 && <>Weak <SchoolIcons schools={weakTo} /></>}
+            {weakTo.length > 0 && <>Weak <SchoolNames schools={weakTo} /></>}
           </p>
         )}
         <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 12, fontStyle: 'italic' }}>
           {dropCount} possible drop{dropCount === 1 ? '' : 's'} · base rewards, before win bonuses
         </p>
         {locked
-          ? <p style={{ color: 'var(--color-text-muted)', fontSize: 12, textAlign: 'center', padding: '9px 0' }}>🔒 {stage != null && stage > 1 ? `Clear stage ${stage - 1} first` : 'Locked'}</p>
+          ? <p style={{ color: 'var(--color-text-muted)', fontSize: 12, textAlign: 'center', padding: '9px 0' }}>{stage != null && stage > 1 ? `Clear stage ${stage - 1} first` : 'Locked'}</p>
           : <PrimaryButton fullWidth onClick={onSend}>Send Party</PrimaryButton>}
       </div>
     </div>

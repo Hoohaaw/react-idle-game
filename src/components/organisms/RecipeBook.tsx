@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { IconButton } from '../atoms/IconButton'
+import { IconSlot } from '../atoms/IconSlot'
 import { SegmentedControl } from '../atoms/SegmentedControl'
 import { ResourceTooltip } from './ResourceTooltip'
 import { RESOURCE_COLOR } from '../../lib/resources'
@@ -22,7 +23,9 @@ export function RecipeBook({ recipes, onClose }: { recipes: Recipe[]; onClose?: 
       boxShadow: ['0 0 0 1px #080101', 'inset 0 1px 0 rgba(255,255,255,0.06)', '0 6px 18px rgba(0,0,0,0.75)'].join(', '),
     }}>
       <div style={{ padding: '10px 14px', borderBottom: '2px solid var(--color-gold-dark)', background: 'linear-gradient(180deg, rgba(200,145,42,0.16) 0%, rgba(200,145,42,0.03) 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', letterSpacing: 0.5, textShadow: '0 0 10px rgba(240,208,96,0.35)' }}>📖 Recipe Book</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', letterSpacing: 0.5, textShadow: '0 0 10px rgba(240,208,96,0.35)' }}>
+          <IconSlot size={14} />Recipe Book
+        </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ color: 'var(--color-text-muted)', fontSize: 11 }}>{discovered.length} discovered</span>
           {onClose && <IconButton label="Close recipe book" onClick={onClose}>✕</IconButton>}
@@ -58,7 +61,7 @@ function RecipeRow({ recipe }: { recipe: Recipe }) {
       </div>
 
       <p style={{ color: kind === 'infuse' ? '#b06fd4' : '#5b9bd5', fontSize: 11, marginTop: 4 }}>
-        {kind === 'infuse' ? '⚒ ' : '✦ '}{result}
+        {result}
       </p>
 
       {/* Required materials — hover a chip to see where to obtain it */}

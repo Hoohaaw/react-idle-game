@@ -1533,3 +1533,46 @@ affixes). "Arcane" as the neutral school's name — rejected by Alex: it's just 
   badges) — without them the system is invisible to players.
 - Enemy authoring: set a school + resistances from tier 3 up; leave early-game enemies clean.
 - Blessing/gear layers can later add school-specific power ("+15% fire damage") — price when built.
+
+## ADR-0034 — World maps: stage progression + boss gating
+
+**Date:** 2026-07-13 · **Status:** Accepted (Alex) · **PRs:** #51 (schema/backend), #52 (UI), Wave-1 content in Sanity drafts
+
+**Context.** Missions were a flat, ungated list. Alex wants a world structure: 6–9 maps with
+different focuses and loot, each 6 stages of rising difficulty plus a stage-7 BOSS that is harder
+but pays better, a map toggle on the Missions page, and clear per-mission reward/resistance
+indication (the ADR-0033 resist line already provides the latter).
+
+**Decision.**
+- **Content model:** new `mapDef` (name / mapKey / **order** / description); `missionDef` gains a
+  required `map` reference + `stage` (1–7, 7 = boss by convention). `order` drives both the toggle
+  order and the unlock chain.
+- **Progression state:** `profiles.map_progress` JSONB `{ mapKey: highestStageCleared }`
+  (registry-JSONB, ADR-0004 — adding a map needs no migration). No client write path.
+- **Unlock rules, enforced server-side (ADR-0003), mirrored client-side for display only:**
+  stage playable iff `stage ≤ cleared + 1`; map playable iff first in order OR previous map's
+  stage 7 cleared. Cleared stages stay replayable (farming). `start_mission` gates atomically
+  in-transaction; `claim_mission` advances progress on a win via `greatest()` (replays never
+  regress). Legacy missions without a map skip gating entirely (nullable params).
+- **Trust boundary:** the Edge Functions resolve map/stage/previous-map from Sanity — the client
+  is never trusted for placement. `mission-start` finds the previous map with an order-based GROQ
+  subquery.
+- **Map identity (authoring law, Alex 2026-07-13):** each map has a DOMINANT damage school, not a
+  monoculture — ~4 of 7 stages carry the dominant resist, ~2 carry an off-school resist or
+  physical-with-Defense, 1 early stage is resist-free. The boss leads with the dominant school +
+  a secondary resist + one clear weakness (the Bone Colossus pattern). One counter-school clears
+  ~70% of a map comfortably; full-clearing rewards adapting the squad per stage. Full authoring
+  guideline in `docs/MAPS.md`.
+- **Boss = stage 7:** encounter uses the `boss` archetype at +1 tier over stage 6, with bigger
+  baseXp/gold and extra/better-weighted loot lines. UI gives boss cards a red treatment.
+
+**Alternatives considered.** Dedicated `map_progress` table — rejected (JSONB on profiles matches
+the wallet pattern and the claim RPC already writes profiles). All-maps-open — rejected by Alex
+(boss kills as milestones). Level-based map unlocks — rejected (adds a second gating currency).
+
+**Consequences.**
+- Deploy after #51 merges: apply the migration, then CLI-deploy `mission-start` + `mission-claim`.
+- `database.types.ts` was hand-updated for `map_progress`; regenerate after the migration applies.
+- Wave-1 content = 3 maps (Gravemarch absorbs existing undead content with Bone Colossus as boss;
+  fire + ice maps new); remaining maps follow once itemDefs give each map real loot identity.
+- Loot "focus" per map is resources/gold/XP bands until itemDefs are authored — revisit then.

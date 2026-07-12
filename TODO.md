@@ -25,18 +25,19 @@ and ADRs 0012–0017. Done since the sections below were written:
 character sprite art. Older open items below may be stale — trust the milestone + ARCHITECTURE.md §5.3.
 
 ## Decisions queue — 2026-07-10 (post balance-tuning + character-budget session)
-- [ ] **Elemental damage schools + enemy resistances** — damage schools (holy, shadow, fire, ice,
-  earth, …) with per-school resistances so squad composition against an enemy's element is a real
-  choice; enemies also get fuller defensive blocks. Big design+build: stat registry, enemy schema,
-  sim hit pipeline, character-side resists. Design sketch proposed; awaiting go.
+- [x] **Elemental damage schools + enemy resistances** — BUILT: engine + schema + content
+  (ADR-0033, PR #46), mission-claim deployed 2026-07-11, UI surfaces (dispatch strong/weak,
+  mission-card resist line, roster school badges) in PR #48. Remaining: character-side resist
+  gear affixes (v2, deferred by design — see docs/ELEMENTS.md).
   `↳ context: project-design-decisions, project-combat (hit pipeline), src/lib/combat.ts, studio/schemaTypes/enemyDef.ts`
 - [ ] **Blessing trees = real build choices** — trees must change how a character plays (a tank
   specs deeper tankiness OR real damage), priced with the ADR-0031 stat prices + a per-tree budget
   so trees don't reopen the runaway problem. Decide tree budget size when authoring the first tree.
   `↳ context: project-character-budget, project-character-development · docs/CHARACTERS.md`
 - [x] **Item rarity multiplier flattened** (was ×2/step = ×16 Legendary) — see ADR-0032.
-- [ ] **Mission failed screen** — distinguish *ran out of time* (team alive, enemy stood) from
-  *party wiped*; claim UI needs a failure state that explains the loss honestly.
+- [x] **Mission failed screen** — distinguish *ran out of time* (team alive, enemy stood) from
+  *party wiped*; claim UI needs a failure state that explains the loss honestly. Built (PR #49):
+  reason-keyed Party Wiped / Out of Time screens in ClaimReward.
   `↳ context: project-combat (timeout = loss), feedback-game-stats-guide · src/features/missions/components/ClaimReward.tsx`
 - [ ] **History / activity log component** — a place where the player can look back at what
   happened: missions run (win/loss, loot, XP), characters recruited/leveled/downed, gathers

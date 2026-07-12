@@ -24,7 +24,7 @@ import { ClassBadge } from '../components/atoms/ClassBadge'
 import { GameHeader } from '../components/organisms/GameHeader'
 import type { MissionDrops } from '../types/loot'
 import { LootTable } from '../components/organisms/LootTable'
-import { MissionDispatch, ClaimReward, SAMPLE_CLAIM_LOSS, MissionCard, ActiveMissionCard } from '@/features/missions'
+import { MissionDispatch, ClaimReward, SAMPLE_CLAIM_LOSS, SAMPLE_CLAIM_WIPE, MissionCard, ActiveMissionCard } from '@/features/missions'
 import { Modal } from '../components/organisms/Modal'
 import { MineCard } from '../components/molecules/MineCard'
 import { ActiveGatherCard } from '../components/molecules/ActiveGatherCard'
@@ -73,9 +73,9 @@ export default function DesignPage() {
       <Section title="Icon Buttons">
         <Row>
           <IconButton label="Close">✕</IconButton>
-          <IconButton label="Settings">⚙</IconButton>
+          <IconButton label="Settings"><IconSlot size={15} /></IconButton>
           <IconButton label="Add">+</IconButton>
-          <IconButton label="Info">ℹ</IconButton>
+          <IconButton label="Info"><IconSlot size={15} /></IconButton>
           <IconButton size={42} label="Close large">✕</IconButton>
           <IconButton variant="danger" label="Delete">✕</IconButton>
         </Row>
@@ -402,10 +402,11 @@ export default function DesignPage() {
       </Section>
 
       {/* ── CLAIM REWARD ─────────────────────── */}
-      <Section title="Claim Reward (Win / Loss)">
+      <Section title="Claim Reward (Win / Timeout / Wipe)">
         <Row>
           <ClaimReward />
           <ClaimReward result={SAMPLE_CLAIM_LOSS} />
+          <ClaimReward result={SAMPLE_CLAIM_WIPE} />
         </Row>
       </Section>
 
@@ -550,7 +551,6 @@ function RosterCard({ name, charClass, level, activity, detail, durationSec, sta
 }) {
   const free = activity === 'idle'
   const status = free ? 'Available' : activity === 'mission' ? 'On Mission' : 'Gathering'
-  const detailIcon = activity === 'mission' ? '⚔' : activity === 'gather' ? '⛏' : ''
 
   // Interactive hover popup — kept open while hovering the card or the popup itself
   // (a short close-delay bridges the gap between them so the action stays clickable).
@@ -589,7 +589,7 @@ function RosterCard({ name, charClass, level, activity, detail, durationSec, sta
           <p style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 0 8px rgba(240,208,96,0.3)' }}>{name}</p>
           <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 8 }}>{charClass} · Lv {level}</p>
           <StatusTag tone={free ? 'ready' : 'busy'}>{status}</StatusTag>
-          {detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detailIcon} {detail}</p>}
+          {detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detail}</p>}
           {free && <p style={{ color: '#8ee59c', fontSize: 11, marginTop: 6 }}>Ready to send</p>}
         </div>
       </div>
@@ -615,20 +615,20 @@ function RosterCard({ name, charClass, level, activity, detail, durationSec, sta
               : { background: 'linear-gradient(180deg, rgba(200,145,42,0.16) 0%, rgba(200,145,42,0.03) 100%)' }),
           }}>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase' }}>{status}</p>
-            <p style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.35)' }}>{detailIcon} {detail}</p>
+            <p style={{ color: 'var(--color-gold-light)', fontSize: 14, fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.35)' }}>{detail}</p>
           </div>
 
           {/* Body */}
           <div style={{ padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {activity === 'mission' ? (
               <>
-                <PopupRow label="Time left" value={`⏱ ${formatRemaining(missionRemMs)}`} />
+                <PopupRow label="Time left" value={formatRemaining(missionRemMs)} />
                 <p style={{ color: 'var(--color-text-muted)', fontSize: 10, fontStyle: 'italic', marginTop: 2 }}>Rewards are lost if abandoned.</p>
               </>
             ) : (
               <>
                 <PopupRow label="Banked" value={`+${gBanked}`} valueColor="var(--color-success)" />
-                <PopupRow label={`Next +${yieldPerTick ?? 0}`} value={`⏱ ${formatRemaining(gNextMs)}`} />
+                <PopupRow label={`Next +${yieldPerTick ?? 0}`} value={formatRemaining(gNextMs)} />
               </>
             )}
           </div>

@@ -3,6 +3,7 @@ import { Avatar } from '../atoms/Avatar'
 import { ProgressBar } from '../atoms/ProgressBar'
 import { PrimaryButton, SecondaryButton, DangerButton } from '../atoms/Button'
 import { BonusTag } from '../atoms/BonusTag'
+import { IconSlot } from '../atoms/IconSlot'
 import { ResourceMedallion } from '../atoms/ResourceMedallion'
 import { useNow } from '../../hooks/useNow'
 import { formatRemaining } from '../../lib/time'
@@ -111,7 +112,7 @@ export function MineCard({ resource, tier, intervalSec, yieldPerTick, owned, gat
               <span style={{
                 fontFamily: '"Consolas", ui-monospace, monospace', fontVariantNumeric: 'tabular-nums', fontSize: 13,
                 color: 'var(--color-text-gold)',
-              }}>⏱ {formatRemaining(remainingMs)}</span>
+              }}>{formatRemaining(remainingMs)}</span>
               <div style={{ display: 'flex', gap: 6 }}>
                 {onCollect && <SecondaryButton onClick={onCollect}>Collect</SecondaryButton>}
                 <DangerButton onClick={onStop}>Stop</DangerButton>
@@ -127,7 +128,7 @@ export function MineCard({ resource, tier, intervalSec, yieldPerTick, owned, gat
               border: '2px dashed #3a1218', borderRadius: 6,
               background: 'linear-gradient(180deg, #120405 0%, #0d0304 100%)',
             }}>
-              <span style={{ color: '#4a1a20', fontSize: 16 }}>⛏</span>
+              <IconSlot size={16} />
               <span style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic' }}>No gatherer assigned</span>
             </div>
             <PrimaryButton fullWidth onClick={onAssign}>Assign Character</PrimaryButton>
