@@ -5,7 +5,9 @@ import { PrimaryButton } from '@/components/atoms/Button'
 import { SectionLabel } from '@/components/molecules/SectionLabel'
 import { RarityChancePill } from '@/components/molecules/RarityChancePill'
 import { RoleBadge } from '@/components/atoms/RoleBadge'
+import { SchoolBadge } from '@/components/atoms/SchoolBadge'
 import { resolveRole } from '@/lib/roles'
+import { MissionEnemies } from './MissionEnemies'
 import {
   SAMPLE_DISPATCH_MISSION,
   SAMPLE_DISPATCH_ROSTER,
@@ -68,7 +70,10 @@ function CharacterTile({ char, selected, disabled, onToggle }: { char: DispatchC
         <p style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '0.5px' }}>
           {char.charClass} · Lv {char.level}{note ? ` · ${note}` : ''}
         </p>
-        <div style={{ marginTop: '5px' }}><RoleBadge role={resolveRole(char.charClass, char.role)} size="sm" /></div>
+        <div style={{ marginTop: '5px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          <RoleBadge role={resolveRole(char.charClass, char.role)} size="sm" />
+          {char.damageSchool && <SchoolBadge school={char.damageSchool} size="sm" />}
+        </div>
       </div>
       <span style={{
         width: 18, height: 18, flexShrink: 0, borderRadius: '50%',
@@ -136,6 +141,9 @@ export function MissionDispatch({
       <div style={{ padding: '16px' }}>
         {/* Description */}
         <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', lineHeight: 1.5, fontStyle: 'italic', marginBottom: '16px' }}>{mission.description}</p>
+
+        {/* Enemies — what the party will fight and what schools it resists / is weak to (ADR-0033) */}
+        <MissionEnemies enemies={mission.enemies} />
 
         {/* Time + XP */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '18px' }}>

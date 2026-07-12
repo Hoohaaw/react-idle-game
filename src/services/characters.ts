@@ -1,6 +1,7 @@
 import { sanity } from './sanity'
 import type { StatValue, StatGrowth, BlessingNodeDef } from '../lib/stats'
 import type { CharacterRole } from '../lib/roles'
+import type { School } from '../lib/schools'
 
 // Fetches authored character definitions from Sanity and maps them onto the stat engine's input
 // shapes (src/lib/stats.ts). Identity (name/class/role) + the def's baseStats/growth/blessing nodes;
@@ -11,6 +12,7 @@ export type GameCharacter = {
   name: string
   charClass: string
   role?: CharacterRole
+  damageSchool?: School
   baseStats: StatValue[]
   growth: StatGrowth[]
   blessingNodes: BlessingNodeDef[]
@@ -18,7 +20,7 @@ export type GameCharacter = {
 
 // Projects exactly the engine-needed fields and strips Sanity's _key/_type wrappers.
 const CHARACTER_DEFS_QUERY = `*[_type == "characterDef" && defined(charKey)]{
-  charKey, name, charClass, role,
+  charKey, name, charClass, role, damageSchool,
   baseStats[]{stat, value},
   growth[]{stat, perLevel, milestones[]{level, bonus}},
   blessingTree[]{nodeId, effects[]{stat, kind, perRank}}
@@ -31,6 +33,7 @@ type RawCharacterDef = {
   name: string
   charClass: string
   role?: CharacterRole
+  damageSchool?: School
   baseStats?: Array<{ stat: string; value: number }>
   growth?: Array<{ stat: string; perLevel: number; milestones?: Array<{ level: number; bonus: number }> }>
   blessingTree?: Array<{ nodeId: string; effects?: Array<{ stat: string; kind: 'flat' | 'pct'; perRank: number }> }>
@@ -43,6 +46,7 @@ export async function fetchCharacterDefs(): Promise<GameCharacter[]> {
     name: c.name,
     charClass: c.charClass,
     role: c.role,
+    damageSchool: c.damageSchool,
     baseStats: (c.baseStats ?? []).map((b) => ({ stat: b.stat, value: b.value })),
     growth: (c.growth ?? []).map((g) => ({
       stat: g.stat,
