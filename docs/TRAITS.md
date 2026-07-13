@@ -1,8 +1,11 @@
-# TRAITS.md — character traits (design draft)
+# TRAITS.md — character traits
 
-> **Status: DRAFT — awaiting Alex's amendments.** Each section below is a separate decision
-> surface: edit values, strike lines, or add notes directly in place. Nothing is built yet;
-> an ADR gets written when this is accepted.
+> **Status: ACCEPTED + BUILT (ADR-0035, 2026-07-14).** Alex's amendments applied: trait counts
+> **1/2/3/4/5** by rarity, economy bands 5–15%, Scholar self-only. Built across PRs #56 (core
+> lib + schema) and #57 (consumption wiring); 19 traitDefs + all 19 character assignments live
+> as drafts. Remaining: estimator context + roster/dispatch trait chips (UI branch, needs #54).
+> §9's unanswered questions took the stated defaults (no auras, no negative traits, count-only
+> scaling, recruit reveal deferred) — reopen any of them by editing here.
 
 The idea, in Alex's words: characters carry a handful of **traits** that increase or decrease a
 party's chance of succeeding at specific missions — a Common character has ~2, and the count
@@ -60,7 +63,7 @@ the author picks per character.
 | Type | Condition | Effect |
 |---|---|---|
 | **Pathfinder** | always | mission duration −[5–10]% |
-| **Goldtouched** | always | +[5–15]% gold from missions |
+| **Goldtouched** | always | +[511–15]% gold from missions |
 | **Fortunate** | always | +[5–15] Magic Find / Luck |
 | **Scholar** | always | +[5–15]% XP for self only |
 
