@@ -39,13 +39,21 @@ export const MINE_BY_RESOURCE: Record<string, MineDef> = Object.fromEntries(
  * How much a mine has banked over `elapsedMs`, plus the time that reward consumed. Only whole ticks pay
  * out; the leftover (`elapsedMs − consumedSec×1000`) stays uncredited so the caller can advance
  * `last_collected_at` by exactly `consumedSec` and keep the remainder for next time.
+ *
+ * `gatherSpeedPct` / `gatherYieldPct` are the character's stats of the same name (percent points —
+ * traits are their first source, ADR-0035): speed shortens the effective interval, yield scales each
+ * tick's payout (floored so partial resources never mint).
  */
 export function accrue(
   elapsedMs: number,
   intervalSec: number,
   yieldPerTick: number,
+  gatherSpeedPct = 0,
+  gatherYieldPct = 0,
 ): { gained: number; consumedSec: number } {
   if (elapsedMs <= 0 || intervalSec <= 0) return { gained: 0, consumedSec: 0 }
-  const ticks = Math.floor(elapsedMs / 1000 / intervalSec)
-  return { gained: ticks * yieldPerTick, consumedSec: ticks * intervalSec }
+  const effInterval = intervalSec / (1 + Math.max(0, gatherSpeedPct) / 100)
+  const ticks = Math.floor(elapsedMs / 1000 / effInterval)
+  const gained = Math.floor(ticks * yieldPerTick * (1 + Math.max(0, gatherYieldPct) / 100))
+  return { gained, consumedSec: ticks * effInterval }
 }

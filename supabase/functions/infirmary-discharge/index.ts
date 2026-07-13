@@ -1,6 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
-import { maxHpByCharacter, type CharRowForHp } from '../_shared/charMaxHp.ts'
+import { statsByCharacter, type CharRowForHp } from '../_shared/charMaxHp.ts'
 import { healState } from '../../../src/lib/infirmary.ts'
 
 // infirmary-discharge: settle an admission (ADR-0003/0021). The server derives the healed HP
@@ -73,8 +73,11 @@ Deno.serve(async (req) => {
   }
 
   let maxHp: number
+  let recoverySpeedPct: number
   try {
-    maxHp = (await maxHpByCharacter([char]))[char.id]
+    const stats = (await statsByCharacter([char], {}))[char.id]
+    maxHp = Math.max(1, Math.round(stats.health ?? 0))
+    recoverySpeedPct = stats.recoverySpeed ?? 0
   } catch (e) {
     console.error('Sanity fetch failed', e)
     return json({ error: 'Could not load character content' }, 502)
@@ -87,6 +90,7 @@ Deno.serve(async (req) => {
     charLevel: char.level,
     infirmaryLevel: profile.infirmary_level,
     maxHp,
+    recoverySpeedPct,
   })
   const newHp = state.phase === 'full' ? null : state.currentHp
 

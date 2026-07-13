@@ -32,6 +32,7 @@ export function WardCard({ member, infirmaryLevel, bedFree, onAdmit, admitting }
       charLevel: member.level,
       infirmaryLevel,
       maxHp: member.maxHp,
+      recoverySpeedPct: member.stats.recoverySpeed ?? 0,
     })
     projection =
       state.phase === 'stabilizing'

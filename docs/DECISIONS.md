@@ -1576,3 +1576,51 @@ the wallet pattern and the claim RPC already writes profiles). All-maps-open —
 - Wave-1 content = 3 maps (Gravemarch absorbs existing undead content with Bone Colossus as boss;
   fire + ice maps new); remaining maps follow once itemDefs give each map real loot identity.
 - Loot "focus" per map is resources/gold/XP bands until itemDefs are authored — revisit then.
+
+## ADR-0035 — Character traits: conditional identity modifiers, rarity-scaled
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex; docs/TRAITS.md as amended) · **PRs:** #55 (design), #56 (core), #57 (wiring), UI branch pending
+
+**Context.** Alex's design: characters carry innate traits that raise/lower mission success odds;
+count scales with rarity (Common 1 → Legendary 5) so rare characters are valuable beyond their
+stat budget. Constraint discovered at design time: success chance is the *output* of the
+deterministic sim (ADR-0012/0013) — a literal "+5% win chance" dial would flip losses post-hoc,
+breaking margin/replay/estimator honesty.
+
+**Decision.**
+- **A trait is a conditional stat bonus on the sim's INPUTS** — `condition {always | map |
+  enemyArchetype | enemySchool | resource} + effects [{stat, kind flat|pct, value}]` targeting
+  the ordinary registry. The "+5% success" experience emerges visibly through the dispatch
+  estimator (PR #54), which runs the real engine.
+- **Rarity buys COUNT, never size** (1/2/3/4/5); traits sit **outside** the ADR-0031 point-buy
+  budget because conditional effects don't raise the always-on floor. Guardrail: max one
+  always-on combat trait per character (review rule; studio validates the count exactly).
+- **Registry additions:** `goldFind`, `xpGain`, `recoverySpeed` (priced 0.5). The five dormant
+  economy stats (`missionSpeedDecrease, gatherSpeed, gatherYield, magicFind, luck`) become
+  CONSUMED for the first time — traits are their first source; gear/blessings can grant the
+  same stats later through the identical pipe (`effectiveStats` gained `extraBonuses`).
+- **Stacking rules:** mission duration = party SUM of missionSpeedDecrease capped 30%;
+  goldFind/magicFind/luck = party AVERAGE; xpGain self-only (Alex); recoverySpeed/gather self.
+  Loot: magicFind scales per-drop chance (cap 100%), luck = chance of +1 quantity.
+- **Consumption sites:** mission-claim (combat context = map + enemy archetypes/schools, economy
+  hooks), mission-start (duration), gather-collect (accrue speed/yield params), infirmary
+  (healState recoverySpeedPct — heal rate only, stabilize untouched), client roster (always-on
+  bonuses) + estimator (context-matched, follow-up branch).
+- **v1 exclusions (docs/TRAITS.md §9 defaults):** no party auras, no negative traits, no
+  in-fight dynamic conditions, recruit-screen reveal deferred.
+- **Content:** 19 traitDefs authored (Mapborn/Slayer/Warded/Stoneguard/Pathfinder/Goldtouched/
+  Fortunate/Scholar/Prospector-family/Quickhand/Ironblood) + all 19 characters assigned per the
+  rarity table, themed to kit (drafts).
+
+**Alternatives considered.** Post-sim win-chance modifier — rejected (breaks the resolution
+model). Trait effects as bespoke code hooks — rejected (registry-JSONB, ADR-0004). Rarity
+scaling magnitude (Slayer I/II/III) — deferred, count-only for now.
+
+**Consequences.**
+- Deploy after #56/#57 merge: mission-claim, mission-start, gather-collect, infirmary-discharge,
+  infirmary-upgrade.
+- Stats-tab per-source breakdown (ADR-0022) does not yet show a "traits" source — follow-up.
+- Balance: sweep regression run with the trait-free harness fixture (engine change must be
+  inert); trait-aware probes land when the harness fixture gains traits.
+- The estimator makes trait value visible as success-% movement — roster/dispatch UI chips are
+  the remaining surface (branch 3).

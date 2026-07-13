@@ -49,6 +49,9 @@ export type HealStateInput = {
   charLevel: number
   infirmaryLevel: number
   maxHp: number
+  /** The character's `recoverySpeed` stat (percent points — Ironblood trait etc., ADR-0035).
+   *  Scales the heal RATE only; the stabilize window is unaffected. Omitted = 0. */
+  recoverySpeedPct?: number
 }
 
 export type HealState = {
@@ -67,7 +70,7 @@ export type HealState = {
  */
 export function healState(input: HealStateInput): HealState {
   const { hpAtAdmission, admittedAtMs, nowMs, charLevel, infirmaryLevel, maxHp } = input
-  const rate = regenPerSec(infirmaryLevel)
+  const rate = regenPerSec(infirmaryLevel) * (1 + Math.max(0, input.recoverySpeedPct ?? 0) / 100)
   const stabilizeMs =
     hpAtAdmission === 0 ? stabilizeSeconds(charLevel, infirmaryLevel) * 1000 : 0
   const healStartMs = admittedAtMs + stabilizeMs

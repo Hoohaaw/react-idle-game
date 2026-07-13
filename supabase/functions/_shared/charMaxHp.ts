@@ -6,11 +6,13 @@ import {
   type BlessingNodeDef,
   type ItemDefBonuses,
   type EquippedItem,
+  type StatMap,
 } from '../../../src/lib/stats.ts'
+import { collectTraitBonuses, type TraitDef, type TraitContext } from '../../../src/lib/traits.ts'
 
-// Shared by the infirmary functions: max HP is never stored (ADR-0002), so any function
-// that settles healing must recompute it the same way mission-claim builds combatants —
-// effective stats from the Sanity character def + blessings + equipped gear.
+// Shared effective-stats fetcher for Edge Functions: stats are never stored (ADR-0002), so any
+// function that needs them recomputes the same way mission-claim builds combatants — Sanity
+// character def + blessings + equipped gear + condition-matched traits (ADR-0035).
 
 export type CharRowForHp = {
   id: string
@@ -25,6 +27,7 @@ type CharDefRow = {
   baseStats?: StatValue[]
   growth?: StatGrowth[]
   blessingTree?: BlessingNodeDef[]
+  traits?: TraitDef[]
 }
 type ItemDefRow = { itemKey: string; statBonuses?: ItemDefBonuses['statBonuses'] }
 
@@ -32,12 +35,17 @@ const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
   charKey,
   baseStats[]{ stat, value },
   growth[]{ stat, perLevel, milestones[]{ level, bonus } },
-  blessingTree[]{ nodeId, effects[]{ stat, kind, perRank } }
+  blessingTree[]{ nodeId, effects[]{ stat, kind, perRank } },
+  traits[]->{ traitKey, name, condition{ type, value }, effects[]{ stat, kind, value } }
 }`
 const ITEMDEFS_GROQ = `*[_type == "itemDef" && itemKey in $keys]{ itemKey, statBonuses[]{ stat, kind, value } }`
 
-/** Max HP per character id. Throws on Sanity failure or a missing character def. */
-export async function maxHpByCharacter(chars: CharRowForHp[]): Promise<Record<string, number>> {
+/** Full effective stat map per character id, with traits matched against `ctx`
+ *  (pass {} for always-on traits only). Throws on Sanity failure or a missing def. */
+export async function statsByCharacter(
+  chars: CharRowForHp[],
+  ctx: TraitContext,
+): Promise<Record<string, StatMap>> {
   const charKeys = [...new Set(chars.map((c) => c.character_def_id))]
   const charDefs = await sanityQuery<CharDefRow[]>(CHARDEFS_GROQ, { keys: charKeys })
   const itemKeys = [
@@ -52,11 +60,11 @@ export async function maxHpByCharacter(chars: CharRowForHp[]): Promise<Record<st
     itemDefs.map((i) => [i.itemKey, { statBonuses: i.statBonuses }]),
   )
 
-  const out: Record<string, number> = {}
+  const out: Record<string, StatMap> = {}
   for (const c of chars) {
     const def = charDefByKey.get(c.character_def_id)
     if (!def) throw new Error(`Missing character definition: ${c.character_def_id}`)
-    const stats = effectiveStats({
+    out[c.id] = effectiveStats({
       level: c.level,
       baseStats: def.baseStats ?? [],
       growth: def.growth ?? [],
@@ -64,8 +72,16 @@ export async function maxHpByCharacter(chars: CharRowForHp[]): Promise<Record<st
       blessingNodes: def.blessingTree ?? [],
       equipped: c.equipped ?? {},
       itemDefs: itemDefById,
+      extraBonuses: collectTraitBonuses(def.traits ?? [], ctx),
     })
-    out[c.id] = Math.max(1, Math.round(stats.health ?? 0))
   }
   return out
+}
+
+/** Max HP per character id (infirmary settling). Context-free: only always-on traits apply. */
+export async function maxHpByCharacter(chars: CharRowForHp[]): Promise<Record<string, number>> {
+  const stats = await statsByCharacter(chars, {})
+  return Object.fromEntries(
+    chars.map((c) => [c.id, Math.max(1, Math.round(stats[c.id].health ?? 0))]),
+  )
 }

@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { MINE_BY_RESOURCE, accrue } from '../../../src/lib/gather.ts'
+import { statsByCharacter } from '../_shared/charMaxHp.ts'
 
 // gather-collect: bank a gatherer's accrued yield, optionally stopping (unassigning). ADR-0019. Computes the
 // payout in TS from elapsed ticks (src/lib/gather.ts — the same math the client displays), then applies it
@@ -42,7 +43,7 @@ Deno.serve(async (req) => {
   // we filter by player_id explicitly).
   const { data: assignment, error: loadErr } = await admin
     .from('gather_assignments')
-    .select('id, resource_id, last_collected_at')
+    .select('id, resource_id, last_collected_at, player_character_id')
     .eq('id', assignmentId)
     .eq('player_id', playerId)
     .maybeSingle()
@@ -55,8 +56,34 @@ Deno.serve(async (req) => {
   const mine = MINE_BY_RESOURCE[assignment.resource_id]
   if (!mine) return json({ error: 'Unknown mine' }, 500)
 
+  // The gatherer's effective gatherSpeed/gatherYield (traits + gear + blessings, ADR-0035) scale
+  // the accrual. A missing character row (shouldn't happen) falls back to unmodified rates.
+  let gatherSpeed = 0
+  let gatherYield = 0
+  try {
+    const { data: charRow } = await admin
+      .from('player_characters')
+      .select('id, character_def_id, level, blessings, equipped')
+      .eq('id', assignment.player_character_id)
+      .eq('player_id', playerId)
+      .maybeSingle()
+    if (charRow) {
+      const stats = await statsByCharacter([charRow], { resource: assignment.resource_id })
+      gatherSpeed = stats[charRow.id]?.gatherSpeed ?? 0
+      gatherYield = stats[charRow.id]?.gatherYield ?? 0
+    }
+  } catch (e) {
+    console.error('gatherer stats lookup failed — collecting unmodified', e)
+  }
+
   const lastMs = new Date(assignment.last_collected_at).getTime()
-  const { gained, consumedSec } = accrue(Date.now() - lastMs, mine.intervalSec, mine.yieldPerTick)
+  const { gained, consumedSec } = accrue(
+    Date.now() - lastMs,
+    mine.intervalSec,
+    mine.yieldPerTick,
+    gatherSpeed,
+    gatherYield,
+  )
   const newLastCollectedAt = new Date(lastMs + consumedSec * 1000).toISOString()
 
   const { error: rpcErr } = await admin.rpc('collect_gather', {
