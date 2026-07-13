@@ -1,32 +1,54 @@
 import { useMemo } from 'react'
 import { resolveRole } from '@/lib/roles'
+import { effectiveStats } from '@/lib/stats'
+import { collectTraitBonuses } from '@/lib/traits'
+import { useItemDefs } from '@/hooks/useRoster'
 import type { MissionEnemyView } from '@/services/missions'
-import { estimateWinChance, ESTIMATE_RUNS } from '../winChance'
+import { estimateWinChance, missionTraitContext, ESTIMATE_RUNS } from '../winChance'
 import type { DispatchChar } from './dispatchSamples'
 
 // The dispatch modal's "Estimated success" box: runs the real combat engine over
 // ESTIMATE_RUNS random seeds for the currently selected party (see ../winChance.ts).
-// Renders nothing when no party is picked or when stat blocks aren't loaded (fixtures).
-export function WinChanceEstimate({ party, enemies, timeLimitSeconds }: {
+// When a member carries statInputs + traits (real roster data), their stats are RECOMPUTED
+// with the mission's trait context — the same math mission-claim runs — so picking a
+// Gravehand for a Gravemarch mission visibly moves the number (ADR-0035). Renders nothing
+// when no party is picked or stat blocks aren't loaded (fixtures).
+export function WinChanceEstimate({ party, enemies, timeLimitSeconds, mapKey }: {
   party: DispatchChar[]
   enemies: MissionEnemyView[]
   timeLimitSeconds: number | null
+  mapKey?: string | null
 }) {
+  const itemDefs = useItemDefs()
+
   const winPct = useMemo(() => {
     const withStats = party.filter((c): c is typeof c & { stats: Record<string, number> } => Boolean(c.stats))
     if (party.length === 0 || withStats.length !== party.length) return null
+    const ctx = missionTraitContext(enemies, mapKey)
     return estimateWinChance({
       party: withStats.map((c) => ({
         id: c.id,
         role: resolveRole(c.charClass, c.role),
-        stats: c.stats,
+        stats:
+          c.statInputs && itemDefs.data
+            ? effectiveStats({
+                level: c.level,
+                baseStats: c.statInputs.baseStats,
+                growth: c.statInputs.growth,
+                blessingAllocations: c.blessings ?? {},
+                blessingNodes: c.statInputs.blessingNodes,
+                equipped: c.equipped ?? {},
+                itemDefs: itemDefs.data,
+                extraBonuses: collectTraitBonuses(c.traits ?? [], ctx),
+              })
+            : c.stats, // fixtures / defs still loading: context-free stats
         currentHp: c.currentHp,
         damageSchool: c.damageSchool,
       })),
       enemies,
       timeLimitSeconds,
     })
-  }, [party, enemies, timeLimitSeconds])
+  }, [party, enemies, timeLimitSeconds, mapKey, itemDefs.data])
 
   if (winPct == null) return null
   const color = winPct >= 70 ? '#5fc77e' : winPct >= 40 ? '#d89a4f' : '#e0635c'
@@ -42,7 +64,7 @@ export function WinChanceEstimate({ party, enemies, timeLimitSeconds }: {
       <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
         Estimated success
         <span style={{ display: 'block', fontSize: '9px', letterSpacing: '0.5px', textTransform: 'none', fontStyle: 'italic', marginTop: '2px' }}>
-          {ESTIMATE_RUNS} simulated fights
+          {ESTIMATE_RUNS} simulated fights · traits included
         </span>
       </span>
       <span style={{ fontSize: '20px', fontWeight: 'bold', color, textShadow: `0 0 10px ${glow}` }}>

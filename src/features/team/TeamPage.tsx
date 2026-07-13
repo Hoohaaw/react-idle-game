@@ -3,6 +3,7 @@ import { Avatar } from '@/components/atoms/Avatar'
 import { RoleBadge } from '@/components/atoms/RoleBadge'
 import { ClassBadge } from '@/components/atoms/ClassBadge'
 import { SchoolBadge } from '@/components/atoms/SchoolBadge'
+import { TraitChips } from '@/components/molecules/TraitChips'
 import { Modal } from '@/components/organisms/Modal'
 import { CharacterCard } from '@/components/organisms/CharacterCard'
 import { useCharacters } from '@/hooks/useCharacters'
@@ -72,6 +73,7 @@ export default function TeamPage() {
             xpNeeded={xpToNext(openMember.level)}
             role={openDef.role}
             damageSchool={openDef.damageSchool}
+            traits={openDef.traits}
             baseStats={openDef.baseStats}
             growth={openDef.growth}
             gear={{
@@ -133,6 +135,11 @@ function PartyMemberCard({ member, onOpen }: { member: RosterMember; onOpen: () 
         <RoleBadge role={member.role} size="sm" />
         {member.damageSchool && <SchoolBadge school={member.damageSchool} size="sm" />}
       </div>
+      {member.traits.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <TraitChips traits={member.traits} />
+        </div>
+      )}
     </div>
   )
 }

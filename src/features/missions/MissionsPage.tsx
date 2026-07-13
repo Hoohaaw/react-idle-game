@@ -35,6 +35,7 @@ function toDispatchMission(m: GameMission): DispatchMission {
     loot: m.loot.map((l) => ({ name: l.name, slot: l.slot, chances: l.chances })),
     enemies: m.enemies,
     timeLimitSeconds: m.timeLimitSeconds,
+    mapKey: m.map?.mapKey ?? null,
   }
 }
 
@@ -141,6 +142,10 @@ export default function MissionsPage() {
     damageSchool: m.damageSchool,
     stats: m.stats,
     currentHp: m.currentHp,
+    traits: m.traits,
+    statInputs: m.statInputs,
+    blessings: m.blessings,
+    equipped: m.equipped,
     busy: m.busy === 'mission' ? 'On mission' : m.busy === 'gathering' ? 'Gathering' : m.busy === 'infirmary' ? 'In Infirmary' : undefined,
     downed: m.currentHp === 0,
   }))

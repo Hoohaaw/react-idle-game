@@ -17,6 +17,8 @@ export type MissionEnemyView = {
   name: string
   count: number
   damageType: School
+  /** Enemy archetype (bruiser/caster/tank/swarm/boss) — drives Slayer-trait matching. */
+  archetype?: string
   resistances: { school: School; value: number }[]
   /** Full combat stat block (same fields mission-claim feeds the sim) — powers the client-side
    *  win-chance estimate. Optional so display-only fixtures can omit it. */
@@ -58,7 +60,7 @@ const MISSIONS_QUERY = `*[_type == "missionDef" && defined(missionKey)]{
   rewards[]{ kind, code, amount },
   loot[]{ dropChance, "itemKey": item->itemKey, "name": item->name, "slot": item->slot, rarityWeights[]{ rarity, weight } },
   "timeLimitSeconds": encounter->timeLimitSeconds,
-  "enemies": encounter->enemies[]{ count, "name": enemy->name, "damageType": enemy->damageType, "resistances": enemy->resistances[]{ school, value },
+  "enemies": encounter->enemies[]{ count, "name": enemy->name, "damageType": enemy->damageType, "archetype": enemy->archetype, "resistances": enemy->resistances[]{ school, value },
     "stats": enemy->{ health, attack, speed, defense, resistance, block, critChance, critDamage, armorPen, dodge, healthRegen } }
 }`
 
@@ -83,6 +85,7 @@ type RawMission = {
     count?: number
     name?: string
     damageType?: School
+    archetype?: string
     resistances?: { school: School; value: number }[]
     stats?: MissionEnemyView['stats'] & { health?: number; attack?: number; speed?: number }
   }[]
@@ -123,6 +126,7 @@ export async function fetchMissions(): Promise<GameMission[]> {
           name: e.name,
           count: e.count ?? 1,
           damageType: e.damageType ?? 'physical',
+          archetype: e.archetype,
           resistances: e.resistances ?? [],
           stats:
             e.stats && typeof e.stats.health === 'number' && typeof e.stats.attack === 'number'

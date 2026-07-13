@@ -5,7 +5,7 @@ import { fetchOwnedCharacters, fetchGatherCharacterIds, type EquippedItem } from
 import { fetchAdmissions } from '@/services/infirmary'
 import { fetchItemDefs } from '@/services/items'
 import { fetchCharacterDefs } from '@/services/characters'
-import { effectiveStats } from '@/lib/stats'
+import { effectiveStats, type StatValue, type StatGrowth, type BlessingNodeDef } from '@/lib/stats'
 import { resolveRole, type CharacterRole } from '@/lib/roles'
 import type { School } from '@/lib/schools'
 import { collectTraitBonuses, type TraitDef } from '@/lib/traits'
@@ -57,6 +57,9 @@ export type RosterMember = {
   /** Full effective stat map (level + blessings + gear + always-on traits) — same computation
    *  the server uses context-free. Powers the dispatch estimate + infirmary projections. */
   stats: Record<string, number>
+  /** The authored stat inputs (shared def references, not copies) — lets fight-context callers
+   *  (win-chance estimator) recompute effectiveStats with condition-matched trait bonuses. */
+  statInputs: { baseStats: StatValue[]; growth: StatGrowth[]; blessingNodes: BlessingNodeDef[] }
   equipped: Record<string, EquippedItem>
   blessings: Record<string, number>
   busy: 'mission' | 'gathering' | 'infirmary' | null
@@ -103,6 +106,7 @@ export function useRoster() {
         maxHp: Math.max(1, Math.round(stats.health ?? 0)),
         currentHp: c.currentHp,
         stats,
+        statInputs: { baseStats: def.baseStats, growth: def.growth, blessingNodes: def.blessingNodes },
         equipped: c.equipped,
         blessings: c.blessings,
         busy: gathering.has(c.id)
