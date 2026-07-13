@@ -8,6 +8,7 @@ import { RoleBadge } from '@/components/atoms/RoleBadge'
 import { SchoolBadge } from '@/components/atoms/SchoolBadge'
 import { resolveRole } from '@/lib/roles'
 import { MissionEnemies } from './MissionEnemies'
+import { WinChanceEstimate } from './WinChanceEstimate'
 import {
   SAMPLE_DISPATCH_MISSION,
   SAMPLE_DISPATCH_ROSTER,
@@ -195,6 +196,9 @@ export function MissionDispatch({
             </p>
           )}
         </div>
+
+        {/* Win-chance estimate — updates live as the party changes */}
+        <WinChanceEstimate party={party} enemies={mission.enemies} timeLimitSeconds={mission.timeLimitSeconds ?? null} />
 
         <div style={{ margin: '0 0 14px' }}><GoldDivider /></div>
 

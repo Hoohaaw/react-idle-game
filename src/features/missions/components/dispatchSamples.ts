@@ -14,6 +14,8 @@ export type DispatchMission = {
   baseXp: number
   loot: DropItem[]
   enemies: MissionEnemyView[]
+  /** In-fight clock — with enemy stat blocks, enables the win-chance estimate. */
+  timeLimitSeconds?: number | null
 }
 
 export type DispatchChar = {
@@ -23,6 +25,9 @@ export type DispatchChar = {
   level: number
   role?: CharacterRole
   damageSchool?: School
+  /** Effective stat map + carried HP — inputs to the win-chance estimate (omitted in fixtures). */
+  stats?: Record<string, number>
+  currentHp?: number | null
   busy?: string // a label (e.g. "On mission") — present means the character can't be selected
   downed?: boolean
 }
