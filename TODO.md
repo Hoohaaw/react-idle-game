@@ -24,6 +24,19 @@ and ADRs 0012–0017. Done since the sections below were written:
 (profile hook); gather start/claim loop; transcendence flow; balance combat constants + loot odds;
 character sprite art. Older open items below may be stale — trust the milestone + ARCHITECTURE.md §5.3.
 
+## Current queue — 2026-07-13 (post maps session)
+- [x] **World maps + stage progression** (ADR-0034, PRs #51/#52, deployed + e2e-verified) — map
+  toggle, 7 stages per map (7 = boss), sequential unlock, boss-gated next map. 3 maps live in
+  drafts (Gravemarch / Embercrag / Frosthollow, 21 missions). Add maps per `docs/MAPS.md`.
+  `↳ context: project-maps · docs/MAPS.md, docs/DECISIONS.md ADR-0034`
+- [ ] **Mission durations / pacing** — all 21 missions carry PLACEHOLDER durations (15s stage 1 →
+  15min map-3 boss). Playtest Gravemarch→Frosthollow, then decide the real pacing curve.
+  `↳ context: project-maps (placeholders), project-undecided (mission-speed sources) · Sanity missionDef drafts`
+- [ ] **itemDef authoring session** — only 4 items exist; gates map loot identity (waves 2+:
+  earth/wind/holy/shadow maps), gear progression feel, and the Upgrading page. ~20–30 items
+  across slots/tiers, wired into the 21 mission loot tables.
+  `↳ context: project-gear-equip, project-maps (loot focus) · studio/schemaTypes/itemDef.ts, docs/MAPS.md`
+
 ## Decisions queue — 2026-07-10 (post balance-tuning + character-budget session)
 - [x] **Elemental damage schools + enemy resistances** — BUILT: engine + schema + content
   (ADR-0033, PR #46), mission-claim deployed 2026-07-11, UI surfaces (dispatch strong/weak,
