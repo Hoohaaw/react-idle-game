@@ -186,6 +186,9 @@ export function mergeBonuses(...maps: Record<string, StatBonus>[]): Record<strin
  * A character's EFFECTIVE stats: level baselines + blessing bonuses + equipped-gear bonuses, stacked
  * with the {flat, pct} rule. This is the single computation the combat sim consumes on BOTH the client
  * (replay) and the server (resolve) — ADR-0016.
+ *
+ * `extraBonuses` (optional) folds additional pre-collected bonus maps into the same rule — the
+ * trait layer (ADR-0035) passes its condition-matched bonuses here (src/lib/traits.ts).
  */
 export function effectiveStats(input: {
   level: number
@@ -195,11 +198,13 @@ export function effectiveStats(input: {
   blessingNodes: BlessingNodeDef[]
   equipped: Record<string, EquippedItem>
   itemDefs: Record<string, ItemDefBonuses>
+  extraBonuses?: Record<string, StatBonus>
 }): StatMap {
   const baselines = computeBaselines(input.level, input.baseStats, input.growth)
   const bonuses = mergeBonuses(
     collectBlessingBonuses(input.blessingAllocations, input.blessingNodes),
     collectGearBonuses(input.equipped, input.itemDefs),
+    input.extraBonuses ?? {},
   )
   return applyBonuses(baselines, bonuses)
 }

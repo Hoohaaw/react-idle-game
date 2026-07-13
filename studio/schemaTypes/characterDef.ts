@@ -4,6 +4,7 @@ import { CLASS_ROLE, ROLE_STYLES } from '../../src/lib/roles'
 import { SCHOOL_DEFS } from '../../src/lib/schools'
 import {
   CHARACTER_RARITIES,
+  TRAIT_COUNT_BY_RARITY,
   auditCharacter,
   type CharacterRarity,
   type BudgetStatValue,
@@ -120,6 +121,25 @@ export const characterDef = defineType({
           .required()
           .min(1)
           .custom((_value, context) => budgetError(context.document as CharacterDoc, 'growth')),
+    }),
+    defineField({
+      name: 'traits',
+      title: 'Traits',
+      description:
+        'Innate identity traits (ADR-0035, docs/TRAITS.md): the count is FIXED by rarity (Common 1 → Legendary 5); free of the point-buy budget. Max ONE always-on combat trait (review rule).',
+      type: 'array',
+      of: [defineArrayMember({ type: 'reference', to: [{ type: 'traitDef' }] })],
+      validation: (rule) =>
+        rule.custom((value: unknown[] | undefined, context) => {
+          const rarity = (context.document as CharacterDoc | undefined)?.rarity
+          // Unauthored (absent) passes while the trait content wave lands; wrong COUNT is an error.
+          if (!rarity || value == null) return true
+          const expected = TRAIT_COUNT_BY_RARITY[rarity]
+          if (value.length !== expected) {
+            return `${rarity} characters carry exactly ${expected} trait${expected === 1 ? '' : 's'} (got ${value.length}) — docs/TRAITS.md §4.`
+          }
+          return true
+        }),
     }),
     defineField({
       name: 'blessingTree',

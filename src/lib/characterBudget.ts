@@ -51,6 +51,11 @@ export const STAT_PRICE: Record<string, number> = {
   gatherYield: 0.5,
   magicFind: 0.5,
   luck: 0.5,
+  // Trait-era economy/recovery stats (ADR-0035) — priced like the other economy stats so a
+  // character COULD buy them with budget, though traits are their primary source.
+  goldFind: 0.5,
+  xpGain: 0.5,
+  recoverySpeed: 0.5,
 }
 
 // ---- Rarity budgets ------------------------------------------------------------------------------
@@ -81,6 +86,17 @@ export const BASE_BUDGET: Record<CharacterRarity, number> = {
 
 /** Authoring tolerance: |spent − budget| ≤ this passes validation. */
 export const BUDGET_TOLERANCE = 0.5
+
+/** Traits per character by rarity (ADR-0035, Alex's table). Traits sit OUTSIDE the point-buy
+ *  budget — they're conditional, so rarity buys versatility, never a higher always-on floor.
+ *  Studio validation enforces the exact count (and max one always-on combat trait). */
+export const TRAIT_COUNT_BY_RARITY: Record<CharacterRarity, number> = {
+  Common: 1,
+  Uncommon: 2,
+  Rare: 3,
+  Epic: 4,
+  Legendary: 5,
+}
 
 /** Milestones spend the growth pool too: a milestone's cost is amortized as bonus × price,
  *  counted once (it is a one-time spike, roughly one level's worth of that stat pre-paid). */
