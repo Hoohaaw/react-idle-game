@@ -1,6 +1,8 @@
 import type { DropItem } from '@/types/loot'
 import type { CharacterRole } from '@/lib/roles'
 import type { School } from '@/lib/schools'
+import type { TraitDef } from '@/lib/traits'
+import type { StatValue, StatGrowth, BlessingNodeDef, EquippedItem } from '@/lib/stats'
 import type { MissionEnemyView } from '@/services/missions'
 
 // Prop shapes for MissionDispatch + the sample data that drives the /design showcase (replaced by
@@ -16,6 +18,8 @@ export type DispatchMission = {
   enemies: MissionEnemyView[]
   /** In-fight clock — with enemy stat blocks, enables the win-chance estimate. */
   timeLimitSeconds?: number | null
+  /** World map key (ADR-0034/0035) — the trait context for Mapborn matching. */
+  mapKey?: string | null
 }
 
 export type DispatchChar = {
@@ -28,6 +32,12 @@ export type DispatchChar = {
   /** Effective stat map + carried HP — inputs to the win-chance estimate (omitted in fixtures). */
   stats?: Record<string, number>
   currentHp?: number | null
+  /** Traits + authored stat inputs (ADR-0035) — the estimator recomputes stats with the mission's
+   *  trait context; the tile highlights traits active for this mission. Omitted in fixtures. */
+  traits?: TraitDef[]
+  statInputs?: { baseStats: StatValue[]; growth: StatGrowth[]; blessingNodes: BlessingNodeDef[] }
+  blessings?: Record<string, number>
+  equipped?: Record<string, EquippedItem>
   busy?: string // a label (e.g. "On mission") — present means the character can't be selected
   downed?: boolean
 }

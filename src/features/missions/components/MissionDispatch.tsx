@@ -6,9 +6,12 @@ import { SectionLabel } from '@/components/molecules/SectionLabel'
 import { RarityChancePill } from '@/components/molecules/RarityChancePill'
 import { RoleBadge } from '@/components/atoms/RoleBadge'
 import { SchoolBadge } from '@/components/atoms/SchoolBadge'
+import { TraitChips } from '@/components/molecules/TraitChips'
 import { resolveRole } from '@/lib/roles'
+import { traitActive, type TraitContext } from '@/lib/traits'
 import { MissionEnemies } from './MissionEnemies'
 import { WinChanceEstimate } from './WinChanceEstimate'
+import { missionTraitContext } from '../winChance'
 import {
   SAMPLE_DISPATCH_MISSION,
   SAMPLE_DISPATCH_ROSTER,
@@ -40,8 +43,10 @@ function RewardRow({ label, pct }: { label: string; pct: number }) {
   )
 }
 
-function CharacterTile({ char, selected, disabled, onToggle }: { char: DispatchChar; selected: boolean; disabled?: boolean; onToggle: () => void }) {
+function CharacterTile({ char, selected, disabled, onToggle, traitCtx }: { char: DispatchChar; selected: boolean; disabled?: boolean; onToggle: () => void; traitCtx: TraitContext }) {
   const note = char.busy ?? (char.downed ? 'Downed' : null)
+  const traits = char.traits ?? []
+  const activeKeys = new Set(traits.filter((t) => traitActive(t, traitCtx)).map((t) => t.traitKey))
   return (
     <button
       type="button"
@@ -75,6 +80,11 @@ function CharacterTile({ char, selected, disabled, onToggle }: { char: DispatchC
           <RoleBadge role={resolveRole(char.charClass, char.role)} size="sm" />
           {char.damageSchool && <SchoolBadge school={char.damageSchool} size="sm" />}
         </div>
+        {traits.length > 0 && (
+          <div style={{ marginTop: '4px' }}>
+            <TraitChips traits={traits} activeKeys={activeKeys} />
+          </div>
+        )}
       </div>
       <span style={{
         width: 18, height: 18, flexShrink: 0, borderRadius: '50%',
@@ -108,6 +118,8 @@ export function MissionDispatch({
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : (prev.length >= MAX_PARTY ? prev : [...prev, id]))
 
   const party = roster.filter(c => selected.includes(c.id))
+  // What this mission "is" for trait matching (ADR-0035) — same construction mission-claim uses.
+  const traitCtx = missionTraitContext(mission.enemies, mission.mapKey)
   // Reward pipeline (ADR-0012/0017), win-gated. Only the multipliers KNOWN before the fight are shown
   // here; the combat margin (up to +50%) depends on how much HP the party keeps, so it's a range.
   const avgLevel = party.length ? party.reduce((sum, c) => sum + c.level, 0) / party.length : 0
@@ -187,6 +199,7 @@ export function MissionDispatch({
                 selected={isSelected}
                 disabled={unavailable || (!isSelected && selected.length >= MAX_PARTY)}
                 onToggle={() => toggle(c.id)}
+                traitCtx={traitCtx}
               />
             )
           })}
@@ -197,8 +210,8 @@ export function MissionDispatch({
           )}
         </div>
 
-        {/* Win-chance estimate — updates live as the party changes */}
-        <WinChanceEstimate party={party} enemies={mission.enemies} timeLimitSeconds={mission.timeLimitSeconds ?? null} />
+        {/* Win-chance estimate — updates live as the party changes; traits context-matched */}
+        <WinChanceEstimate party={party} enemies={mission.enemies} timeLimitSeconds={mission.timeLimitSeconds ?? null} mapKey={mission.mapKey} />
 
         <div style={{ margin: '0 0 14px' }}><GoldDivider /></div>
 

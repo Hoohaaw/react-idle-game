@@ -1,6 +1,7 @@
 import { simulateCombat, type Combatant, type Enemy } from '@/lib/combat'
 import type { CharacterRole } from '@/lib/roles'
 import type { School } from '@/lib/schools'
+import type { TraitContext } from '@/lib/traits'
 import type { MissionEnemyView } from '@/services/missions'
 
 // Client-side win-chance estimate for the dispatch screen. Runs the REAL combat engine
@@ -10,6 +11,18 @@ import type { MissionEnemyView } from '@/services/missions'
 // still resolves the fight, so there is nothing to tamper with.
 
 export const ESTIMATE_RUNS = 200
+
+/** The trait context a mission presents (ADR-0035) — mirrors mission-claim's construction. */
+export function missionTraitContext(
+  enemies: MissionEnemyView[],
+  mapKey?: string | null,
+): TraitContext {
+  return {
+    mapKey: mapKey ?? null,
+    enemyArchetypes: [...new Set(enemies.map((e) => e.archetype).filter((a): a is string => Boolean(a)))],
+    enemySchools: [...new Set(enemies.map((e) => e.damageType))],
+  }
+}
 
 export type EstimateMember = {
   id: string

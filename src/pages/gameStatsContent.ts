@@ -210,6 +210,16 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           'never a different game. What truly sets heroes apart is WHERE their strengths lie.',
       },
       {
+        name: 'Traits',
+        body:
+          'Every hero is born with TRAITS — fixed talents you cannot change, shown as chips on ' +
+          'their card. Most are conditional: a Gravehand hits harder in Gravemarch, a Giantslayer ' +
+          'punishes bosses, a Lumberjack hauls more Wood, a Pathfinder brings missions home sooner. ' +
+          'Rarer heroes carry more traits (a Common has one, a Legendary five) — that versatility ' +
+          'is what makes them precious. On the send screen, the traits that matter for THAT ' +
+          'mission light up, and the success estimate already counts them.',
+      },
+      {
         name: 'Gear',
         body:
           'Equip items from your inventory on the Team page — 14 slots per hero. Rarer copies of an ' +
