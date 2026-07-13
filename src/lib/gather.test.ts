@@ -53,4 +53,21 @@ describe('accrue', () => {
     expect(accrue(-1000, 30, 5)).toEqual({ gained: 0, consumedSec: 0 })
     expect(accrue(30_000, 0, 5)).toEqual({ gained: 0, consumedSec: 0 })
   })
+
+  // ADR-0035: gatherSpeed shortens the effective interval, gatherYield scales each tick (floored).
+  it('gatherSpeed% ticks faster (interval ÷ 1.25 at +25) and consumes the effective time', () => {
+    // 30s mine at +25% speed → 24s effective interval: 48s = 2 ticks, 48s consumed.
+    expect(accrue(48_000, 30, 5, 25)).toEqual({ gained: 10, consumedSec: 48 })
+    // Unmodified, 48s is only 1 tick.
+    expect(accrue(48_000, 30, 5)).toEqual({ gained: 5, consumedSec: 30 })
+  })
+
+  it('gatherYield% scales the payout, floored so partial resources never mint', () => {
+    expect(accrue(30_000, 30, 5, 0, 25)).toEqual({ gained: 6, consumedSec: 30 }) // 5×1.25 = 6.25 → 6
+    expect(accrue(60_000, 30, 5, 0, 25)).toEqual({ gained: 12, consumedSec: 60 }) // 10×1.25 = 12.5 → 12
+  })
+
+  it('negative modifiers clamp to unmodified rates', () => {
+    expect(accrue(30_000, 30, 5, -50, -50)).toEqual({ gained: 5, consumedSec: 30 })
+  })
 })

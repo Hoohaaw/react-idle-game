@@ -21,6 +21,7 @@ import {
 import { applyXp } from '../../../src/lib/leveling.ts'
 import { resolveRole, type CharacterRole } from '../../../src/lib/roles.ts'
 import type { School } from '../../../src/lib/schools.ts'
+import { collectTraitBonuses, partyAverageStat, type TraitDef, type TraitContext } from '../../../src/lib/traits.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -44,6 +45,7 @@ function json(body: unknown, status: number) {
 
 type EnemyRow = {
   enemyKey: string
+  archetype?: string
   health: number
   attack: number
   damageType: School
@@ -80,6 +82,7 @@ type CharDefRow = {
   baseStats?: StatValue[]
   growth?: StatGrowth[]
   blessingTree?: BlessingNodeDef[]
+  traits?: TraitDef[]
 }
 type ItemDefRow = { itemKey: string; statBonuses?: ItemDefBonuses['statBonuses'] }
 
@@ -101,7 +104,7 @@ const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
   loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
   encounter->{
     timeLimitSeconds,
-    enemies[]{ count, "enemy": enemy->{ enemyKey, health, attack, damageType, speed, defense, resistance, resistances[]{ school, value }, block, critChance, critDamage, armorPen, dodge, healthRegen } }
+    enemies[]{ count, "enemy": enemy->{ enemyKey, archetype, health, attack, damageType, speed, defense, resistance, resistances[]{ school, value }, block, critChance, critDamage, armorPen, dodge, healthRegen } }
   }
 }`
 
@@ -109,7 +112,8 @@ const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
   charKey, charClass, role, damageSchool,
   baseStats[]{ stat, value },
   growth[]{ stat, perLevel, milestones[]{ level, bonus } },
-  blessingTree[]{ nodeId, effects[]{ stat, kind, perRank } }
+  blessingTree[]{ nodeId, effects[]{ stat, kind, perRank } },
+  traits[]->{ traitKey, name, condition{ type, value }, effects[]{ stat, kind, value } }
 }`
 
 const ITEMDEFS_GROQ = `*[_type == "itemDef" && itemKey in $keys]{ itemKey, statBonuses[]{ stat, kind, value } }`
@@ -210,7 +214,16 @@ Deno.serve(async (req) => {
     itemDefs.map((i) => [i.itemKey, { statBonuses: i.statBonuses }]),
   )
 
-  // 5. Build combatants: effective stats (level baselines + blessings + gear) + role + carried HP.
+  // 5. Build combatants: effective stats (level baselines + blessings + gear + condition-matched
+  //    traits, ADR-0035) + role + carried HP. The trait context is this mission's map + enemy lineup.
+  const traitCtx: TraitContext = {
+    mapKey: mission.map?.mapKey ?? null,
+    enemyArchetypes: [
+      ...new Set(mission.encounter.enemies.map((l) => l.enemy.archetype).filter((a): a is string => Boolean(a))),
+    ],
+    enemySchools: [...new Set(mission.encounter.enemies.map((l) => l.enemy.damageType))],
+  }
+  const statsById: Record<string, Record<string, number>> = {}
   const combatants: Combatant[] = []
   for (const c of chars) {
     const def = charDefByKey.get(c.character_def_id)
@@ -223,7 +236,9 @@ Deno.serve(async (req) => {
       blessingNodes: def.blessingTree ?? [],
       equipped: c.equipped ?? {},
       itemDefs: itemDefById,
+      extraBonuses: collectTraitBonuses(def.traits ?? [], traitCtx),
     })
+    statsById[c.id] = stats
     combatants.push({
       id: c.id,
       role: resolveRole(def.charClass, def.role),
@@ -277,13 +292,15 @@ Deno.serve(async (req) => {
   const baseXp = typeof mission.baseXp === 'number' ? mission.baseXp : 0
 
   // 9. Per-character updates. HP is always persisted (win OR loss). XP only for SURVIVORS on a win
-  //    (ending HP > 0) — a character that died mid-fight earns nothing (ADR-0017).
+  //    (ending HP > 0) — a character that died mid-fight earns nothing (ADR-0017). A survivor's own
+  //    `xpGain` stat (Scholar trait etc., ADR-0035 — self-only by design) scales their share.
   const charUpdates = chars.map((c) => {
     const endHp = Math.round(result.endingHp[c.id] ?? 0)
     let level = c.level
     let xp = c.xp
     if (win && endHp > 0 && baseXp > 0) {
-      const gained = Math.round(finalReward(baseXp, mods))
+      const xpMult = 1 + Math.max(0, statsById[c.id]?.xpGain ?? 0) / 100
+      const gained = Math.round(finalReward(baseXp, mods) * xpMult)
       const rolled = applyXp(c.level, c.xp, gained)
       level = rolled.level
       xp = rolled.xp
@@ -291,13 +308,20 @@ Deno.serve(async (req) => {
     return { id: c.id, level, xp, current_hp: endHp }
   })
 
-  // 10. Wallet + loot (win only).
+  // 10. Wallet + loot (win only). Economy stats stack as the party AVERAGE (ADR-0035):
+  //     goldFind scales the gold payout, magicFind scales each drop's chance (capped at 100%),
+  //     luck gives each drop a chance at +1 quantity.
+  const partyStats = chars.map((c) => statsById[c.id] ?? {})
+  const goldMult = 1 + Math.max(0, partyAverageStat(partyStats, 'goldFind')) / 100
+  const magicFind = Math.max(0, partyAverageStat(partyStats, 'magicFind'))
+  const luck = Math.max(0, partyAverageStat(partyStats, 'luck'))
   const currencies: Record<string, number> = {}
   const resources: Record<string, number> = {}
   const loot: { item_def_id: string; rarity: string; quantity: number }[] = []
   if (win) {
     for (const r of mission.rewards ?? []) {
-      const amount = Math.round(finalReward(r.amount, mods))
+      const isGold = r.kind === 'currency' && r.code === 'gold'
+      const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1))
       if (amount <= 0) continue
       const bucket = r.kind === 'resource' ? resources : currencies
       bucket[r.code] = (bucket[r.code] ?? 0) + amount
@@ -305,11 +329,13 @@ Deno.serve(async (req) => {
     const lootRng = makeRng(`${run.id}:loot`)
     for (const drop of mission.loot ?? []) {
       if (!drop.itemKey) continue
-      if (lootRng() * 100 >= (drop.dropChance ?? 0)) continue // this item didn't drop
+      const chance = Math.min(100, (drop.dropChance ?? 0) * (1 + magicFind / 100))
+      if (lootRng() * 100 >= chance) continue // this item didn't drop
       const rarity = rollRarity(drop.rarityWeights, lootRng)
       const qMin = drop.quantityMin ?? 1
       const qMax = Math.max(qMin, drop.quantityMax ?? qMin)
-      const quantity = qMin + Math.floor(lootRng() * (qMax - qMin + 1))
+      let quantity = qMin + Math.floor(lootRng() * (qMax - qMin + 1))
+      if (lootRng() * 100 < luck) quantity += 1
       loot.push({ item_def_id: drop.itemKey, rarity, quantity })
     }
   }

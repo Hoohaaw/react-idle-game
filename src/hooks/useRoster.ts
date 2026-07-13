@@ -8,6 +8,7 @@ import { fetchCharacterDefs } from '@/services/characters'
 import { effectiveStats } from '@/lib/stats'
 import { resolveRole, type CharacterRole } from '@/lib/roles'
 import type { School } from '@/lib/schools'
+import { collectTraitBonuses, type TraitDef } from '@/lib/traits'
 
 // Shared player-state reads + the composed roster. Used by every feature that needs "the player's
 // characters and what they're doing" — missions (dispatch/claim), infirmary (heal), gather (assign).
@@ -46,10 +47,16 @@ export type RosterMember = {
   charClass: string
   role: CharacterRole
   damageSchool?: School
+  /** Innate traits (ADR-0035) — the roster view's stats include only the always-on ones;
+   *  fight/gather-conditional matching happens at the site with its context. */
+  traits: TraitDef[]
   level: number
   xp: number
   maxHp: number
   currentHp: number | null
+  /** Full effective stat map (level + blessings + gear + always-on traits) — same computation
+   *  the server uses context-free. Powers the dispatch estimate + infirmary projections. */
+  stats: Record<string, number>
   equipped: Record<string, EquippedItem>
   blessings: Record<string, number>
   busy: 'mission' | 'gathering' | 'infirmary' | null
@@ -81,6 +88,7 @@ export function useRoster() {
         blessingNodes: def.blessingNodes,
         equipped: c.equipped,
         itemDefs: items.data!,
+        extraBonuses: collectTraitBonuses(def.traits, {}), // always-on traits only (no context)
       })
       return [{
         id: c.id,
@@ -89,10 +97,12 @@ export function useRoster() {
         charClass: def.charClass,
         role: resolveRole(def.charClass, def.role),
         damageSchool: def.damageSchool,
+        traits: def.traits,
         level: c.level,
         xp: c.xp,
         maxHp: Math.max(1, Math.round(stats.health ?? 0)),
         currentHp: c.currentHp,
+        stats,
         equipped: c.equipped,
         blessings: c.blessings,
         busy: gathering.has(c.id)
