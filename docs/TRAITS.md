@@ -60,9 +60,9 @@ the author picks per character.
 | Type | Condition | Effect |
 |---|---|---|
 | **Pathfinder** | always | mission duration −[5–10]% |
-| **Goldtouched** | always | +[10–15]% gold from missions |
-| **Fortunate** | always | +[10–15] Magic Find / Luck |
-| **Scholar** | always | +[10–15]% XP for the whole party? or self only? *(decide)* |
+| **Goldtouched** | always | +[5–15]% gold from missions |
+| **Fortunate** | always | +[5–15] Magic Find / Luck |
+| **Scholar** | always | +[5–15]% XP for self only |
 
 ### Gathering — the specialization system we've had queued
 | Type | Condition | Effect |
@@ -81,8 +81,8 @@ the author picks per character.
 
 | Rarity | Traits |
 |---|---|
-| Common | 2 |
-| Uncommon | 2–3 |
+| Common | 1 |
+| Uncommon | 2 |
 | Rare | 3 |
 | Epic | 4 |
 | Legendary | 5 |
