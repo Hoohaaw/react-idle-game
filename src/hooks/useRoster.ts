@@ -50,6 +50,9 @@ export type RosterMember = {
   xp: number
   maxHp: number
   currentHp: number | null
+  /** Full effective stat map (level + blessings + gear) — same computation the server sim uses.
+   *  Powers the dispatch win-chance estimate. */
+  stats: Record<string, number>
   equipped: Record<string, EquippedItem>
   blessings: Record<string, number>
   busy: 'mission' | 'gathering' | 'infirmary' | null
@@ -93,6 +96,7 @@ export function useRoster() {
         xp: c.xp,
         maxHp: Math.max(1, Math.round(stats.health ?? 0)),
         currentHp: c.currentHp,
+        stats,
         equipped: c.equipped,
         blessings: c.blessings,
         busy: gathering.has(c.id)
