@@ -33,6 +33,7 @@ import { useNow } from '../hooks/useNow'
 import { formatRemaining } from '../lib/time'
 import { resourceHeaderStyle } from '../lib/resources'
 import { ArtDirectionOptions } from './DesignArtDirections'
+import { MissionDispatchWide } from './DesignMissionDispatchWide'
 
 // Frozen once at module load so the demo ActiveMissionCard countdowns are stable across re-renders.
 const DEMO_T0 = Date.now()
@@ -399,6 +400,11 @@ export default function DesignPage() {
       {/* ── MISSION DISPATCH ─────────────────── */}
       <Section title="Mission Dispatch (Send Party)">
         <MissionDispatch />
+      </Section>
+
+      {/* ── MISSION DISPATCH — WIDE REDESIGN (prototype) ── */}
+      <Section title="Mission Dispatch — Wide Redesign (Prototype)">
+        <MissionDispatchWide />
       </Section>
 
       {/* ── CLAIM REWARD ─────────────────────── */}

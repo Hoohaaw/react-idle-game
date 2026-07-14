@@ -38,6 +38,7 @@ export function MissionEnemies({ enemies }: { enemies: MissionEnemyView[] }) {
             <span style={{ color: 'var(--color-text-primary)', fontSize: '12px', flex: 1 }}>
               {e.name}{e.count > 1 ? <span style={{ color: 'var(--color-text-muted)' }}> ×{e.count}</span> : null}
             </span>
+            {e.stats && <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{e.stats.health} HP</span>}
             <SchoolBadge school={e.damageType} size="sm" />
           </div>
         ))}
