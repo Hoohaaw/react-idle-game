@@ -1627,7 +1627,8 @@ scaling magnitude (Slayer I/II/III) — deferred, count-only for now.
 
 ## ADR-0036 — Enemy tier template v3: growth rate ×1.4 → ×1.25 per tier
 
-**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+**Date:** 2026-07-14 · **Status:** Superseded by ADR-0037 (same day — Alex reversed direction:
+wants missions harder, not smoother; the cliff-smoothing goal here was the wrong fix)
 
 **Context.** Alex hit a live-account case in the dispatch estimator: a 1-character party showed
 0% estimated success on a mission; adding one more character jumped it straight to 100%, no
@@ -1689,3 +1690,55 @@ per-tier exponent alone is the responsible constant.
   Retuning them to ×1.25 is an explicit follow-up task.
 - `src/lib/combat.ts` (the real combat engine mission-claim executes) is untouched — this is an
   enemy-content-curve change, not a combat-math change.
+
+## ADR-0037 — Enemy tier template v4: growth rate ×1.25 → ×1.8 per tier (reverses ADR-0036)
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Same day as ADR-0036: after seeing the smoothed curve, Alex reversed direction —
+wants missions **harder**, not smoother. The cliff Alex originally reported was a real bug
+(0% for a solo party, no risk/reward gradient), but the fix Alex actually wants is a difficulty
+increase, with one hard constraint: the first mission must always be clearable by any level-1
+character, solo.
+
+**Decision.** Raise `TIER_GROWTH` (`scripts/balance/enemies.ts`) from 1.25 to **1.8** — steeper
+than the original ADR-0024 value (1.4), a deliberate net difficulty increase over both prior
+templates. Cliffs above tier 1 are back and larger than the original baseline; that is the
+intended tradeoff, not a defect (contrast with ADR-0036, where cliffs were the problem being
+solved).
+
+**The tier-1 guarantee.** The template's scale factor is `TIER_GROWTH ** (tier − 1)`, so **tier 1
+is always exactly the base stats (120 HP / 12 atk / 5 def) regardless of the growth rate** —
+this constraint holds automatically for any `TIER_GROWTH` value, including 1.8. Verified beyond
+the algebra: ran all 19 roster characters solo (`scripts/balance/roster.ts`, level 1, 200 seeds
+each) against a tier-1 `basic` enemy. 16 of 19 win 100%. **Three do not, and never did — this is
+pre-existing and unrelated to tier growth**: Yenna Stonecall, Aldric Faithward, and Tyla
+Windcarrier (0% each) — all three are pure-healer specs (high healingPower, minimal attack) whose
+solo damage output is too low to kill a tier-1 enemy before it kills them, a healer-role gap in
+`src/lib/combat.ts`'s solo damage math, not a tier-content problem. **Flagged for Alex, not fixed
+here** — out of scope for a tier-curve change; if these three are reachable as a player's only
+level-1 character (e.g. a future starter pick), this needs its own fix (healer base attack,
+solo AI behavior, or excluding them from starter eligibility).
+
+**Evidence (`2026-07-14-tier-1.25` → `2026-07-14-tier-1.8`, same 633,600-fight grid):**
+- Difficulty cliffs: 64 → 156 flagged cells (higher than the original ADR-0024 baseline of 117 —
+  expected and intended, since 1.8 > 1.4 > 1.25).
+- Healer inversions: 0 → 1 (mild, one marginal cell).
+- Threat failure / timeout-heavy / clock-bound: 1 / 1 / 1, unchanged.
+- Endgame note: at L50, tier 8 drops to ~0% win rate for nearly every comp including full trios
+  (naked baseline — no gear/blessings, which aren't modeled in this sweep). Under the old 1.4
+  template, L50 trios cleared tier 8 at ~100% (ADR-0024's own "content headroom" note). At 1.8,
+  tier 8 is no longer cleared by anyone in the naked-stat sweep — real players will have gear and
+  blessings closing some of that gap, but this is a meaningfully harder ceiling than either prior
+  template and worth watching once itemization is authored.
+
+**Consequences.**
+- `scripts/balance/enemies.ts` `TIER_GROWTH = 1.8`; `docs/MAPS.md` §"Difficulty ramp" updated to
+  match, plus an explicit note that tier 1 is invariant to this constant by construction.
+  ADR-0036 is superseded (same day, never shipped past this branch).
+- Same scope boundary as ADR-0036: this is the code-side template/guideline only. The 21 live
+  missions' already-authored Sanity `enemyDef` content (against the old ×1.4 guideline) is not
+  retroactively edited — still an explicit follow-up.
+- **New follow-up surfaced:** the 3 pure-healer characters that can't solo-clear tier 1 at all.
+  Needs a decision from Alex on whether/how to fix (see above) before onboarding depends on it.
+- `src/lib/combat.ts` untouched — still a content-curve change, not a combat-math change.

@@ -15,8 +15,10 @@
 ## Difficulty ramp
 
 Enemy stats come from the tier template (`scripts/balance/enemies.ts`, ADR-0015 §G + ADR-0024,
-growth rate revised by ADR-0036): T1 base 120 HP / 12 atk / 5 def, everything ×1.25 per tier,
-**speed flat**. Rule of thumb for map *m* (first map = 1):
+growth rate revised by ADR-0036 then ADR-0037): T1 base 120 HP / 12 atk / 5 def, everything
+×1.8 per tier, **speed flat**. T1 is always exactly the base (tier exponent is tier−1) — the
+first mission is meant to be soloable by any level-1 character. Rule of thumb for map *m*
+(first map = 1):
 
 | Stage | Tier | Shape |
 |---|---|---|
