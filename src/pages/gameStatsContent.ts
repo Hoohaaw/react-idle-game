@@ -190,6 +190,13 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         body: 'Bigger parties earn more: +10% for each member beyond the first.',
       },
       {
+        name: 'First Clear',
+        body:
+          'Beating a stage for the FIRST time pays half again on top — XP, gold, and resources all ' +
+          '×1.5. Repeat clears pay the normal amount, so pushing new ground is always worth the ' +
+          'risk, and farming stays honest. Item drops are unaffected.',
+      },
+      {
         name: 'Loot',
         body:
           'Missions can also drop items. Each possible drop rolls separately, including its rarity — ' +

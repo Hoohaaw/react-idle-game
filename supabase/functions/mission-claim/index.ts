@@ -33,6 +33,9 @@ import { collectTraitBonuses, partyAverageStat, type TraitDef, type TraitContext
 
 const TRANSCENDENCE_BONUS_PER_COUNT = 0.1 // ADR-0014/design: transcendence_count × 10% to all rewards.
 const PARTY_BONUS_PER_EXTRA_MEMBER = 0.1 // (partySize − 1) × 10%.
+// First-time clear of a map stage pays this on XP/gold/resources (ADR-0041) — pushing new
+// content is rewarded once; repeat clears (farming) pay the normal pipeline. Loot is untouched.
+const FIRST_CLEAR_MULT = 1.5
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -183,13 +186,14 @@ Deno.serve(async (req) => {
   const chars = (charsData ?? []) as CharRow[]
   if (chars.length !== party.length) return json({ error: 'Party is missing characters' }, 500)
 
-  // 3. Player wallet (for the transcendence multiplier).
+  // 3. Player profile: transcendence multiplier + map progress (for the first-clear check).
   const { data: profile } = await admin
     .from('profiles')
-    .select('transcendence_count')
+    .select('transcendence_count, map_progress')
     .eq('player_id', playerId)
     .maybeSingle()
   const transcendenceCount = profile?.transcendence_count ?? 0
+  const mapProgress = (profile?.map_progress ?? {}) as Record<string, number>
 
   // 4. Fetch authored defs from Sanity: the mission (rewards/loot/encounter), the character defs, and
   //    every equipped item's bonuses.
@@ -286,6 +290,14 @@ Deno.serve(async (req) => {
   })
   const win = result.outcome === 'win'
 
+  // First clear (ADR-0041): this win advances map progress past the player's best stage.
+  // Read from the pre-claim snapshot; the RPC's greatest() write stays the atomic authority
+  // (double-claiming the SAME run is blocked there — this read only prices the reward).
+  const firstClear =
+    win && mission.map?.mapKey != null && typeof mission.stage === 'number' &&
+    mission.stage > (mapProgress[mission.map.mapKey] ?? 0)
+  const firstClearMult = firstClear ? FIRST_CLEAR_MULT : 1
+
   // 8. Reward multipliers (win-gated pipeline — ADR-0012/0014).
   const mods = {
     marginBonus: marginBonus(result.survivingHpPct),
@@ -304,7 +316,7 @@ Deno.serve(async (req) => {
     let xp = c.xp
     if (win && endHp > 0 && baseXp > 0) {
       const xpMult = 1 + Math.max(0, statsById[c.id]?.xpGain ?? 0) / 100
-      const gained = Math.round(finalReward(baseXp, mods) * xpMult)
+      const gained = Math.round(finalReward(baseXp, mods) * xpMult * firstClearMult)
       const rolled = applyXp(c.level, c.xp, gained)
       level = rolled.level
       xp = rolled.xp
@@ -325,7 +337,7 @@ Deno.serve(async (req) => {
   if (win) {
     for (const r of mission.rewards ?? []) {
       const isGold = r.kind === 'currency' && r.code === 'gold'
-      const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1))
+      const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1) * firstClearMult)
       if (amount <= 0) continue
       const bucket = r.kind === 'resource' ? resources : currencies
       bucket[r.code] = (bucket[r.code] ?? 0) + amount
@@ -370,6 +382,7 @@ Deno.serve(async (req) => {
       reason: result.reason,
       survivingHpPct: result.survivingHpPct,
       durationSeconds: result.durationSeconds,
+      firstClear,
       rewards: { currencies, resources, loot },
       characters: charUpdates,
     },
