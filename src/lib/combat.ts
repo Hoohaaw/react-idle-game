@@ -9,6 +9,9 @@
 //   ADR-0014  unkillable comps allowed but must still beat the clock; Utility = generic combatant for now.
 //   ADR-0015  the FORMULAS + FIRST-PASS constants below. The shapes are stable; the numbers are
 //             provisional and meant to be tuned by running this sim. Tune here, in COMBAT.
+//   ADR-0038  per-fight stat rolls (party attack ±, enemy hp/attack ±) — the contested band is
+//             probabilistic instead of a 100%→0% cliff; still deterministic per seed.
+//   ADR-0039  boss spike attacks: periodic heavy hit at a random living member, ignoring threat.
 //
 // Determinism: given the same inputs + seed the result is identical, so the server is authoritative
 // and the client can replay `log` as the visual fight without being trusted for the outcome.
@@ -45,6 +48,19 @@ export const COMBAT = {
   DODGE_CAP: 25,
   /** A blocked hit loses this fraction of its damage. */
   BLOCK_FACTOR: 0.5,
+  /**
+   * Per-fight stat rolls (ADR-0038). Each fight, every party member's attack power rolls
+   * uniformly within ±PARTY_POWER_ROLL, and every enemy's max HP and attack roll independently
+   * within ±ENEMY_STAT_ROLL — a "good day / bad day" swing. Per-HIT rng (crit/dodge/block)
+   * averages out over a fight's hundreds of hits, so without a per-FIGHT roll the sim is
+   * effectively deterministic per config: win rates snap to ~0%/~100% with a razor-thin middle.
+   * These rolls create a real contested band where the dispatch estimator reads 40–70% and
+   * pushing is a genuine gamble. Healing power does NOT roll (attack only), and party HP never
+   * rolls (it's persistent, carried between missions). The party roll is player-visible: attack
+   * stats display as a span (see src/lib/powerSpan.ts).
+   */
+  PARTY_POWER_ROLL: 0.1,
+  ENEMY_STAT_ROLL: 0.12,
   /** Tanks generate this much more threat per point of damage than everyone else. */
   TANK_THREAT_MULT: 4,
   /**
@@ -109,6 +125,12 @@ export type Enemy = {
   armorPen?: number
   healthRegen?: number
   dodge?: number
+  /** Spike attack (ADR-0039): every `spikeEverySeconds` of combat time this enemy's next action
+   *  becomes a heavy hit — power × `spikeMultiplier` at a RANDOM living party member, ignoring
+   *  threat (the tank cannot cover it; dodge/crit/block still apply). Needs BOTH fields > 0 to
+   *  arm; authored on bosses. */
+  spikeEverySeconds?: number
+  spikeMultiplier?: number
 }
 
 export type Encounter = {
@@ -119,7 +141,9 @@ export type Encounter = {
 
 export type CombatEvent = {
   t: number
-  type: 'attack' | 'heal' | 'dodge' | 'defeat'
+  /** 'spike' = an ADR-0039 heavy hit (threat-ignoring); kept distinct from 'attack' so replay UIs
+   *  and the sweep's tank-absorption metric (which counts only 'attack'/'dodge') can tell them apart. */
+  type: 'attack' | 'heal' | 'dodge' | 'defeat' | 'spike'
   source: string
   target: string
   amount: number
@@ -187,6 +211,10 @@ type Unit = {
   nextAt: number
   /** Hysteresis for healer AI: healing engaged below the threshold, released when the party is full. */
   healing: boolean
+  /** Spike attack config (ADR-0039, enemies only); 0 = never spikes. */
+  spikeEvery: number
+  spikeMult: number
+  spikeNextAt: number
 }
 
 const num = (m: StatMap, k: string) => m[k] ?? 0
@@ -236,11 +264,15 @@ function partyUnit(c: Combatant, order: number): Unit {
     interval: actionInterval(num(s, 'speed'), num(s, 'haste')),
     nextAt: 0,
     healing: false,
+    spikeEvery: 0,
+    spikeMult: 1,
+    spikeNextAt: Infinity,
   }
 }
 
 function enemyUnit(e: Enemy, order: number): Unit {
   const maxHp = Math.max(1, e.health)
+  const spikes = (e.spikeEverySeconds ?? 0) > 0 && (e.spikeMultiplier ?? 0) > 0
   return {
     id: e.id,
     side: 'enemy',
@@ -267,6 +299,10 @@ function enemyUnit(e: Enemy, order: number): Unit {
     interval: actionInterval(e.speed, 0),
     nextAt: 0,
     healing: false,
+    spikeEvery: spikes ? e.spikeEverySeconds! : 0,
+    spikeMult: spikes ? e.spikeMultiplier! : 1,
+    // First spike lands one full period in — an opening spike would hit before any threat exists.
+    spikeNextAt: spikes ? e.spikeEverySeconds! : Infinity,
   }
 }
 
@@ -284,9 +320,9 @@ function mitigationFor(defender: Unit, school: School): number {
   return defender.resists?.[school] ?? defender.resistance
 }
 
-function resolveAttack(attacker: Unit, defender: Unit, rng: () => number): number {
+function resolveAttack(attacker: Unit, defender: Unit, rng: () => number, powerMult = 1): number {
   if (defender.dodge > 0 && rng() * 100 < defender.dodge) return 0
-  let dmg = attacker.power
+  let dmg = attacker.power * powerMult
   if (attacker.critChance > 0 && rng() * 100 < attacker.critChance) {
     dmg *= 1 + COMBAT.CRIT_BASE + attacker.critDamage / 100
   }
@@ -326,6 +362,13 @@ function pickThreatTarget(units: Unit[], t: number): Unit | undefined {
   return best
 }
 
+/** Spike attacks ignore threat (ADR-0039): a uniformly random living party member eats the hit. */
+function pickSpikeTarget(units: Unit[], rng: () => number): Unit | undefined {
+  const living = units.filter((u) => u.side === 'party' && u.hp > 0)
+  if (living.length === 0) return undefined
+  return living[Math.floor(rng() * living.length)]
+}
+
 /** Healers mend the most-hurt (lowest HP%) living ally below `belowPct`; undefined if none qualify. */
 function pickHealTarget(units: Unit[], belowPct: number): Unit | undefined {
   let best: Unit | undefined
@@ -360,6 +403,21 @@ export function simulateCombat(args: {
     ...party.map((c, i) => partyUnit(c, i)),
     ...encounter.enemies.map((e, i) => enemyUnit(e, party.length + i)),
   ]
+
+  // Per-fight stat rolls (ADR-0038), drawn from the seeded rng in unit order (party first, then
+  // enemies) so runs stay deterministic per seed. The dispatch estimator samples many seeds
+  // through this same function, so the distribution it shows already includes these rolls.
+  const roll = (span: number) => 1 + (rng() * 2 - 1) * span
+  for (const u of units) {
+    if (u.side === 'party') {
+      u.power *= roll(COMBAT.PARTY_POWER_ROLL)
+    } else {
+      u.maxHp = Math.max(1, Math.round(u.maxHp * roll(COMBAT.ENEMY_STAT_ROLL)))
+      u.hp = u.maxHp
+      u.power *= roll(COMBAT.ENEMY_STAT_ROLL)
+    }
+  }
+
   const log: CombatEvent[] = []
 
   const alive = (side: 'party' | 'enemy') => units.some((u) => u.side === side && u.hp > 0)
@@ -402,15 +460,27 @@ export function simulateCombat(args: {
       }
     }
 
-    const target = actor.side === 'party' ? pickEnemyTarget(units) : pickThreatTarget(units, t)
+    // Spike attack (ADR-0039): when an armed enemy acts at/after its spike timer, this action
+    // becomes a heavy hit at a RANDOM living member instead of the threat target. The timer
+    // advances by full periods so a slow actor can't bank multiple spikes.
+    const isSpike = actor.side === 'enemy' && actor.spikeEvery > 0 && t >= actor.spikeNextAt
+    if (isSpike) {
+      while (actor.spikeNextAt <= t) actor.spikeNextAt += actor.spikeEvery
+    }
+
+    const target = actor.side === 'party'
+      ? pickEnemyTarget(units)
+      : isSpike
+        ? pickSpikeTarget(units, rng)
+        : pickThreatTarget(units, t)
     if (target) {
-      const dmg = resolveAttack(actor, target, rng)
+      const dmg = resolveAttack(actor, target, rng, isSpike ? actor.spikeMult : 1)
       if (dmg <= 0) {
         log.push({ t, type: 'dodge', source: actor.id, target: target.id, amount: 0, school: actor.damageType })
       } else {
         target.hp = Math.max(0, target.hp - dmg)
         if (actor.side === 'party') actor.threat += dmg * actor.threatMult
-        log.push({ t, type: 'attack', source: actor.id, target: target.id, amount: dmg, school: actor.damageType })
+        log.push({ t, type: isSpike ? 'spike' : 'attack', source: actor.id, target: target.id, amount: dmg, school: actor.damageType })
         if (target.hp === 0) log.push({ t, type: 'defeat', source: actor.id, target: target.id, amount: 0 })
       }
     }

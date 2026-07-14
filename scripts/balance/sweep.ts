@@ -256,7 +256,8 @@ function main() {
       `Naked baselines (no gear, no blessings). Constants: ARMOR_K=${COMBAT.ARMOR_K}, ` +
       `TANK_THREAT_MULT=${COMBAT.TANK_THREAT_MULT}, TANK_THREAT_STAT_RATE=${COMBAT.TANK_THREAT_STAT_RATE}, ` +
       `HEALER_HEAL_THRESHOLD=${COMBAT.HEALER_HEAL_THRESHOLD}, DODGE_CAP=${COMBAT.DODGE_CAP}, SPEED_DR_K=${COMBAT.SPEED_DR_K}, MARGIN_MAX=${COMBAT.MARGIN_MAX}, ` +
-      `LEVEL_BONUS=${COMBAT.LEVEL_BONUS_PER_AVG_LEVEL}, BASE_INTERVAL=${COMBAT.BASE_INTERVAL}, REF_SPEED=${COMBAT.REF_SPEED}.`,
+      `LEVEL_BONUS=${COMBAT.LEVEL_BONUS_PER_AVG_LEVEL}, BASE_INTERVAL=${COMBAT.BASE_INTERVAL}, REF_SPEED=${COMBAT.REF_SPEED}, ` +
+      `PARTY_POWER_ROLL=${COMBAT.PARTY_POWER_ROLL}, ENEMY_STAT_ROLL=${COMBAT.ENEMY_STAT_ROLL}.`,
   )
   md.push('')
   md.push(`Cell format: \`winRate m<avg surviving-HP% on wins>\`. \`0\` = no wins. Matrices are the ${PRIMARY_LIMIT}s time limit.`)
@@ -264,6 +265,18 @@ function main() {
   md.push('', '## Anomalies (auto-flagged)', '')
   const anomalies = findAnomalies(cells)
   md.push(anomalies.length > 0 ? anomalies.map((a) => `- ${a}`).join('\n') : '_none flagged_')
+
+  // Middle band (ADR-0038): cells whose outcome is genuinely contested — the 60/40 moments the
+  // variance rolls exist to create. Track this number across tuning runs; cliffs shrink it.
+  const primary = cells.filter((c) => c.limit === PRIMARY_LIMIT)
+  const inBand = (c: CellResult) => c.winRate > 0.1 && c.winRate < 0.9
+  const bandCells = primary.filter(inBand)
+  md.push('', `## Middle band (10–90% win at ${PRIMARY_LIMIT}s)`, '')
+  md.push(
+    `${bandCells.length}/${primary.length} cells (${pct(bandCells.length / primary.length)}) — ` +
+      SHAPES.map((s) => `${s}: ${primary.filter((c) => c.shape === s && inBand(c)).length}`).join(', ') +
+      '.',
+  )
 
   for (const shape of SHAPES) {
     md.push('', `## Shape: ${shape}`, '')

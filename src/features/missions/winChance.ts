@@ -62,6 +62,8 @@ export function estimateWinChance(args: {
       armorPen: e.stats!.armorPen,
       dodge: e.stats!.dodge,
       healthRegen: e.stats!.healthRegen,
+      spikeEverySeconds: e.stats!.spikeEverySeconds,
+      spikeMultiplier: e.stats!.spikeMultiplier,
     })),
   )
 

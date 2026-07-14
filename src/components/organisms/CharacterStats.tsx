@@ -3,6 +3,7 @@ import { GoldDivider } from '../atoms/GoldDivider'
 import { Tooltip } from '../atoms/Tooltip'
 import { computeBaselines, type StatValue, type StatGrowth, type StatSourceBreakdown } from '../../lib/stats'
 import { STAT_DEFS } from '../../lib/statDefinitions'
+import { SPAN_STATS, powerSpan } from '../../lib/powerSpan'
 
 // The character sheet's Stats tab (extracted from CharacterCard). Two modes:
 //  - recruited instance: `breakdown` = effectiveStatBreakdown() → real totals with the per-source
@@ -10,7 +11,7 @@ import { STAT_DEFS } from '../../lib/statDefinitions'
 //  - preview (no instance): def baselines only, sources beyond Base show 0.
 // Upgrades stay 0 until that system exists.
 
-type StatRow = { label: string; base: number; items: number; blessings: number; upgrades: number }
+type StatRow = { label: string; base: number; items: number; blessings: number; upgrades: number; span?: string }
 
 // Whole numbers render bare; anything fractional (pct bonuses) keeps one decimal.
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
@@ -45,6 +46,11 @@ function StatBreakdownTooltip({ stat }: { stat: StatRow }) {
         <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', letterSpacing: '0.5px' }}>Total</span>
         <span style={{ color: 'var(--color-text-gold)', fontSize: '13px', fontWeight: 'bold' }}>{fmt(total)}</span>
       </div>
+      {stat.span && (
+        <div style={{ marginTop: '6px', color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '0.5px' }}>
+          Rolls {stat.span} each fight
+        </div>
+      )}
     </div>
   )
 }
@@ -92,10 +98,12 @@ export function CharacterStats({ baseStats, growth, level, breakdown }: {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {stats.map(d => {
               const r = rows[d.key]
-              const row: StatRow = { label: d.label, base: r.base, items: r.items, blessings: r.blessings, upgrades: 0 }
+              // Attack-type stats are a per-fight SPAN (ADR-0038) — pill shows the range.
+              const span = SPAN_STATS.has(d.key) ? powerSpan(r.total) : undefined
+              const row: StatRow = { label: d.label, base: r.base, items: r.items, blessings: r.blessings, upgrades: 0, span }
               return (
                 <Tooltip key={d.key} content={<StatBreakdownTooltip stat={row} />}>
-                  <StatPill label={d.label} value={Math.round(r.total)} />
+                  <StatPill label={d.label} value={span ?? Math.round(r.total)} />
                 </Tooltip>
               )
             })}

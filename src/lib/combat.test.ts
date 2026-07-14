@@ -123,12 +123,15 @@ describe('simulateCombat — role behaviours', () => {
       const hit = r.log.find((e) => e.type === 'attack' && e.source === 'pyro')
       return hit ? hit.amount : 0
     }
-    const vsNothing = dmgVs(undefined) // falls back to generic resistance (0) → full 100
+    // Same seed everywhere → the ADR-0038 power roll is identical across variants, so the
+    // RATIOS stay exact even though the absolute number wobbles within the ±10% roll band.
+    const vsNothing = dmgVs(undefined) // falls back to generic resistance (0) → full damage
     const vsFireWall = dmgVs({ fire: 100 }) // 100/(100+100) = 50% DR
     const vsIceWall = dmgVs({ ice: 100 }) // wrong school — fire passes untouched
-    expect(vsNothing).toBeCloseTo(100)
-    expect(vsFireWall).toBeCloseTo(50)
-    expect(vsIceWall).toBeCloseTo(100)
+    expect(vsNothing).toBeGreaterThanOrEqual(90) // 100 × roll ∈ [0.9, 1.1]
+    expect(vsNothing).toBeLessThanOrEqual(110)
+    expect(vsFireWall / vsNothing).toBeCloseTo(0.5)
+    expect(vsIceWall).toBeCloseTo(vsNothing)
   })
 
   it('neutral magic is mitigated by the generic resistance stat', () => {
@@ -137,11 +140,16 @@ describe('simulateCombat — role behaviours', () => {
       role: 'damage',
       stats: { spellPower: 60, intelligence: 40, health: 500, speed: 10 }, // no damageSchool → 'magic'
     }
-    const foe: Enemy = { id: 'foe', health: 100000, attack: 0, damageType: 'physical', speed: 10, resistance: 100 }
-    const r = simulateCombat({ party: [caster], encounter: encounterWith([foe], 30), seed: 'run-1' })
-    const hit = r.log.find((e) => e.type === 'attack' && e.source === 'caster')
-    expect(hit?.amount).toBeCloseTo(50)
-    expect(hit?.school).toBe('magic')
+    // Twin fights, same seed → identical ADR-0038 rolls; only the resistance differs.
+    const hitWith = (resistance: number) => {
+      const foe: Enemy = { id: 'foe', health: 100000, attack: 0, damageType: 'physical', speed: 10, resistance }
+      const r = simulateCombat({ party: [caster], encounter: encounterWith([foe], 30), seed: 'run-1' })
+      return r.log.find((e) => e.type === 'attack' && e.source === 'caster')
+    }
+    const resisted = hitWith(100)
+    const clean = hitWith(0)
+    expect(resisted!.amount / clean!.amount).toBeCloseTo(0.5) // 100/(100+100) DR
+    expect(resisted!.school).toBe('magic')
   })
 
   it('speed has diminishing returns above baseline; at/below baseline is untouched', () => {
@@ -266,6 +274,59 @@ describe('simulateCombat — role behaviours', () => {
     // If topUpIdx === firstHealIdx, a single heal topped the tank up — hysteresis had no span to check,
     // but the heal itself fired, which is sufficient.
     expect(r.log.some((e) => e.type === 'heal' && e.source === 'healer')).toBe(true)
+  })
+})
+
+describe('per-fight variance (ADR-0038) + boss spikes (ADR-0039)', () => {
+  it('a marginal fight is probabilistic across seeds — both outcomes occur', () => {
+    // Kill time ≈ time limit by construction (61 actions × 60 atk = 3660 vs 3900 hp). Without
+    // the per-fight rolls this config is ONE fixed outcome for every seed (per-hit rng averages
+    // out); the rolls turn it into a contested band, so both outcomes must appear.
+    const hero: Combatant = { id: 'hero', role: 'damage', stats: { attack: 60, health: 500, speed: 10 } }
+    const wall: Enemy = { id: 'wall', health: 3900, attack: 0, damageType: 'physical', speed: 10 }
+    let wins = 0
+    for (let s = 0; s < 100; s++) {
+      const r = simulateCombat({ party: [hero], encounter: encounterWith([wall], 180), seed: `var-${s}` })
+      if (r.outcome === 'win') wins++
+    }
+    expect(wins).toBeGreaterThan(0)
+    expect(wins).toBeLessThan(100)
+  })
+
+  it('the ±10% attack roll changes hit damage across seeds', () => {
+    // warrior has no crit; ghoul has no dodge/block — only the per-fight roll moves this number.
+    const dmgAt = (seed: string) => {
+      const r = simulateCombat({ party: [warrior], encounter: encounterWith([ghoul]), seed })
+      return r.log.find((e) => e.type === 'attack' && e.source === 'warrior')!.amount
+    }
+    expect(Math.abs(dmgAt('roll-a') - dmgAt('roll-b'))).toBeGreaterThan(0.1)
+  })
+
+  it('an armed boss lands spike hits: heavier than its normal attacks, at random members', () => {
+    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 20, health: 4000, defense: 50, speed: 10 } }
+    const dps: Combatant = { id: 'dps', role: 'damage', stats: { attack: 30, health: 800, speed: 10 } }
+    const buddy: Combatant = { id: 'buddy', role: 'damage', stats: { attack: 30, health: 800, speed: 10 } }
+    const boss: Enemy = {
+      id: 'boss', health: 100000, attack: 40, damageType: 'physical', speed: 10,
+      spikeEverySeconds: 20, spikeMultiplier: 3,
+    }
+    const r = simulateCombat({ party: [tank, dps, buddy], encounter: encounterWith([boss], 180), seed: 'spike-1' })
+    const spikes = r.log.filter((e) => e.type === 'spike' && e.source === 'boss')
+    const normals = r.log.filter((e) => e.type === 'attack' && e.source === 'boss')
+    expect(spikes.length).toBeGreaterThanOrEqual(8) // one per 20s over 180s (first at t≥20)
+    // Random targeting ignores threat: with 3 living members, P(8+ spikes all on tank) ≈ (1/3)^8.
+    expect(spikes.some((e) => e.target !== 'tank')).toBe(true)
+    // Normal attacks still respect threat — the tank holds aggro between spikes.
+    expect(normals.length).toBeGreaterThan(0)
+    expect(normals.every((e) => e.target === 'tank')).toBe(true)
+    // ×3 power from the same attacker: every spike outdamages every normal hit (no crits here,
+    // and mitigation per target is ≤ the tank's, so the ordering is strict).
+    expect(Math.min(...spikes.map((e) => e.amount))).toBeGreaterThan(Math.max(...normals.map((e) => e.amount)))
+  })
+
+  it('no spike fields → no spike events (mechanic disarmed)', () => {
+    const r = simulateCombat({ party: [warrior], encounter: encounterWith([ghoul]), seed: 'run-1' })
+    expect(r.log.some((e) => e.type === 'spike')).toBe(false)
   })
 })
 

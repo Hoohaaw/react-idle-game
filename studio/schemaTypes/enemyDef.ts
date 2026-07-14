@@ -217,6 +217,23 @@ export const enemyDef = defineType({
       initialValue: 0,
       validation: (rule) => rule.min(0),
     }),
+    defineField({
+      name: 'spikeEverySeconds',
+      title: 'Spike attack — period (seconds)',
+      description:
+        'ADR-0039: every N combat seconds this enemy\'s next action is a heavy hit at a RANDOM party member, ignoring threat (the tank cannot cover it). Needs BOTH spike fields set to arm. Boss standard: 20.',
+      type: 'number',
+      fieldset: 'depth',
+      validation: (rule) => rule.min(1),
+    }),
+    defineField({
+      name: 'spikeMultiplier',
+      title: 'Spike attack — damage multiplier',
+      description: 'Attack × this on a spike hit. Boss standard: 2.5.',
+      type: 'number',
+      fieldset: 'depth',
+      validation: (rule) => rule.min(1),
+    }),
   ],
   preview: {
     select: { title: 'name', archetype: 'archetype', tier: 'tier', media: 'sprite' },

@@ -71,17 +71,19 @@ describe('partyAverageStat', () => {
   })
 })
 
-// The point of the whole system: a conditional trait must flip a MARGINAL fight on its map
-// and change nothing off-map. Uses the real engine (fixed seed = deterministic).
+// The point of the whole system: a conditional trait must lift a MARGINAL fight's WIN RATE on
+// its map and change nothing off-map. Per-fight rolls (ADR-0038) make single-seed outcomes
+// probabilistic, so the pair compares win rates over many seeds instead of one fixed seed.
 describe('discriminating sim pair (Mapborn)', () => {
   const mapborn = trait({
     traitKey: 'gravehand',
     condition: { type: 'map', value: 'gravemarch' },
     effects: [{ stat: 'attack', kind: 'pct', value: 12 }],
   })
-  // Marginal by construction: the hero kills the wall JUST too slowly without the bonus.
+  // Marginal by construction: 60 atk × 61 actions = 3660 vs 3900 hp — the hero kills the wall
+  // JUST too slowly at the roll midpoint; +12% attack (4099) clears it at the midpoint.
   const enemy: Enemy = { id: 'wall', health: 3900, attack: 0, damageType: 'physical', speed: 10 }
-  const fight = (ctx: { mapKey?: string }) => {
+  const winRate = (ctx: { mapKey?: string }) => {
     const stats = effectiveStats({
       level: 1,
       baseStats: [{ stat: 'attack', value: 60 }, { stat: 'health', value: 100 }, { stat: 'speed', value: 10 }],
@@ -89,11 +91,19 @@ describe('discriminating sim pair (Mapborn)', () => {
       extraBonuses: collectTraitBonuses([mapborn], ctx),
     })
     const party: Combatant[] = [{ id: 'hero', role: 'damage', stats }]
-    return simulateCombat({ party, encounter: { enemies: [enemy], timeLimitSeconds: 180 }, seed: 'trait-pair' })
+    let wins = 0
+    for (let s = 0; s < 200; s++) {
+      const r = simulateCombat({ party, encounter: { enemies: [enemy], timeLimitSeconds: 180 }, seed: `trait-pair-${s}` })
+      if (r.outcome === 'win') wins++
+    }
+    return wins / 200
   }
 
-  it('flips a marginal fight on its map, not off it', () => {
-    expect(fight({ mapKey: 'embercrag' }).outcome).toBe('loss') // 60 atk × 61 actions < 3900 hp
-    expect(fight({ mapKey: 'gravemarch' }).outcome).toBe('win') // 67.2 atk × 61 actions ≥ 3900 hp
+  it("lifts a marginal fight's win rate on its map, not off it", () => {
+    const off = winRate({ mapKey: 'embercrag' })
+    const on = winRate({ mapKey: 'gravemarch' })
+    expect(off).toBeLessThan(0.5) // below the roll midpoint without the bonus
+    expect(on).toBeGreaterThan(0.5) // above it with the bonus
+    expect(on - off).toBeGreaterThan(0.25) // and the gap is decisive, not noise
   })
 })
