@@ -68,6 +68,7 @@ function buildClaimResult(
     { label: 'Level bonus', detail: `avg Lv ${avgLevel.toFixed(0)}`, pct: +(avgLevel * 0.4).toFixed(1) },
   ]
   if (party.length > 1) bonuses.push({ label: 'Party size', detail: `×${party.length}`, pct: (party.length - 1) * 10 })
+  if (resp.firstClear) bonuses.push({ label: 'First clear', detail: 'stage beaten for the first time', pct: 50 })
 
   const loot = resp.rewards.loot.map((l) => {
     const def = mission?.loot.find((x) => x.itemKey === l.item_def_id)

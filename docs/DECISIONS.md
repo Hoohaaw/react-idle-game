@@ -1881,3 +1881,30 @@ proves too steep in play (taper tier growth above T6, or gate maps 6–7 behind 
 No engine or constant changes in this branch — instrument + reference table only. Grid is 3×
 bigger (~16s at 200 seeds); doc runtime figures updated. Re-run the reality-check column after
 real gear/blessing content exists.
+
+## ADR-0041 — First-clear bonus: ×1.5 XP/gold/resources the first time a stage is beaten
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex — multiplier chosen ×1.5 over ×2/×3)
+
+**Context.** The tension loop (ADR-0038/0039 + the MAPS.md rhythm law) asks the player to choose
+between pushing a risky new stage and farming cleared ones. Farming already has clear payoffs
+(loot, XP, safe margins); pushing needed its own — otherwise the rational move at a 60% boss is
+always "farm until it's 95%", which flattens the decision the whole package exists to create.
+
+**Decision.** The first time a player clears a map stage, the win's XP, gold, and resource
+payouts are multiplied ×1.5 (`FIRST_CLEAR_MULT`, mission-claim). Loot drop chances/quantities
+are untouched — item farming stays a repeat-clear activity by design. Detection is a pre-claim
+read of `profiles.map_progress` in the Edge Function (`stage > best cleared` on a win); the
+`claim_mission` RPC is unchanged — its `greatest()` write stays the atomic authority and the
+double-claim guard already blocks re-claiming the same run. (Two concurrent claims of two
+DIFFERENT runs of the same not-yet-cleared stage could in principle both price as first clears —
+a benign, vanishingly rare double-bonus, consciously accepted over widening the RPC.) The claim
+response gains `firstClear: boolean`; the ClaimReward "how it was calculated" trail shows it as
+a +50% line, and the /game-stats Rewards section documents it.
+
+**Consequences.** Pushing new content is rewarded once per stage per player; walls become "get
+better items or levels" moments rather than pure stat checks (the farm loop and the push loop
+pay differently, matching Alex's framing). Legacy missions without map/stage are unaffected
+(flag is always false). `mission-claim` redeploy required. If transcendence later resets
+`map_progress`, first-clear bonuses come back with it — price that into the transcendence design
+when it lands.

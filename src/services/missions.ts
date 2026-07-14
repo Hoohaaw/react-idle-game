@@ -172,6 +172,8 @@ export type ClaimResponse = {
   reason: 'enemies-defeated' | 'party-wiped' | 'timeout'
   survivingHpPct: number
   durationSeconds: number
+  /** True when this win cleared the stage for the first time — XP/gold/resources paid ×1.5 (ADR-0041). */
+  firstClear?: boolean
   rewards: {
     currencies: Record<string, number>
     resources: Record<string, number>
