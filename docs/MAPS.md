@@ -14,9 +14,9 @@
 
 ## Difficulty ramp
 
-Enemy stats come from the tier template (`scripts/balance/enemies.ts`, ADR-0015 §G + ADR-0024):
-T1 base 120 HP / 12 atk / 5 def, everything ×1.4 per tier, **speed flat**. Rule of thumb for map
-*m* (first map = 1):
+Enemy stats come from the tier template (`scripts/balance/enemies.ts`, ADR-0015 §G + ADR-0024,
+growth rate revised by ADR-0036): T1 base 120 HP / 12 atk / 5 def, everything ×1.25 per tier,
+**speed flat**. Rule of thumb for map *m* (first map = 1):
 
 | Stage | Tier | Shape |
 |---|---|---|

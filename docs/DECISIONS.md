@@ -1624,3 +1624,68 @@ scaling magnitude (Slayer I/II/III) — deferred, count-only for now.
   inert); trait-aware probes land when the harness fixture gains traits.
 - The estimator makes trait value visible as success-% movement — roster/dispatch UI chips are
   the remaining surface (branch 3).
+
+## ADR-0036 — Enemy tier template v3: growth rate ×1.4 → ×1.25 per tier
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Alex hit a live-account case in the dispatch estimator: a 1-character party showed
+0% estimated success on a mission; adding one more character jumped it straight to 100%, no
+middle ground. Confirmed via the sweep (`scripts/balance/reports/2026-07-13-traits-regression.md`)
+this is the same "difficulty cliff" anomaly ADR-0024 identified and left open (~78 cells at the
+time, drifted to 117 in the current grid) — the enemy tier template's ×1.4^(tier−1) HP/attack/
+defense growth (ADR-0024) is the documented real-content authoring target (`docs/MAPS.md`
+§"Difficulty ramp"), not just a synthetic harness abstraction: the one real enemy with checkable
+numbers, the seeded Rotting Ghoul, matches the template's T1 base exactly. Root cause: the sim's
+only RNG is per-hit crit/dodge/block, which averages out over a full fight (law of large
+numbers), so outcome is close to deterministic per party+encounter — whatever nudges the
+DPS-race threshold (a tier step, a party-size step) flips the whole 200-seed sample from
+all-loss to all-win.
+
+**Decision.** Reduce the tier template's per-tier growth rate from ×1.4 to **×1.25**
+(`scripts/balance/enemies.ts` `TIER_GROWTH`). HP/attack/defense still compound per tier; speed
+stays flat (ADR-0024, unchanged). Archetype mods and tier-gated resistances (ADR-0033) are
+unaffected — the cliff reproduces on the plain `basic` archetype at zero-mod tiers, so the
+per-tier exponent alone is the responsible constant.
+
+**Evidence (before → after, `2026-07-14-pre-tier-curve` → `2026-07-14-tier-1.25`, same
+633,600-fight grid; candidate ×1.3 also swept and rejected — see Alternatives):**
+- Difficulty cliffs: 117 → 64 flagged cells.
+- Healer inversions: 0 → 0 (the ×1.3 candidate introduced 2 marginal inversions at the edge of
+  viability; ×1.25 stays clean).
+- Threat failure / timeout-heavy / clock-bound: 1 / 1 / 1 in both — no new regressions.
+- Frontier example (solo-tank, L1): T1 100% → T2 **0%** (baseline) vs. T1 100% → T2 **31%**
+  (×1.25) — a real chance instead of a wall. Frontier example (solo-crit, L50): T7 100% → T8
+  **4%** (baseline, near-impossible) vs. T7 100% → T8 **75%** (×1.25, a genuine risk/reward
+  fight instead of a coin-flip-adjacent wipe).
+- Off-frontier combos (a party far below a tier's intended level) get easier too — e.g. a level-10
+  trio now clears tier 8 at ×1.25 where it couldn't at ×1.4. Not a regression in practice: the
+  world-map system (ADR-0034) gates tier access by sequential stage/map unlock, so a level-10
+  party can never actually stand in front of tier-8 content; an over-leveled party trivializing
+  old content it has since outgrown is the intended "go back and farm an easier fight" behavior
+  (`src/pages/gameStatsContent.ts`), not new. Full trio comps were already ~100% across every
+  tier at L50 under the OLD ×1.4 template too (pre-existing "trio endgame dominance," a separate,
+  out-of-scope anomaly from this cliff fix).
+
+**Alternatives considered.**
+- **×1.3** — swept: cliffs 117 → 83 (worse than ×1.25) and introduced 2 healer inversions.
+  Rejected: strictly dominated by ×1.25 on both measured anomaly axes.
+- **Add real combat variance** (wider crit/dodge dispersion, HP variance) to break the
+  near-deterministic-outcome root cause directly — rejected for this pass: touches ADR-0013's
+  sim shape, invalidates every prior tuning ADR's sweep evidence, needs a full re-sweep of
+  everything. Bigger, riskier change; deferred.
+- **Leave the sim alone, fix the UI signal instead** — rejected: doesn't address that a
+  legitimately-geared solo character gets zero real chance at content one tier above them; the
+  UI already shows the true number faithfully (WinChanceEstimate), the number itself was wrong.
+
+**Consequences.**
+- `scripts/balance/enemies.ts` `TIER_GROWTH = 1.25`; `docs/MAPS.md` §"Difficulty ramp" updated
+  to match. ADR-0015 §G / ADR-0024 are superseded on the growth-rate value only (speed-flat and
+  archetype mods stand).
+- **Scope boundary (deliberate):** this changes the code-side template — the *authoring
+  guideline* and the harness that validates it — not the already-authored `enemyDef` documents
+  for the three live maps (Gravemarch/Embercrag/Frosthollow, 21 missions) in hosted Sanity.
+  Those were hand-authored against the old ×1.4 guideline and are not retroactively edited here.
+  Retuning them to ×1.25 is an explicit follow-up task.
+- `src/lib/combat.ts` (the real combat engine mission-claim executes) is untouched — this is an
+  enemy-content-curve change, not a combat-math change.
