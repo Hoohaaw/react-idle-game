@@ -59,6 +59,8 @@ type EnemyRow = {
   armorPen?: number
   dodge?: number
   healthRegen?: number
+  spikeEverySeconds?: number
+  spikeMultiplier?: number
 }
 type MissionForClaim = {
   baseXp?: number
@@ -104,7 +106,7 @@ const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
   loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
   encounter->{
     timeLimitSeconds,
-    enemies[]{ count, "enemy": enemy->{ enemyKey, archetype, health, attack, damageType, speed, defense, resistance, resistances[]{ school, value }, block, critChance, critDamage, armorPen, dodge, healthRegen } }
+    enemies[]{ count, "enemy": enemy->{ enemyKey, archetype, health, attack, damageType, speed, defense, resistance, resistances[]{ school, value }, block, critChance, critDamage, armorPen, dodge, healthRegen, spikeEverySeconds, spikeMultiplier } }
   }
 }`
 
@@ -270,6 +272,8 @@ Deno.serve(async (req) => {
         armorPen: e.armorPen,
         dodge: e.dodge,
         healthRegen: e.healthRegen,
+        spikeEverySeconds: e.spikeEverySeconds,
+        spikeMultiplier: e.spikeMultiplier,
       })
     }
   })

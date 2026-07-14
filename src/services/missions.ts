@@ -34,6 +34,8 @@ export type MissionEnemyView = {
     armorPen?: number
     dodge?: number
     healthRegen?: number
+    spikeEverySeconds?: number
+    spikeMultiplier?: number
   }
 }
 export type MissionMapView = { mapKey: string; name: string; order: number }
@@ -61,7 +63,7 @@ const MISSIONS_QUERY = `*[_type == "missionDef" && defined(missionKey)]{
   loot[]{ dropChance, "itemKey": item->itemKey, "name": item->name, "slot": item->slot, rarityWeights[]{ rarity, weight } },
   "timeLimitSeconds": encounter->timeLimitSeconds,
   "enemies": encounter->enemies[]{ count, "name": enemy->name, "damageType": enemy->damageType, "archetype": enemy->archetype, "resistances": enemy->resistances[]{ school, value },
-    "stats": enemy->{ health, attack, speed, defense, resistance, block, critChance, critDamage, armorPen, dodge, healthRegen } }
+    "stats": enemy->{ health, attack, speed, defense, resistance, block, critChance, critDamage, armorPen, dodge, healthRegen, spikeEverySeconds, spikeMultiplier } }
 }`
 
 type RawMission = {
