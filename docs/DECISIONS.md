@@ -1846,3 +1846,38 @@ decision on stage 7. Authored bosses should carry the standard 20s/×2.5 unless 
 tuned (MAPS.md law follows in the rhythm-law branch). The estimator needs no changes; hosted
 parity again requires the mission-claim redeploy. Swarm/caster archetypes stay spike-free —
 spikes are the BOSS comp-counter (swarm = race, caster = armor bypass).
+
+## ADR-0040 — Harness power tiers + the per-map power budget
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Every sweep to date ran the roster NAKED — level-derived stats only, no gear, no
+traits, no blessings — so every endgame conclusion (e.g. "T8 at L50 is ~0% for all comps") was
+measured against a party no real player will field. With 7+ maps planned (ADR-0034 says 6–9) and
+Alex's explicit direction that the last map SHOULD demand a full farm and good blessings, the
+harness needed to answer: does the ×1.8 tier curve (ADR-0037) actually hold once the player has
+the bonus layers — and if not, what multiplier must those layers deliver?
+
+**Decision.** The sweep grid gains a **power-tier axis**: party stats × naked 1.0 / geared 1.35 /
+full-build 1.9, every stat except speed (a speed multiplier would compound with the attack
+multiplier through the action-rate channel and overstate the tier). The multipliers are declared
+PROXIES for unauthored content, to be re-derived from real itemDefs/blessing trees when those
+exist. Comparability is protected: matrices, anomaly rules, and the middle-band metric read the
+naked slice only, and the seed formula excludes the power key, so the naked numbers are
+byte-comparable with every prior report (verified: 54 middle-band / 130 cliffs, identical to
+`variance-full`). The report gains a "Power tiers" section (trio-core × boss shape, the gating
+fight) + a one-line verdict; `docs/BALANCE.md` gains the **power budget per map** table.
+
+**Evidence** (`2026-07-14-power-tiers`, 1.9M fights). Highest boss tier at ≥70% win by L50:
+naked T5, geared T5, full-build **T6**. Full-build L50 vs T7 boss = 11%, vs T8 = 0%. Each tier
+step costs ×1.8 of party stats, so ×1.35 buys about half a step and ×1.9 almost exactly one.
+Read against the map chain (map m's boss = tier m+1): maps 1–5 work on levels + the proxy
+multipliers; **map 6's boss needs ~×3.4 combined gear+blessings over naked, map 7's needs ~×6.**
+
+**Consequences.** The authoring budget is now a recorded requirement, not a guess: itemDef stat
+budgets + blessing trees should be authored toward a combined ~×5–6 at the level cap (Alex's
+stated intent — the last map demands everything), with the fallbacks named in BALANCE.md if that
+proves too steep in play (taper tier growth above T6, or gate maps 6–7 behind transcendence).
+No engine or constant changes in this branch — instrument + reference table only. Grid is 3×
+bigger (~16s at 200 seeds); doc runtime figures updated. Re-run the reality-check column after
+real gear/blessing content exists.
