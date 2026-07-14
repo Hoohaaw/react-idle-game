@@ -1739,6 +1739,16 @@ solo AI behavior, or excluding them from starter eligibility).
 - Same scope boundary as ADR-0036: this is the code-side template/guideline only. The 21 live
   missions' already-authored Sanity `enemyDef` content (against the old ×1.4 guideline) is not
   retroactively edited — still an explicit follow-up.
+- **Follow-up completed same day:** queried all 15 `enemyDef`s the 21 live missions reference
+  (`production` dataset, drafts perspective) — 14 of 15 matched the old ×1.4 formula almost
+  exactly (confirming `docs/MAPS.md`'s authoring checklist was actually followed), so recomputing
+  health/attack/defense from each enemy's existing `tier` + `archetype` under ×1.8 was mechanical.
+  Patched via `patch_documents` (drafts only, nothing published) — Rotting Ghoul and Bone Swarm
+  (tier 1) untouched by construction; the other 13 updated. One judgment call: Bone Colossus's
+  defense was hand-tuned to 10 against the old formula's 7 — reset to the new formula's clean
+  value (9) rather than preserving the old +3 offset (Alex's call, easily bumped back up in
+  Sanity if the boss should stay tankier than template). Speed/damageType/resistances/block/etc.
+  on every enemy are untouched — only the three tier-driven fields moved.
 - **New follow-up surfaced:** the 3 pure-healer characters that can't solo-clear tier 1 at all.
   Needs a decision from Alex on whether/how to fix (see above) before onboarding depends on it.
 - `src/lib/combat.ts` untouched — still a content-curve change, not a combat-math change.
