@@ -34,6 +34,18 @@ const COMPS: Record<string, string[]> = {
 const LEVELS = [1, 5, 10, 20, 35, 50]
 const TIERS = [1, 2, 3, 4, 5, 6, 7, 8]
 const SHAPES: EncounterShape[] = ['solo', 'pack', 'boss']
+
+/**
+ * Party power tiers (ADR-0040) — PROXIES for the player-power sources the harness doesn't model
+ * (gear, traits, blessings; the roster is naked base+growth). Every stat except speed is
+ * multiplied: gear/blessings realistically add breadth across stats but rarely multiply action
+ * rate, and a speed multiplier would compound with the attack multiplier through the action-rate
+ * channel and overstate the tier. Rough mapping: geared ≈ full common/uncommon gear set,
+ * full-build ≈ high-rarity gear + a spent blessing tree. Matrices/anomalies stay naked for
+ * continuity with every prior report; the power axis lives in the CSV + "Power tiers" section.
+ */
+const POWER_TIERS: Record<string, number> = { naked: 1, geared: 1.35, 'full-build': 1.9 }
+const POWER_KEYS = Object.keys(POWER_TIERS)
 // First entry = the recommended authored limit (matrices + anomaly rules read it); second = a
 // longer probe that separates "can't kill it" from "can't kill it in time".
 const TIME_LIMITS = [180, 300] // ADR-0025: 180s recommended (was 60); 300s probes clock sensitivity
@@ -46,6 +58,7 @@ const LABEL = process.argv[3] ?? 'baseline'
 
 type CellResult = {
   comp: string
+  power: string
   level: number
   tier: number
   shape: EncounterShape
@@ -70,12 +83,19 @@ type CellResult = {
 
 function runCell(
   comp: string,
+  power: string,
   level: number,
   tier: number,
   shape: EncounterShape,
   limit: number,
 ): CellResult {
-  const party = buildParty(COMPS[comp], level)
+  const mult = POWER_TIERS[power]
+  const party = buildParty(COMPS[comp], level).map((c) => ({
+    ...c,
+    stats: Object.fromEntries(
+      Object.entries(c.stats).map(([k, v]) => [k, k === 'speed' ? v : v * mult]),
+    ),
+  }))
   const tankIds = new Set(party.filter((c) => c.role === 'tank').map((c) => c.id))
   const partyIds = new Set(party.map((c) => c.id))
   const lvlBonus = levelRewardBonus(party.map(() => level))
@@ -91,6 +111,9 @@ function runCell(
   let enemyAttacksOnTank = 0
   let rewardSum = 0
 
+  // Seed formula deliberately excludes `power` so the naked slice reuses the exact seed streams
+  // of every pre-ADR-0040 report (runs stay comparable); other power tiers are different fights
+  // anyway, so sharing the stream costs nothing.
   for (let s = 0; s < SEEDS_PER_CELL; s++) {
     const encounter = makeEncounter(tier, shape, limit)
     const result = simulateCombat({ party, encounter, seed: `${comp}|L${level}|T${tier}|${shape}|${limit}|s${s}` })
@@ -118,7 +141,7 @@ function runCell(
 
   const n = SEEDS_PER_CELL
   return {
-    comp, level, tier, shape, limit,
+    comp, power, level, tier, shape, limit,
     fights: n,
     winRate: wins / n,
     timeoutRate: timeouts / n,
@@ -139,10 +162,10 @@ const num = (x: number, d = 2) => (Number.isNaN(x) ? '—' : x.toFixed(d))
 
 function csvOf(cells: CellResult[]): string {
   const header =
-    'comp,level,tier,shape,limit,fights,winRate,timeoutRate,wipeRate,avgMarginWin,avgDurationWin,avgDowned,avgHpLostPct,tankTargetPct,expRewardMult'
+    'comp,power,level,tier,shape,limit,fights,winRate,timeoutRate,wipeRate,avgMarginWin,avgDurationWin,avgDowned,avgHpLostPct,tankTargetPct,expRewardMult'
   const rows = cells.map((c) =>
     [
-      c.comp, c.level, c.tier, c.shape, c.limit, c.fights,
+      c.comp, c.power, c.level, c.tier, c.shape, c.limit, c.fights,
       num(c.winRate, 3), num(c.timeoutRate, 3), num(c.wipeRate, 3),
       num(c.avgMarginWin, 3), num(c.avgDurationWin, 1), num(c.avgDowned, 2),
       num(c.avgHpLostPct, 3), num(c.tankTargetPct, 3), num(c.expRewardMult, 3),
@@ -151,7 +174,7 @@ function csvOf(cells: CellResult[]): string {
   return [header, ...rows].join('\n')
 }
 
-/** comp × tier win-rate matrix for one (level, shape, limit) slice. */
+/** comp × tier win-rate matrix for one (level, shape, limit) slice — NAKED power only. */
 function matrix(cells: CellResult[], level: number, shape: EncounterShape, limit: number): string {
   const lines: string[] = []
   lines.push(`| comp \\ tier | ${TIERS.join(' | ')} |`)
@@ -159,7 +182,9 @@ function matrix(cells: CellResult[], level: number, shape: EncounterShape, limit
   for (const comp of Object.keys(COMPS)) {
     const row = TIERS.map((tier) => {
       const c = cells.find(
-        (x) => x.comp === comp && x.level === level && x.tier === tier && x.shape === shape && x.limit === limit,
+        (x) =>
+          x.comp === comp && x.power === 'naked' && x.level === level && x.tier === tier &&
+          x.shape === shape && x.limit === limit,
       )
       if (!c) return '—'
       if (c.winRate === 0) return '0'
@@ -170,7 +195,31 @@ function matrix(cells: CellResult[], level: number, shape: EncounterShape, limit
   return lines.join('\n')
 }
 
-function findAnomalies(cells: CellResult[]): string[] {
+/** level × tier win-rate matrix for one (comp, power, shape, limit) slice (ADR-0040 section). */
+function powerMatrix(cells: CellResult[], comp: string, power: string, shape: EncounterShape, limit: number): string {
+  const lines: string[] = []
+  lines.push(`| level \\ tier | ${TIERS.join(' | ')} |`)
+  lines.push(`|---${'|---'.repeat(TIERS.length)}|`)
+  for (const level of LEVELS) {
+    const row = TIERS.map((tier) => {
+      const c = cells.find(
+        (x) =>
+          x.comp === comp && x.power === power && x.level === level && x.tier === tier &&
+          x.shape === shape && x.limit === limit,
+      )
+      if (!c) return '—'
+      if (c.winRate === 0) return '0'
+      return pct(c.winRate)
+    })
+    lines.push(`| L${level} | ${row.join(' | ')} |`)
+  }
+  return lines.join('\n')
+}
+
+function findAnomalies(allCells: CellResult[]): string[] {
+  // Anomaly rules run on the NAKED slice only — same population as every pre-ADR-0040 report,
+  // so counts stay comparable run-over-run. The power tiers are probes, not tuning targets.
+  const cells = allCells.filter((c) => c.power === 'naked')
   const out: string[] = []
   const at = (comp: string, level: number, tier: number, shape: EncounterShape, limit: number) =>
     cells.find((c) => c.comp === comp && c.level === level && c.tier === tier && c.shape === shape && c.limit === limit)
@@ -237,10 +286,11 @@ function main() {
   const t0 = Date.now()
   const cells: CellResult[] = []
   for (const comp of Object.keys(COMPS))
-    for (const level of LEVELS)
-      for (const tier of TIERS)
-        for (const shape of SHAPES)
-          for (const limit of TIME_LIMITS) cells.push(runCell(comp, level, tier, shape, limit))
+    for (const power of POWER_KEYS)
+      for (const level of LEVELS)
+        for (const tier of TIERS)
+          for (const shape of SHAPES)
+            for (const limit of TIME_LIMITS) cells.push(runCell(comp, power, level, tier, shape, limit))
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
 
   const totalFights = cells.length * SEEDS_PER_CELL
@@ -268,7 +318,8 @@ function main() {
 
   // Middle band (ADR-0038): cells whose outcome is genuinely contested — the 60/40 moments the
   // variance rolls exist to create. Track this number across tuning runs; cliffs shrink it.
-  const primary = cells.filter((c) => c.limit === PRIMARY_LIMIT)
+  // Naked slice only, same comparability rule as the anomaly counts.
+  const primary = cells.filter((c) => c.limit === PRIMARY_LIMIT && c.power === 'naked')
   const inBand = (c: CellResult) => c.winRate > 0.1 && c.winRate < 0.9
   const bandCells = primary.filter(inBand)
   md.push('', `## Middle band (10–90% win at ${PRIMARY_LIMIT}s)`, '')
@@ -277,6 +328,28 @@ function main() {
       SHAPES.map((s) => `${s}: ${primary.filter((c) => c.shape === s && inBand(c)).length}`).join(', ') +
       '.',
   )
+
+  // Power tiers (ADR-0040): does the tier curve hold once gear/blessing proxies are applied?
+  // trio-core is the reference comp; boss is the gating shape (stage 7 walls the next map).
+  md.push('', '## Power tiers (ADR-0040 proxies — trio-core, boss shape)', '')
+  md.push(
+    `Party stats × ${POWER_KEYS.map((p) => `${p} ${POWER_TIERS[p]}`).join(' / ')} (speed untouched). ` +
+      'Highest tier at ≥70% win by level 50: ' +
+      POWER_KEYS.map((p) => {
+        const best = TIERS.filter((tier) => {
+          const c = cells.find(
+            (x) => x.comp === 'trio-core' && x.power === p && x.level === 50 && x.tier === tier &&
+              x.shape === 'boss' && x.limit === PRIMARY_LIMIT,
+          )
+          return c !== undefined && c.winRate >= 0.7
+        }).pop()
+        return `${p}: ${best !== undefined ? `T${best}` : 'none'}`
+      }).join(', ') + '.',
+  )
+  for (const p of POWER_KEYS) {
+    md.push('', `### trio-core — ${p} (×${POWER_TIERS[p]}, boss, ${PRIMARY_LIMIT}s)`, '')
+    md.push(powerMatrix(cells, 'trio-core', p, 'boss', PRIMARY_LIMIT), '')
+  }
 
   for (const shape of SHAPES) {
     md.push('', `## Shape: ${shape}`, '')

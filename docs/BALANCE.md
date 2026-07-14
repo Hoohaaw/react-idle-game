@@ -13,8 +13,8 @@ party, an encounter, and a seed, it returns the same result everywhere. That mak
 shipped with deliberate first-pass values (ADR-0015); this harness is the instrument that measures
 what those values actually do, so tuning is evidence-based instead of vibes-based.
 
-One machine sweep = ~1.4M fights in ~10 seconds. That is the whole trick: any proposed constant
-change can be evaluated against the full grid before it ships.
+One machine sweep = ~4.7M fights in ~40 seconds (at the 500-seed default). That is the whole
+trick: any proposed constant change can be evaluated against the full grid before it ships.
 
 ## What lives where
 
@@ -33,8 +33,8 @@ from `src/lib`. Nothing is reimplemented, so what the sweep measures is exactly 
 ## Running a sweep
 
 ```
-node scripts/balance/sweep.ts          # 500 seeds per cell (default) — ~10s
-node scripts/balance/sweep.ts 100      # quicker, ±5% win-rate noise
+node scripts/balance/sweep.ts          # 500 seeds per cell (default) — ~40s
+node scripts/balance/sweep.ts 200 <label>   # tuning-run standard: quicker, names the report
 ```
 
 Node ≥ 22.18 runs the TypeScript directly (type stripping); no build step. Output lands in
@@ -46,15 +46,43 @@ matrices + auto-flagged anomalies), the CSV is the full grid for spreadsheet/dee
 | Dimension | Values | Why |
 |---|---|---|
 | Comp | 10 named parties from the real roster | role coverage: core trio, no-healer, no-tank, casters, double-tank turtle, utility, gatherers, duo, solos |
+| Power tier | naked ×1.0 · geared ×1.35 · full-build ×1.9 | gear/trait/blessing PROXIES (ADR-0040) — all stats × mult except speed |
 | Level | 1, 5, 10, 20, 35, 50 | the leveling arc incl. both milestone spikes |
-| Enemy tier | 1–8 | ×1.4^(tier−1) template growth (ADR-0015 §G, revised ADR-0024) |
+| Enemy tier | 1–8 | ×1.8^(tier−1) template growth (ADR-0015 §G, revised ADR-0024/0036/0037) |
 | Shape | solo · pack (3×basic) · boss (boss+2 swarm) | the 1–N encounter space |
 | Time limit | 180s (recommended, ADR-0025) · 300s probe | separates "can't kill it" from "can't kill it *in time*" |
 
-Parties are **naked baselines** — level-derived stats only, no gear, no blessings, full HP. That is
-deliberate: baseline math must hold up on its own before bonus layers are priced on top. When
-itemDefs and blessing trees are authored, add geared/blessed variants as new comps (the `Combatant`
-input already accepts them via `effectiveStats`).
+Matrices, anomaly counts, and the middle-band metric all read the **naked** slice only, so those
+numbers stay comparable with every pre-ADR-0040 report (the naked seed streams are unchanged).
+The power tiers are probes: they answer "does the tier curve hold once the player has the bonus
+layers the harness doesn't model", in the CSV `power` column + the report's "Power tiers"
+section. The multipliers are stand-ins — when itemDefs and blessing trees are actually authored,
+re-derive them from real content (`effectiveStats` already accepts the layers) and re-sweep.
+
+### Power budget per map (ADR-0040 — the authoring reference)
+
+Maps span tiers m..m+1 (docs/MAPS.md); the stage-7 boss is the wall the next map hangs on. What
+the player is EXPECTED to bring per map, and what the 2026-07-14 `power-tiers` sweep (trio-core,
+boss shape) says that gets them:
+
+| Map | Boss tier | Expected level | Expected power | Sweep reality check |
+|---|---|---|---|---|
+| 1 | T2 | ~1–6 | naked | T2 boss 100% from L5 naked (L1 = 5% — fresh solo pushes fail, by design) |
+| 2 | T3 | ~6–12 | naked | T3 boss 82% at L10 naked |
+| 3 | T4 | ~12–20 | geared | T4 boss 47% at L20 naked, 100% geared — the first real gear check |
+| 4 | T5 | ~20–35 | geared | T5 boss 11% at L20 geared → 79% at L35 geared |
+| 5 | T6 | ~35–50 | full-build | T6 boss 43% at L35 full-build → 99% at L50 |
+| 6 | T7 | ~45–50 | full-build + deep blessings | T7 boss **11% at L50 ×1.9** — needs ~×3.4 combined |
+| 7 | T8 | 50 (cap) | everything maxed | T8 boss **0% at L50 ×1.9** — needs ~×6 combined |
+
+The bottom two rows are the standing requirement this table exists to record: under the ×1.8
+tier curve, **gear + blessings together must reach roughly ×3.4 (map 6) and ×6 (map 7) over
+naked stats at the level cap** — each tier step costs ×1.8 of party stats, and ×1.9 buys almost
+exactly one step past naked. Alex's direction (2026-07-14): needing a full farm + good blessings
+for the last maps is the intent. So author itemDef stat budgets + blessing trees toward that
+combined ×5–6 endgame total — or, if that turns out too steep in practice, the alternatives are
+tapering tier growth above T6 or gating maps 6–7 behind transcendence. Re-check this table
+against real content sweeps before authoring wave-3+ maps.
 
 ## Metrics glossary (CSV columns)
 
