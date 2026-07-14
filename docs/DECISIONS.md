@@ -1624,3 +1624,131 @@ scaling magnitude (Slayer I/II/III) — deferred, count-only for now.
   inert); trait-aware probes land when the harness fixture gains traits.
 - The estimator makes trait value visible as success-% movement — roster/dispatch UI chips are
   the remaining surface (branch 3).
+
+## ADR-0036 — Enemy tier template v3: growth rate ×1.4 → ×1.25 per tier
+
+**Date:** 2026-07-14 · **Status:** Superseded by ADR-0037 (same day — Alex reversed direction:
+wants missions harder, not smoother; the cliff-smoothing goal here was the wrong fix)
+
+**Context.** Alex hit a live-account case in the dispatch estimator: a 1-character party showed
+0% estimated success on a mission; adding one more character jumped it straight to 100%, no
+middle ground. Confirmed via the sweep (`scripts/balance/reports/2026-07-13-traits-regression.md`)
+this is the same "difficulty cliff" anomaly ADR-0024 identified and left open (~78 cells at the
+time, drifted to 117 in the current grid) — the enemy tier template's ×1.4^(tier−1) HP/attack/
+defense growth (ADR-0024) is the documented real-content authoring target (`docs/MAPS.md`
+§"Difficulty ramp"), not just a synthetic harness abstraction: the one real enemy with checkable
+numbers, the seeded Rotting Ghoul, matches the template's T1 base exactly. Root cause: the sim's
+only RNG is per-hit crit/dodge/block, which averages out over a full fight (law of large
+numbers), so outcome is close to deterministic per party+encounter — whatever nudges the
+DPS-race threshold (a tier step, a party-size step) flips the whole 200-seed sample from
+all-loss to all-win.
+
+**Decision.** Reduce the tier template's per-tier growth rate from ×1.4 to **×1.25**
+(`scripts/balance/enemies.ts` `TIER_GROWTH`). HP/attack/defense still compound per tier; speed
+stays flat (ADR-0024, unchanged). Archetype mods and tier-gated resistances (ADR-0033) are
+unaffected — the cliff reproduces on the plain `basic` archetype at zero-mod tiers, so the
+per-tier exponent alone is the responsible constant.
+
+**Evidence (before → after, `2026-07-14-pre-tier-curve` → `2026-07-14-tier-1.25`, same
+633,600-fight grid; candidate ×1.3 also swept and rejected — see Alternatives):**
+- Difficulty cliffs: 117 → 64 flagged cells.
+- Healer inversions: 0 → 0 (the ×1.3 candidate introduced 2 marginal inversions at the edge of
+  viability; ×1.25 stays clean).
+- Threat failure / timeout-heavy / clock-bound: 1 / 1 / 1 in both — no new regressions.
+- Frontier example (solo-tank, L1): T1 100% → T2 **0%** (baseline) vs. T1 100% → T2 **31%**
+  (×1.25) — a real chance instead of a wall. Frontier example (solo-crit, L50): T7 100% → T8
+  **4%** (baseline, near-impossible) vs. T7 100% → T8 **75%** (×1.25, a genuine risk/reward
+  fight instead of a coin-flip-adjacent wipe).
+- Off-frontier combos (a party far below a tier's intended level) get easier too — e.g. a level-10
+  trio now clears tier 8 at ×1.25 where it couldn't at ×1.4. Not a regression in practice: the
+  world-map system (ADR-0034) gates tier access by sequential stage/map unlock, so a level-10
+  party can never actually stand in front of tier-8 content; an over-leveled party trivializing
+  old content it has since outgrown is the intended "go back and farm an easier fight" behavior
+  (`src/pages/gameStatsContent.ts`), not new. Full trio comps were already ~100% across every
+  tier at L50 under the OLD ×1.4 template too (pre-existing "trio endgame dominance," a separate,
+  out-of-scope anomaly from this cliff fix).
+
+**Alternatives considered.**
+- **×1.3** — swept: cliffs 117 → 83 (worse than ×1.25) and introduced 2 healer inversions.
+  Rejected: strictly dominated by ×1.25 on both measured anomaly axes.
+- **Add real combat variance** (wider crit/dodge dispersion, HP variance) to break the
+  near-deterministic-outcome root cause directly — rejected for this pass: touches ADR-0013's
+  sim shape, invalidates every prior tuning ADR's sweep evidence, needs a full re-sweep of
+  everything. Bigger, riskier change; deferred.
+- **Leave the sim alone, fix the UI signal instead** — rejected: doesn't address that a
+  legitimately-geared solo character gets zero real chance at content one tier above them; the
+  UI already shows the true number faithfully (WinChanceEstimate), the number itself was wrong.
+
+**Consequences.**
+- `scripts/balance/enemies.ts` `TIER_GROWTH = 1.25`; `docs/MAPS.md` §"Difficulty ramp" updated
+  to match. ADR-0015 §G / ADR-0024 are superseded on the growth-rate value only (speed-flat and
+  archetype mods stand).
+- **Scope boundary (deliberate):** this changes the code-side template — the *authoring
+  guideline* and the harness that validates it — not the already-authored `enemyDef` documents
+  for the three live maps (Gravemarch/Embercrag/Frosthollow, 21 missions) in hosted Sanity.
+  Those were hand-authored against the old ×1.4 guideline and are not retroactively edited here.
+  Retuning them to ×1.25 is an explicit follow-up task.
+- `src/lib/combat.ts` (the real combat engine mission-claim executes) is untouched — this is an
+  enemy-content-curve change, not a combat-math change.
+
+## ADR-0037 — Enemy tier template v4: growth rate ×1.25 → ×1.8 per tier (reverses ADR-0036)
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Same day as ADR-0036: after seeing the smoothed curve, Alex reversed direction —
+wants missions **harder**, not smoother. The cliff Alex originally reported was a real bug
+(0% for a solo party, no risk/reward gradient), but the fix Alex actually wants is a difficulty
+increase, with one hard constraint: the first mission must always be clearable by any level-1
+character, solo.
+
+**Decision.** Raise `TIER_GROWTH` (`scripts/balance/enemies.ts`) from 1.25 to **1.8** — steeper
+than the original ADR-0024 value (1.4), a deliberate net difficulty increase over both prior
+templates. Cliffs above tier 1 are back and larger than the original baseline; that is the
+intended tradeoff, not a defect (contrast with ADR-0036, where cliffs were the problem being
+solved).
+
+**The tier-1 guarantee.** The template's scale factor is `TIER_GROWTH ** (tier − 1)`, so **tier 1
+is always exactly the base stats (120 HP / 12 atk / 5 def) regardless of the growth rate** —
+this constraint holds automatically for any `TIER_GROWTH` value, including 1.8. Verified beyond
+the algebra: ran all 19 roster characters solo (`scripts/balance/roster.ts`, level 1, 200 seeds
+each) against a tier-1 `basic` enemy. 16 of 19 win 100%. **Three do not, and never did — this is
+pre-existing and unrelated to tier growth**: Yenna Stonecall, Aldric Faithward, and Tyla
+Windcarrier (0% each) — all three are pure-healer specs (high healingPower, minimal attack) whose
+solo damage output is too low to kill a tier-1 enemy before it kills them, a healer-role gap in
+`src/lib/combat.ts`'s solo damage math, not a tier-content problem. **Flagged for Alex, not fixed
+here** — out of scope for a tier-curve change; if these three are reachable as a player's only
+level-1 character (e.g. a future starter pick), this needs its own fix (healer base attack,
+solo AI behavior, or excluding them from starter eligibility).
+
+**Evidence (`2026-07-14-tier-1.25` → `2026-07-14-tier-1.8`, same 633,600-fight grid):**
+- Difficulty cliffs: 64 → 156 flagged cells (higher than the original ADR-0024 baseline of 117 —
+  expected and intended, since 1.8 > 1.4 > 1.25).
+- Healer inversions: 0 → 1 (mild, one marginal cell).
+- Threat failure / timeout-heavy / clock-bound: 1 / 1 / 1, unchanged.
+- Endgame note: at L50, tier 8 drops to ~0% win rate for nearly every comp including full trios
+  (naked baseline — no gear/blessings, which aren't modeled in this sweep). Under the old 1.4
+  template, L50 trios cleared tier 8 at ~100% (ADR-0024's own "content headroom" note). At 1.8,
+  tier 8 is no longer cleared by anyone in the naked-stat sweep — real players will have gear and
+  blessings closing some of that gap, but this is a meaningfully harder ceiling than either prior
+  template and worth watching once itemization is authored.
+
+**Consequences.**
+- `scripts/balance/enemies.ts` `TIER_GROWTH = 1.8`; `docs/MAPS.md` §"Difficulty ramp" updated to
+  match, plus an explicit note that tier 1 is invariant to this constant by construction.
+  ADR-0036 is superseded (same day, never shipped past this branch).
+- Same scope boundary as ADR-0036: this is the code-side template/guideline only. The 21 live
+  missions' already-authored Sanity `enemyDef` content (against the old ×1.4 guideline) is not
+  retroactively edited — still an explicit follow-up.
+- **Follow-up completed same day:** queried all 15 `enemyDef`s the 21 live missions reference
+  (`production` dataset, drafts perspective) — 14 of 15 matched the old ×1.4 formula almost
+  exactly (confirming `docs/MAPS.md`'s authoring checklist was actually followed), so recomputing
+  health/attack/defense from each enemy's existing `tier` + `archetype` under ×1.8 was mechanical.
+  Patched via `patch_documents` (drafts only, nothing published) — Rotting Ghoul and Bone Swarm
+  (tier 1) untouched by construction; the other 13 updated. One judgment call: Bone Colossus's
+  defense was hand-tuned to 10 against the old formula's 7 — reset to the new formula's clean
+  value (9) rather than preserving the old +3 offset (Alex's call, easily bumped back up in
+  Sanity if the boss should stay tankier than template). Speed/damageType/resistances/block/etc.
+  on every enemy are untouched — only the three tier-driven fields moved.
+- **New follow-up surfaced:** the 3 pure-healer characters that can't solo-clear tier 1 at all.
+  Needs a decision from Alex on whether/how to fix (see above) before onboarding depends on it.
+- `src/lib/combat.ts` untouched — still a content-curve change, not a combat-math change.

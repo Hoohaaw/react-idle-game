@@ -1,11 +1,16 @@
 // Enemy generation for the balance harness — a code implementation of the enemy tier template
-// (ADR-0015 §G, revised by ADR-0024). Real missions author enemyDefs by hand in Sanity; the harness
-// generates the same shapes from (tier, archetype) so the sweep can probe difficulty bands that
-// aren't authored yet.
+// (ADR-0015 §G, revised by ADR-0024, growth rate revised by ADR-0036 then ADR-0037). Real missions
+// author enemyDefs by hand in Sanity; the harness generates the same shapes from (tier, archetype)
+// so the sweep can probe difficulty bands that aren't authored yet.
 //
-//   Tier-1 base (= the seeded Rotting Ghoul): HP 120 · atk 12 · def 5 · speed 10.
-//   Per-tier growth: HP/atk/def × 1.4^(tier−1); speed FLAT (ADR-0024 — scaling speed with tier
+//   Tier-1 base (= the seeded Rotting Ghoul): HP 120 · atk 12 · def 5 · speed 10. Tier exponent is
+//   tier−1, so T1 is ALWAYS exactly this base regardless of the growth rate below — T1 is meant to
+//   be clearable solo at level 1 (verified against the full roster, ADR-0037; 3 pure-healer specs
+//   already failed this pre-existing, unrelated to tier growth — see ADR-0037 consequences).
+//   Per-tier growth: HP/atk/def × 1.8^(tier−1); speed FLAT (ADR-0024 — scaling speed with tier
 //   made effective enemy DPS grow ~×1.96/tier and produced binary 100%→0% difficulty cliffs).
+//   History: 1.4 (ADR-0024) → 1.25 (ADR-0036, smoothed cliffs) → 1.8 (ADR-0037, Alex: deliberately
+//   harder than the original 1.4, cliffs reintroduced above tier 1 by design intent).
 //   Archetype mods: tank ×2 HP / ×1.5 def / ×0.6 atk · caster magic dmg / ×1.2 atk / ×0.8 HP ·
 //                   swarm ×0.4 HP / ×0.7 atk · boss ×5 HP / ×1.5 atk.
 //
@@ -28,7 +33,7 @@ export type Archetype = 'basic' | 'tank' | 'caster' | 'swarm' | 'boss'
 export const RECOMMENDED_TIME_LIMIT = 180
 
 const TIER1 = { health: 120, attack: 12, defense: 5, speed: 10 }
-const TIER_GROWTH = 1.4
+const TIER_GROWTH = 1.8
 
 const ARCHETYPE_MODS: Record<Archetype, { hp: number; atk: number; def: number; magic?: boolean }> = {
   basic: { hp: 1, atk: 1, def: 1 },
