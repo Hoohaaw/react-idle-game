@@ -1752,3 +1752,97 @@ solo AI behavior, or excluding them from starter eligibility).
 - **New follow-up surfaced:** the 3 pure-healer characters that can't solo-clear tier 1 at all.
   Needs a decision from Alex on whether/how to fix (see above) before onboarding depends on it.
 - `src/lib/combat.ts` untouched — still a content-curve change, not a combat-math change.
+
+## ADR-0038 — Per-fight stat rolls: combat outcomes become probabilistic in the contested band
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Alex wants real 60/40 moments — fights where the player weighs pushing a risky
+stage against farming the previous one — and "some competition… so that the user needs to make
+some tactical changes". The sim couldn't produce them: its only randomness is per-HIT crit/
+dodge/block, which averages out over a fight's hundreds of hits, so a given party vs a given
+encounter resolves to ~0% or ~100% with a razor-thin transition. The tier-curve work
+(ADR-0036/0037) moved WHERE the cliff sits but structurally could not turn a cliff into a
+slope — that needs fight-level variance, which no curve constant provides.
+
+**Decision.** Each fight draws per-unit rolls from the existing seeded rng before the timeline
+starts (`src/lib/combat.ts` `simulateCombat`): every party member's attack power rolls uniformly
+within ±`PARTY_POWER_ROLL` (10%), every enemy's max HP and attack roll independently within
+±`ENEMY_STAT_ROLL` (12%). Alex explicitly wanted the player side rolled too ("the attack value
+is a span instead of a set value") — and chose to SHOW it: attack-type stats (attack,
+spellPower) render as their per-fight range (e.g. "45–55") via `src/lib/powerSpan.ts` in the
+stat sheet (`CharacterStats`), with the roll noted in the breakdown tooltip. Healing power does
+not roll; party HP never rolls (it's persistent, carried between missions); enemy HP re-rolls
+freshly each run (enemies are ephemeral).
+
+Determinism is preserved: rolls come from the run-seed rng in fixed unit order, so the same
+seed still replays identically, and the dispatch estimator — which runs this same function over
+200 seeds — surfaces the resulting distribution automatically, with zero estimator changes.
+
+**Evidence** (`2026-07-14-tier-1.8` → `2026-07-14-variance-rolls`, 633,600-fight grid, new
+"middle band" metric = cells with 10–90% win at 180s):
+- Middle band: 29 → 51 cells; difficulty cliffs 156 → 134. Grid granularity (6 level samples)
+  understates the effect — per continuous level the transition now spans several levels, e.g.
+  trio-core T4 solo reads L1 0% / L5 52% / L10 100% instead of snapping 0→100.
+- Discriminating regression test: a marginal fight (kill time ≈ time limit) over 100 seeds must
+  produce BOTH outcomes; verified 22/100 wins with rolls, 0/100 with rolls zeroed.
+- Three engine tests that pinned exact hit damage were converted to ratio/band assertions
+  (mitigation ratios are roll-invariant under a shared seed); the traits Mapborn pair became a
+  win-rate comparison (on-map must beat off-map by >25pts over 200 seeds).
+
+**Alternatives considered.** Widening per-hit variance (bigger/rarer crits): converges anyway
+over long fights, weaker effect per point of swing, and reshapes the crit stat's value — kept
+as a possible later knob. Per-run rolls on ALL stats: defense/speed feed DR curves and interval
+math, adding noise without widening the band much; attack+HP are the two levers that decide
+races. Estimator-side fuzzing only (fake a band in the UI): dishonest — the shown probability
+must be the real one.
+
+**Consequences.** `mission-claim` must be redeployed for the hosted sim to roll (until then,
+client estimates include rolls the server doesn't make — deploy immediately after merge). The
+±12% enemy roll means authored enemy stats are now bands in practice; MAPS.md authoring numbers
+stay the roll midpoints. Player guide ("How Combat Works") updated. Constants are sweep-tunable
+(`COMBAT.PARTY_POWER_ROLL` / `COMBAT.ENEMY_STAT_ROLL`) — future span changes are re-sweep +
+constant bumps, and the UI span display follows automatically.
+
+## ADR-0039 — Boss spike attacks: periodic threat-ignoring heavy hits
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Same session as ADR-0038. With threat working (ADR-0027), a tank + sustain party
+reduces most boss fights to a DPS race against the clock — the boss's damage all lands on the
+tank, so party composition barely matters once the tank holds. Bosses need a mechanic that asks
+a comp question the tank alone can't answer, and turtle comps that stall fights out (flagged
+timeout-heavy in every sweep since the baseline) need pressure that scales with fight length.
+
+**Decision.** New authored enemy capability: `spikeEverySeconds` + `spikeMultiplier` (both
+required to arm). Every `spikeEverySeconds` of combat time, the enemy's next action becomes a
+spike — `attack × spikeMultiplier` aimed at a **uniformly random living party member**,
+ignoring threat entirely. Dodge, crit, armor DR, and block all still apply (defensive stats are
+the counterplay), the first spike lands one full period in (no opening one-shots before threat
+exists), and a slow actor can't bank multiple missed spikes. Logged as a distinct `'spike'`
+event type so replay UIs and the sweep's tank-absorption metric (which counts only
+'attack'/'dodge') tell them apart — absorption correctly measures threat-respecting hits only.
+
+Boss standard: **every 20s, ×2.5** — set in the harness template (`scripts/balance/enemies.ts`
+boss archetype) and patched onto the 3 live boss drafts (Bone Colossus, The Ember Tyrant, The
+Frost Monarch). Plumbed end-to-end: enemyDef schema (studio) → mission-claim GROQ/mapping →
+services/missions.ts → winChance estimator, so the dispatch estimate prices spikes in.
+
+**Evidence** (`2026-07-14-variance-rolls` → `2026-07-14-variance-full`):
+- Timeout-heavy cells 20 → 4: spikes end turtle stalls — sustained fights now accumulate real
+  damage pressure instead of stabilizing forever. The survivors are duo-tank-heal boss grinds,
+  much reduced.
+- Middle band 51 → 54 (boss shape 23 → 26); cliffs 134 → 130.
+- One new healer inversion (L50 T5 boss: trio-core 84% vs trio-double-dps 100%): overleveled
+  double-dps kills the boss before enough spikes land — "kill it fast" is a legitimate spike
+  answer, accepted as exactly the comp-choice texture this mechanic exists to create. Watch it
+  doesn't spread to on-level cells in future sweeps.
+- Engine tests: spikes outdamage the same boss's normal hits, land on non-tank members, respect
+  the period count, and never fire when unauthored.
+
+**Consequences.** Boss fights now have failure variance even for tank comps — margins (and
+infirmary load) on boss stages are spikier by design, which feeds the 60/40 push-or-farm
+decision on stage 7. Authored bosses should carry the standard 20s/×2.5 unless deliberately
+tuned (MAPS.md law follows in the rhythm-law branch). The estimator needs no changes; hosted
+parity again requires the mission-claim redeploy. Swarm/caster archetypes stay spike-free —
+spikes are the BOSS comp-counter (swarm = race, caster = armor bypass).

@@ -12,7 +12,7 @@
 //   History: 1.4 (ADR-0024) → 1.25 (ADR-0036, smoothed cliffs) → 1.8 (ADR-0037, Alex: deliberately
 //   harder than the original 1.4, cliffs reintroduced above tier 1 by design intent).
 //   Archetype mods: tank ×2 HP / ×1.5 def / ×0.6 atk · caster magic dmg / ×1.2 atk / ×0.8 HP ·
-//                   swarm ×0.4 HP / ×0.7 atk · boss ×5 HP / ×1.5 atk.
+//                   swarm ×0.4 HP / ×0.7 atk · boss ×5 HP / ×1.5 atk + spike 20s/×2.5 (ADR-0039).
 //
 // Note: the template defines NO resistance, so generated enemies (like the two authored ones) have
 // resistance 0 — magic damage bypasses all mitigation. Deliberately faithful; the sweep is meant to
@@ -34,6 +34,13 @@ export const RECOMMENDED_TIME_LIMIT = 180
 
 const TIER1 = { health: 120, attack: 12, defense: 5, speed: 10 }
 const TIER_GROWTH = 1.8
+
+/** Boss spike attack (ADR-0039): every BOSS_SPIKE_EVERY combat seconds a boss's next action is a
+ *  heavy hit — attack × BOSS_SPIKE_MULT at a RANDOM living party member, ignoring threat. This is
+ *  the boss comp-counter: the tank can't cover spikes, so squishy comps need dodge/block/HP or a
+ *  healer who can react. Authored bosses should carry the same values unless deliberately tuned. */
+export const BOSS_SPIKE_EVERY = 20
+export const BOSS_SPIKE_MULT = 2.5
 
 const ARCHETYPE_MODS: Record<Archetype, { hp: number; atk: number; def: number; magic?: boolean }> = {
   basic: { hp: 1, atk: 1, def: 1 },
@@ -80,6 +87,9 @@ export function makeEnemy(tier: number, archetype: Archetype, index = 0): Enemy 
     speed: TIER1.speed, // flat across tiers (ADR-0024)
     defense: Math.round(TIER1.defense * scale * mod.def),
     resistances: resistancesFor(tier, archetype),
+    ...(archetype === 'boss'
+      ? { spikeEverySeconds: BOSS_SPIKE_EVERY, spikeMultiplier: BOSS_SPIKE_MULT }
+      : {}),
   }
 }
 
