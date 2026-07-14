@@ -1908,3 +1908,43 @@ pay differently, matching Alex's framing). Legacy missions without map/stage are
 (flag is always false). `mission-claim` redeploy required. If transcendence later resets
 `map_progress`, first-clear bonuses come back with it — price that into the transcendence design
 when it lands.
+
+## ADR-0042 — Combat trait wave 2: archetype counters + future-school wards (content only)
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex — part of the combat-tension queue)
+
+**Context.** The trait system (ADR-0035) already ships `enemySchool`/`enemyArchetype` conditions
+fully wired through the engine, mission-claim, the estimator, and the dispatch chips — no code
+was needed for combat traits, only content. Wave 1 leaned economy; the combat-conditional set
+had gaps that the new mechanics made visible: Flamewalker (fire resist) existed but was assigned
+to NOBODY (dead content on the live fire map), no trait countered the tank archetype (the
+MAPS.md clock-check), nothing answered boss spikes defensively (ADR-0039), healers had no
+boss-fight identity, and the three future map schools (earth/wind/holy, waves 2+) had no wards.
+
+**Decision.** Six new traitDefs (drafts only), priced to the wave-1 scale (±12–15% pct / flat 40
+resist / flat 25 armorPen ≈ the flat-40-resist power band):
+- **Wallbreaker** — vs tank archetype: +25 armorPen (the clock-check counter).
+- **Bulwark** — vs boss: +12% defense & +12% resistance (the spike counter, tank identity).
+- **Vigilkeeper** — vs boss: +15% healingPower (healer boss identity).
+- **Earthward / Galeward / Lightward** — flat 40 resistance vs earth/wind/holy (inert until
+  wave-2+ maps; authored now so map authoring won't need a trait session).
+
+Seven assignment swaps, keeping every character exactly at their ADR-0035 rarity cap (C1/U2/R3/
+E4) and every wave-1 trait with at least one holder: Dara swarmbane→flamewalker · Tyla
+ironblood+scholar→flamewalker+vigilkeeper (full combat-healer identity) · Aldric
+ironblood→vigilkeeper · Vex goldtouched→wallbreaker · Sera pathfinder→wallbreaker · Brom
+giantslayer→bulwark (defensive tank, giantslayer stays on Mordrek/Vex) · Mordrek
+spellbreaker→bulwark (spellbreaker stays on Callum).
+
+**Coverage after the wave (per live map, "active trait chips on dispatch"):** Gravemarch —
+shadowward ×4, gravehand ×3, stoneguard ×2, bulwark ×2, giantslayer ×2, vigilkeeper ×2.
+Embercrag — flamewalker ×2 (was 0), cragborn ×2, spellbreaker ×1, plus the boss set. Frosthollow
+— frostblood ×2, rimeborn ×2, plus the boss set. Tank-archetype stages (Grave Warden, Magma
+Brute, Glacier Golem) — wallbreaker ×2, a counter that didn't exist.
+
+**Consequences.** Pure Sanity-drafts content — no code, no deploys (mission-claim and the
+estimator resolve traits per claim/estimate from the drafts). Dispatch chips light up per
+mission automatically. Economy traits lost in the swaps (scholar/ironblood/goldtouched/
+pathfinder instances) were deliberate: combat-role characters trade utility for combat identity;
+each of those traits still exists on economy-leaning characters. Rebalance freely in Studio —
+these are drafts, and trait swaps carry no schema or budget migration.
