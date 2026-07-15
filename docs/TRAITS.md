@@ -63,7 +63,7 @@ the author picks per character.
 | Type | Condition | Effect |
 |---|---|---|
 | **Pathfinder** | always | mission duration −[5–10]% |
-| **Goldtouched** | always | +[511–15]% gold from missions |
+| **Goldtouched** | always | +[5–15]% gold from missions |      
 | **Fortunate** | always | +[5–15] Magic Find / Luck |
 | **Scholar** | always | +[5–15]% XP for self only |
 
