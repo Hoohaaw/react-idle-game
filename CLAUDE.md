@@ -111,6 +111,9 @@ main context what an agent can do in its own.
 - **Characters are authored on the point-buy budget** (ADR-0031): prices + rarity budgets in
   `src/lib/characterBudget.ts`, guideline in [`docs/CHARACTERS.md`](./docs/CHARACTERS.md),
   enforced by the studio schema validation.
+- **Items are authored per [`docs/ITEMS.md`](./docs/ITEMS.md)** (ADR-0043/0044): slot/rarity
+  system, the rarity-scaled level-requirement gate, and the per-map universal-fill + build-defining
+  identity pattern new maps extend.
 - Components target ~200 lines; presentation and logic stay separate.
 - **No emoji as UI icons** (design rule, 2026-07-12): real icon assets arrive later — until then,
   anywhere an icon belongs renders the `IconSlot` placeholder (`src/components/atoms/IconSlot`);

@@ -84,6 +84,17 @@ combined ×5–6 endgame total — or, if that turns out too steep in practice, 
 tapering tier growth above T6 or gating maps 6–7 behind transcendence. Re-check this table
 against real content sweeps before authoring wave-3+ maps.
 
+**Wave-1 itemDef verification (ADR-0044, 2026-07-15):** the `geared ×1.35` proxy above was a
+flat stand-in until real itemDefs existed. With 23 itemDefs now live, a calc-script check against
+the real `effectiveStats` engine (not the harness proxy) at a full 14-slot Rare-average loadout
+found: physical DPS +32.2% attack, tank +42.6% defense — both landing in the intended ~30–40%
+band map 3 (Frosthollow) needed. Casters/healers landed lower (+23.2% spellPower/healingPower)
+because wave 1's weapon lane is physical-only; their only itemization is the trinket lane. The
+`geared` proxy is confirmed roughly accurate for physical/tank roles and slightly generous for
+casters/healers until a magic-implement item lane exists (docs/ITEMS.md, TODO). No harness code
+change made — `sweep.ts`'s power-tier multiplier remains a proxy for all comps; re-deriving it
+per-role is future work if the caster/healer gap isn't closed first.
+
 ## Metrics glossary (CSV columns)
 
 - **winRate / timeoutRate / wipeRate** — outcome split. Timeout and wipe are both losses but need

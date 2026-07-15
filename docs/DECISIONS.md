@@ -1996,3 +1996,57 @@ the gate only fires at equip time, not retroactively. This matches how prestige 
 work (you keep gear, you regrind levels) and transcendence itself isn't built yet; revisit if it
 proves wrong once it is. Migration drops and recreates `equip_item` (adding a parameter changes
 the signature) — `gear-equip` Edge Function redeploy required alongside it.
+
+## ADR-0044 — ItemDef content wave 1: 23 items closing the slot gap on the 3 live maps
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex — requested level-gating, map flavor, and a
+replicable methodology doc alongside the content ask)
+
+**Context.** Only 4 itemDefs existed (PR #21 test fixtures), covering 4 of 10 slot types — head,
+shoulders, hands, legs, feet, and offhand had zero items, so those equip slots were dead on every
+character sheet. All 21 live missions looted only those same 4 items, and rarity never rolled
+above Rare anywhere, leaving `RARITY_MULT`'s Epic/Legendary tiers wired but unused. ADR-0040
+named map 3 (Frosthollow, T4 boss) "the first real gear check," expecting the harness's `geared
+×1.35` proxy — a number this wave needed to actually deliver via real content, not a guess.
+
+**Decision.** 19 new itemDefs (+ the 4 existing, backfilled with `minLevel: 1` = 23 total):
+- **Universal fill (6 items, Gravemarch-tagged):** one item per empty slot type (head/shoulders/
+  hands/legs/feet/offhand), health-primary, `minLevel` 1–4.
+- **Per-map build-defining sets:** Gravemarch +3 (weapon/ring/trinket), Embercrag +5 (adds
+  offhand + chest), Frosthollow +5 — each map's weapon/offhand/chest/ring/trinket sized to that
+  map's expected level band (docs/BALANCE.md), with a consistent slot-to-stat lane (weapon =
+  attack, offhand = defense, chest = health + small defense, the other 5 armor slots = health
+  only, ring = light offense/defense utility, trinket = spellPower/healingPower `pct`) so the
+  same stat doesn't get re-stacked across many slots.
+- **Rarity ceiling extended:** Gravemarch's boss (Bone Colossus) now reaches Epic (low weight),
+  Embercrag's (Ember Tyrant) reaches Epic (moderate weight), and Frosthollow's (Frost Monarch)
+  introduces the game's **first Legendary drops** (frostplate-hauberk, glacial-greatsword) —
+  matching its framing as the current endgame's reward.
+- **Verified, not guessed:** a throwaway calc script (`effectiveStats`/`collectGearBonuses` from
+  `src/lib/stats.ts` directly — the real engine, not a reimplementation) checked a full 14-slot
+  Rare-average loadout against real L20 characters. Result: physical DPS (Vex) +32.2% attack,
+  tank (Brom) +42.6% defense, caster (Mira) +23.2% spellPower, healer (Tyla) +23.2%
+  healingPower — landing near the +30–40% target for physical/tank; casters/healers land lower
+  because wave 1's `weapon` lane is attack-only (no dedicated magic-implement slot yet) and their
+  only itemization is the trinket lane. Accepted as a scoped v1 limitation, not silently missed —
+  logged as a TODO ("caster/healer weapon-equivalent itemization").
+- An early draft put a small `defense` bonus on nearly every armor slot; because a character
+  wears 14 slots at once, this compounded to +105% defense for the tank before the calc script
+  caught it. Fixed by concentrating defense into two lanes (offhand primary, chest secondary)
+  instead of spreading it thin across six. Documented in docs/ITEMS.md as the wave's main lesson.
+- **Level-cap ceiling identified (not yet binding):** with the ADR-0043 flat +14 Legendary step
+  and a level cap of 50, any future itemDef's `minLevel` must stay ≤36 or its Legendary roll
+  becomes permanently unequippable. Wave 1's anchors (1–15) are safely clear of this; recorded in
+  docs/ITEMS.md so map 5+ authoring doesn't walk into it blind.
+- **`docs/ITEMS.md`** (new) captures the full methodology — slot system, the level-requirement
+  formula, the universal-fill/per-map pattern, the stat-lane table, the sizing/verification
+  method, the loot-wiring weak-reference gotcha, and a checklist for the next map's item wave —
+  so this is replicable without re-deriving it from scratch.
+
+**Consequences.** Every one of the 14 equip slots now has at least one real item; the 21 live
+missions' loot tables were rewired to introduce them (existing `dropChance`/`rarityWeights`
+pacing preserved, only `itemKey` targets and rarity ceilings changed). Two follow-up TODOs
+recorded rather than solved here: an `itemBudget.ts` power-budget validator (analogous to
+`characterBudget.ts` — items are still authored free-form, no cap) and item flavor text (every
+`description` field ships blank this wave). Maps 4–7 extend the same pattern per docs/ITEMS.md,
+not from scratch.
