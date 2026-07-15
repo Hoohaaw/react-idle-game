@@ -56,10 +56,22 @@ character sprite art. Older open items below may be stale — trust the mileston
   mission-card resist line, roster school badges) in PR #48. Remaining: character-side resist
   gear affixes (v2, deferred by design — see docs/ELEMENTS.md).
   `↳ context: project-design-decisions, project-combat (hit pipeline), src/lib/combat.ts, studio/schemaTypes/enemyDef.ts`
-- [ ] **Blessing trees = real build choices** — trees must change how a character plays (a tank
-  specs deeper tankiness OR real damage), priced with the ADR-0031 stat prices + a per-tree budget
-  so trees don't reopen the runaway problem. Decide tree budget size when authoring the first tree.
-  `↳ context: project-character-budget, project-character-development · docs/CHARACTERS.md`
+- [x] **Blessing trees = real build choices** (ADR-0045, 2026-07-15) — redesigned as 4 rows × 2
+  choices (permanent, level-gated 10/20/30/40) + an earned capstone (stat/conditional/ability
+  flavors). Mechanism shipped (`choose_blessing` RPC, real `/blessings` page); flat pricing across
+  rarity closes the budget question. Ability-flavor combat engine + real per-character content are
+  follow-ups (see below).
+  `↳ context: project-blessings · docs/DECISIONS.md ADR-0045, src/lib/blessings.ts`
+- [ ] **Blessing capstone ability engine** — the 'ability' capstone flavor needs new `combat.ts`
+  surface (`surviveFatal`, `partyBuffOnStart` — a small fixed vocabulary, not a generic event
+  system). Ships with zero stat bonus until this lands.
+  `↳ context: project-blessings · docs/DECISIONS.md ADR-0045, src/lib/combat.ts`
+- [ ] **Blessing tree content wave 1** — author real 4-row+capstone trees for all 19 characters
+  (equal-budget per row-choice, calc-script-verified per ADR-0040's power curve), `docs/BLESSINGS.md`.
+  `↳ context: project-blessings · docs/DECISIONS.md ADR-0045, docs/ITEMS.md (sizing precedent)`
+- [ ] **Blessing respec** — picks are permanent in v1 by explicit design; a future respec option
+  (cost/mechanism TBD) was requested but deferred, not built.
+  `↳ context: project-blessings · supabase/migrations/20260715130000_blessing_choose.sql`
 - [x] **Item rarity multiplier flattened** (was ×2/step = ×16 Legendary) — see ADR-0032.
 - [x] **Mission failed screen** — distinguish *ran out of time* (team alive, enemy stood) from
   *party wiped*; claim UI needs a failure state that explains the loss honestly. Built (PR #49):
