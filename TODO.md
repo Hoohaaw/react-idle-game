@@ -72,9 +72,10 @@ character sprite art. Older open items below may be stale — trust the mileston
   resource-flavor+hybrid-combat), 6 ability/7 conditional/6 stat capstone split. `docs/BLESSINGS.md`
   is the methodology doc.
   `↳ context: project-blessings · docs/DECISIONS.md ADR-0046, docs/BLESSINGS.md`
-- [ ] **Blessing respec** — picks are permanent in v1 by explicit design; a future respec option
-  (cost/mechanism TBD) was requested but deferred, not built.
-  `↳ context: project-blessings · supabase/migrations/20260715130000_blessing_choose.sql`
+- [x] **Blessing respec** (ADR-0047, 2026-07-15) — gold-cost (`RESPEC_COST`), all-or-nothing wipe
+  of a character's entire tree via a new `/respec` page + `respec_blessings` RPC. Doubles as an
+  intentional resource sink.
+  `↳ context: project-blessings · docs/DECISIONS.md ADR-0047, supabase/migrations/20260715140000_blessing_respec.sql`
 - [ ] **Blessing row-level conditions** — `blessingChoice` has no `condition` field (only the
   capstone does), so a row pick can't be gated to a specific resource/map/enemy. Gatherer rows
   work around this with unconditional, flavor-only bonuses (ADR-0046). Real engine PR if ever wanted.

@@ -2218,3 +2218,41 @@ Still open, not this ADR: a dedicated `blessingBudget.ts` validator script (mirr
 blessing content (ADR-0040's own ask), gather `BonusTag` UI wiring for blessing-sourced gather
 bonuses, the Option-B row-level-conditions engine work if ever wanted, and respec (unchanged,
 still permanent-in-v1 per ADR-0045).
+
+## ADR-0047 — Blessing respec: gold-cost, all-or-nothing tree wipe via a dedicated page
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex)
+
+**Context.** ADR-0045 made blessing picks permanent by explicit design and deferred respec as an
+open TODO ("cost/mechanism TBD" — `TODO.md`, `docs/BLESSINGS.md`). ADR-0046's consequences section
+still listed it as "unchanged, still permanent-in-v1." Alex asked for it to be built: a new
+dedicated page where you pick a character from the roster and press a button (enabled once
+selected) to respec them.
+
+**Decision.**
+- **Costs gold** — a flat `RESPEC_COST` constant (`src/lib/blessings.ts`), not free or
+  cooldown-gated. Chosen specifically because it doubles as an intentional resource sink
+  (`project_pitfalls.md`'s "no resource sink" risk) — a second sink alongside infirmary upgrades.
+  Resolved **server-side only**: the `blessing-respec` Edge Function imports `RESPEC_COST` directly
+  and passes it to the RPC; the client's request body only ever carries `characterId`, mirroring
+  how `infirmary-upgrade` resolves `UPGRADE_COSTS` itself rather than trusting a client-supplied
+  price (ADR-0003).
+- **All-or-nothing wipe, not per-row.** Rows 2–4 structurally require the previous row already
+  picked (`choose_blessing` enforces this server-side) — a partial respec (e.g. clearing only row3)
+  would leave the tree in an invalid state unless it also cascaded. `respec_blessings` resets
+  `blessings` to `'{}'::jsonb` in a single transaction instead.
+- **New `respec_blessings` RPC** (`20260715140000_blessing_respec.sql`), mirroring
+  `choose_blessing`'s lock/ownership/busy-check idiom (blocked while on a mission/gathering/in the
+  infirmary — respeccing mid-activity is nonsensical) plus `upgrade_infirmary`'s lock-profile/
+  verify-balance/deduct idiom, collapsed to a single scalar gold check (no currencies-map — the
+  project has exactly one currency today). Also rejects a no-op respec (`blessings = '{}'`) so
+  gold isn't charged for nothing.
+- **New dedicated `/respec` page**, not folded into `/blessings` — reuses `BlessingsPage`'s
+  roster-rail + detail-panel visual idiom (a small local `CharacterRow`, not the mismatched
+  `PartyRoster` organism or a cross-feature import of `BlessingsPage`'s internals, per ADR-0010).
+  No confirmation modal — pressing the button is the whole interaction, by explicit request.
+
+**Consequences.** Supersedes ADR-0046's closing note ("respec... still permanent-in-v1"); the
+`TODO.md` "Blessing respec" line is now done. `RESPEC_COST = 500` is a first-pass, adjustable
+constant (same provisional status as `UPGRADE_COSTS`) — revisit once playtesting shows real gold
+income rates. No change to the blessing schema, content, or combat engine.
