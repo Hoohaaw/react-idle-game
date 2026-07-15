@@ -23,6 +23,7 @@ const NAV = [
   { label: 'Crafting', to: '/crafting' },
   { label: 'Upgrades', to: '/upgrades' },
   { label: 'Blessings', to: '/blessings' },
+  { label: 'Respec', to: '/respec' },
   { label: 'Transcendence', to: '/transcendence' },
   { label: 'Statistics', to: '/statistics' },
   { label: 'Game Stats', to: '/game-stats' },

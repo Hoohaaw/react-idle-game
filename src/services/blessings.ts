@@ -13,3 +13,9 @@ export async function chooseBlessing(args: {
   if (error) await invokeError(error, 'Could not choose blessing')
   return data as ChooseBlessingResult
 }
+
+export async function respecBlessings(args: { characterId: string }): Promise<ChooseBlessingResult> {
+  const { data, error } = await supabase.functions.invoke('blessing-respec', { body: args })
+  if (error) await invokeError(error, 'Could not respec')
+  return data as ChooseBlessingResult
+}

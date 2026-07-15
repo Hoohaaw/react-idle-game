@@ -20,6 +20,13 @@ export const BLESSING_ROW_LEVELS: Record<BlessingRowNumber, number> = {
 /** Level at which the capstone is earned, once row 4 is already picked. Ten past the last row. */
 export const CAPSTONE_LEVEL = 50
 
+/** Flat gold cost to respec a character — wipes the entire blessing tree back to `{}` in one shot
+ *  (ADR-0047). All-or-nothing: row2/3/4 structurally require the previous row picked
+ *  (`choose_blessing` enforces this), so a partial clear would leave the tree invalid unless it
+ *  also cascaded — respec sidesteps that by clearing everything at once. PROVISIONAL value, same
+ *  "tune later" status as `UPGRADE_COSTS` (src/lib/infirmary.ts). */
+export const RESPEC_COST = 500
+
 /** Player intent stored on `player_characters.blessings` — which choice ('a'|'b') was picked per
  *  row. No capstone key: the capstone is computed on read (ADR-0002), never written. */
 export type BlessingPicks = Partial<Record<`row${BlessingRowNumber}`, 'a' | 'b'>>
@@ -66,6 +73,11 @@ export function nextUnpickedRow(picks: BlessingPicks): BlessingRowNumber | null 
 /** The capstone is earned once level 50 is reached and row 4 has been picked — never stored. */
 export function capstoneEarned(level: number, picks: BlessingPicks): boolean {
   return level >= CAPSTONE_LEVEL && picks.row4 != null
+}
+
+/** How many of the 4 rows are currently picked — 0 means nothing to respec. */
+export function pickedRowCount(picks: BlessingPicks): number {
+  return BLESSING_ROWS.filter((row) => picks[`row${row}`] != null).length
 }
 
 /** A minimal Sanity-shape blessing row — just enough to flatten into engine input. */

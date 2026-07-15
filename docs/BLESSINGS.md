@@ -21,10 +21,16 @@
 ## Row gating and permanence
 
 Row *N* unlocks at character level *N*×10 (10/20/30/40) **and** only after row *N*-1 is already
-picked (strict sequence, enforced server-side by `choose_blessing`). Picks are **permanent** — no
-respec in v1 (a future respec option is a standing TODO, not built). The capstone is **earned, not
+picked (strict sequence, enforced server-side by `choose_blessing`). The capstone is **earned, not
 chosen**: granted once `level >= 50 AND row4 picked`, computed on read every time, never written to
 `player_characters.blessings`.
+
+Picks are permanent **until respecced** (ADR-0047): the `/respec` page lets a player pay a flat
+gold cost (`RESPEC_COST`, `src/lib/blessings.ts`) to wipe a character's entire tree back to `{}` in
+one shot via the `respec_blessings` RPC. Respec is **all-or-nothing** — never per-row — because
+rows 2–4 structurally require the previous row already picked, so a partial clear would leave the
+tree in an invalid state unless it also cascaded. Respec is blocked while the character is busy
+(mission/gathering/infirmary, same guard as `choose_blessing`) and while there's nothing picked.
 
 ## The five role-shape patterns
 

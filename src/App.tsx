@@ -7,6 +7,7 @@ import { InfirmaryPage } from '@/features/infirmary'
 import { GatherPage } from '@/features/gather'
 import { TeamPage } from '@/features/team'
 import { BlessingsPage } from '@/features/blessings'
+import { RespecPage } from '@/features/respec'
 import UpgradingPage from './pages/UpgradingPage'
 import ShopPage from './pages/ShopPage'
 import InventoryPage from './pages/InventoryPage'
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/crafting" element={<CraftingPage />} />
           <Route path="/upgrades" element={<UpgradesPage />} />
           <Route path="/blessings" element={<BlessingsPage />} />
+          <Route path="/respec" element={<RespecPage />} />
           <Route path="/transcendence" element={<TranscendencePage />} />
           <Route path="/statistics" element={<StatisticsPage />} />
           <Route path="/game-stats" element={<GameStatsPage />} />
