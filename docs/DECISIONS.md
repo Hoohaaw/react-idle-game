@@ -2166,3 +2166,55 @@ restricted to the `AbilityStat` allowlist, `kind`, `value`), both hidden/validat
 `kind`/`abilityKind` so authoring a flat or conditional capstone never shows them. No player-facing
 UI changes: `CapstoneCard`/`TalentsTab` already rendered `title`/`kind`/`effects` generically and
 degrade gracefully for a kind with no `effects` (ability capstones still show title + "Ability").
+
+## ADR-0046 — Blessing tree content wave 1: per-role fork templates for all 19 characters
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex)
+
+**Context.** ADR-0045 (+ Phase B) shipped the full blessing mechanism, but every one of the 19
+characterDefs still carries `blessingTree: []` and no `capstone` — blessings are wired up end to
+end but grant nothing yet (`project_pitfalls.md`'s "blessings are live but do nothing" risk). This
+ADR is the content wave that closes it, per docs/BLESSINGS.md's methodology.
+
+**Decision.**
+- **Per-role fork templates**, each a genuine build-defining choice, not just a bigger number:
+  Damage (7 chars) forks offense vs bulk on 3 rows + an armorPen-vs-crit "finishing move" row;
+  Tank (2) forks pure-wall vs off-tank on all 4 rows; Healer (3) forks burst-vs-sustain healing on
+  2 rows + a NEW tankiness (health/defense vs more healPower) fork on the other 2 — Alex's explicit
+  ask, so a healer can be built survivable, not just a healbot; Utility (4) forks throughput
+  (missionSpeedDecrease) vs economy (goldFind/magicFind/luck); Gatherer (3) forks resource-flavored
+  gatherSpeed/Yield on 2 rows + a NEW hybrid-combat (keep-gathering vs attack/damage) fork on the
+  other 2 — also Alex's explicit ask, so a gatherer can meaningfully dps if specced that way.
+- **Auras are capstone-only, confirmed explicitly** (no row-level party buffs) — but Alex wants
+  them to actually exist this wave, not just be theoretically supported by the Phase B engine: 4
+  characters (Brom, Aldric, Lyra, Gort) get `partyBuffOnStart` capstones, 2 (Mordrek, Vex) get
+  `surviveFatal` — a real spread across roles, not clustered on one. Remaining 13 split
+  stat/conditional (roughly 6 ability / 6 conditional / 7 stat overall across all 19).
+- **Row-conditional schema gap, resolved.** `blessingChoice` has no `condition` field (only
+  `capstoneBlessing` does) — a literal "+yield only while gathering Wood" row pick isn't buildable
+  without new engine work. Chose the zero-engine-work path: gatherer rows are unconditional,
+  flavored toward the signature resource (mirrors the existing `Quickhand` trait's `always`-
+  condition pattern). True row-level conditions are a possible future engine PR, not this wave.
+- **Budget: 20 `STAT_PRICE` points per row, 30 for a stat/conditional capstone, flat across
+  rarity** (matches ADR-0045's existing flat-pricing decision — blessing magnitude is the one
+  lever that isn't rarity-scaled). `ability` capstones aren't priced; a `partyBuffOnStart` is
+  discounted to ~40% of an equivalent solo `stat` grant since it hits the whole party at once. This
+  is a single adjustable constant translating ADR-0040's "~×3.4–6 combined gear+blessings at L50"
+  target into blessings' smaller, secondary share (gear does the larger climb) — nothing else
+  depends on its exact value.
+- **Studio validators don't run for MCP-authored content** (they're Sanity Studio client-side rules
+  only) — `patch_documents` skips the equal-cost/shape checks entirely, so a scratchpad calc-script
+  must manually replicate them before writing, and content gets read back and re-verified after.
+- **Piloted first**: Mordrek Graveborn (tank, `surviveFatal` — first real content to exercise the
+  Phase B ability engine, and closes the loop ADR-0045's content-cleanup opened when it wiped his
+  old 5-node data), Tyla Windcarrier (healer, both NEW sub-axes at once, conditional capstone
+  extending her existing `Vigilkeeper` precedent), Gort Deepvein (gatherer, both NEW sub-axes at
+  once, `partyBuffOnStart` capstone, forces the pct/calc-script workflow). Damage/Utility deferred
+  to the full wave as the lowest-risk, plain-flat-fork shapes.
+
+**Consequences.** The "blessings live but do nothing" pitfall closes for every authored character.
+Still open, not this ADR: a dedicated `blessingBudget.ts` validator script (mirrors the still-open
+`itemBudget.ts` TODO from ADR-0044), re-deriving the balance harness's power-tier proxy from real
+blessing content (ADR-0040's own ask), gather `BonusTag` UI wiring for blessing-sourced gather
+bonuses, the Option-B row-level-conditions engine work if ever wanted, and respec (unchanged,
+still permanent-in-v1 per ADR-0045).

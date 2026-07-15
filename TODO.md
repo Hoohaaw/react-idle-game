@@ -62,16 +62,30 @@ character sprite art. Older open items below may be stale — trust the mileston
   rarity closes the budget question. Ability-flavor combat engine + real per-character content are
   follow-ups (see below).
   `↳ context: project-blessings · docs/DECISIONS.md ADR-0045, src/lib/blessings.ts`
-- [ ] **Blessing capstone ability engine** — the 'ability' capstone flavor needs new `combat.ts`
-  surface (`surviveFatal`, `partyBuffOnStart` — a small fixed vocabulary, not a generic event
-  system). Ships with zero stat bonus until this lands.
+- [x] **Blessing capstone ability engine** (ADR-0045 Phase B, 2026-07-15) — `combat.ts` gained
+  `surviveFatal` (once-per-fight lethal-hit save) and `partyBuffOnStart` (party-wide stat buff,
+  dodge re-clamped to `COMBAT.DODGE_CAP`). Wired through mission-claim/roster/win-chance estimator.
   `↳ context: project-blessings · docs/DECISIONS.md ADR-0045, src/lib/combat.ts`
-- [ ] **Blessing tree content wave 1** — author real 4-row+capstone trees for all 19 characters
-  (equal-budget per row-choice, calc-script-verified per ADR-0040's power curve), `docs/BLESSINGS.md`.
-  `↳ context: project-blessings · docs/DECISIONS.md ADR-0045, docs/ITEMS.md (sizing precedent)`
+- [x] **Blessing tree content wave 1** (ADR-0046, 2026-07-15) — real 4-row+capstone trees authored
+  for all 19 characters: per-role fork templates (damage offense/bulk+finishing-move, tank
+  wall/off-tank, healer heal-style+tankiness, utility throughput/economy, gatherer
+  resource-flavor+hybrid-combat), 6 ability/7 conditional/6 stat capstone split. `docs/BLESSINGS.md`
+  is the methodology doc.
+  `↳ context: project-blessings · docs/DECISIONS.md ADR-0046, docs/BLESSINGS.md`
 - [ ] **Blessing respec** — picks are permanent in v1 by explicit design; a future respec option
   (cost/mechanism TBD) was requested but deferred, not built.
   `↳ context: project-blessings · supabase/migrations/20260715130000_blessing_choose.sql`
+- [ ] **Blessing row-level conditions** — `blessingChoice` has no `condition` field (only the
+  capstone does), so a row pick can't be gated to a specific resource/map/enemy. Gatherer rows
+  work around this with unconditional, flavor-only bonuses (ADR-0046). Real engine PR if ever wanted.
+  `↳ context: project-blessings · docs/BLESSINGS.md, studio/schemaTypes/objects/blessingChoice.ts`
+- [ ] **`blessingBudget.ts` validator script** — a dedicated equal-cost/pct-drift checker for
+  blessing content (mirrors the still-open `itemBudget.ts` TODO from ADR-0044); wave 1 verified
+  by a throwaway scratchpad script instead.
+  `↳ context: project-blessings · docs/BLESSINGS.md, src/lib/characterBudget.ts`
+- [ ] **Re-derive harness power-tier proxy from real blessing content** — ADR-0040's own ask;
+  `scripts/balance/roster.ts` is still the naked-baseline snapshot, unaware of wave 1's trees.
+  `↳ context: project-balance-harness · docs/DECISIONS.md ADR-0040, scripts/balance/roster.ts`
 - [x] **Item rarity multiplier flattened** (was ×2/step = ×16 Legendary) — see ADR-0032.
 - [x] **Mission failed screen** — distinguish *ran out of time* (team alive, enemy stood) from
   *party wiped*; claim UI needs a failure state that explains the loss honestly. Built (PR #49):
