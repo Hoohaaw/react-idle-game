@@ -10,6 +10,7 @@ import { useCharacters } from '@/hooks/useCharacters'
 import { useRoster, useItemDefs, type RosterMember } from '@/hooks/useRoster'
 import { xpToNext } from '@/lib/leveling'
 import { effectiveStatBreakdown } from '@/lib/stats'
+import { resolveBlessingAllocations } from '@/lib/blessings'
 import type { GearSlotKey } from '@/lib/equipment'
 import { resolveGearSlots } from './lib'
 import { SlotPickerModal } from './components/SlotPickerModal'
@@ -76,6 +77,10 @@ export default function TeamPage() {
             traits={openDef.traits}
             baseStats={openDef.baseStats}
             growth={openDef.growth}
+            blessingTree={openDef.blessingTree}
+            blessings={openMember.blessings}
+            capstone={openDef.capstone}
+            capstoneEarned={openMember.capstoneEarned}
             gear={{
               slots: resolveGearSlots(openMember.equipped, itemDefs.data),
               onSlotClick: setPickerSlot,
@@ -85,7 +90,7 @@ export default function TeamPage() {
               level: openMember.level,
               baseStats: openDef.baseStats,
               growth: openDef.growth,
-              blessingAllocations: openMember.blessings,
+              blessingAllocations: resolveBlessingAllocations(openMember.blessings),
               blessingNodes: openDef.blessingNodes,
               equipped: openMember.equipped,
               itemDefs: itemDefs.data ?? {},

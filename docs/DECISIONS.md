@@ -2050,3 +2050,87 @@ recorded rather than solved here: an `itemBudget.ts` power-budget validator (ana
 `characterBudget.ts` — items are still authored free-form, no cap) and item flavor text (every
 `description` field ships blank this wave). Maps 4–7 extend the same pattern per docs/ITEMS.md,
 not from scratch.
+
+## ADR-0045 — Blessing tree redesign: 4-row/2-choice + earned capstone
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex — replaces the earlier WoW-Classic-style design)
+
+**Context.** The blessing system was scaffolded (Sanity `blessingNode`/`nodeEffect`, DB
+`player_characters.blessings jsonb`, `stats.ts`'s `collectBlessingBonuses`) for a 7-row WoW-Classic
+tree: variable nodes per row, ranks 1–5, tier-unlock via 5-points-spent-above, prerequisite arrows.
+`BlessingsPage.tsx` was a full interactive mock of that shape with no backend — like Team/Crafting/
+Mines before they were wired up. No Edge Function ever wrote to `blessings`; the read/compute side
+(`effectiveStats`, the Team page's stat-breakdown tooltip) was live but always saw zero allocations.
+
+Alex redesigned the mechanic before wiring it up: **4 rows, 2 mutually-exclusive choices per row,
+one capstone at the end** — simpler than the 7-row/ranked/prereq-web original, and a better fit
+for "trees must change how a character plays" (the still-open TODO item this closes): a strict
+either/or fork per row is a real playstyle decision in a way a multi-rank point-spend isn't.
+
+**Decision.**
+- **Structure.** Exactly 4 rows per character, exactly 2 choices per row, pick one, **permanent**
+  (no respec in v1 — logged as a TODO, not built now). Row *N* unlocks at character level *N*×10
+  (10/20/30/40) **and** only after row *N*-1 is already picked — enforced server-side (not just a
+  UI convention) by a new `choose_blessing` RPC that mirrors `equip_item`'s row-lock/busy-check/
+  raise pattern (`supabase/migrations/20260715130000_blessing_choose.sql`,
+  `supabase/functions/blessing-choose/`): lock the character row, check level, check the previous
+  row is already set, check this row ISN'T already set (the immutability guard — permanence must
+  be a server rule, ADR-0003, not a client-only nicety), check busy state (mission/gather/
+  infirmary — the same exploit gear-locking already prevents: picking mid-mission could otherwise
+  buff an in-flight claim), write, return. **Unlike gear, this RPC needs no Sanity fetch at all** —
+  row/choice validity and the level ladder are fixed engine constants (`src/lib/blessings.ts`
+  `BLESSING_ROW_LEVELS`), not authored content, so they're hardcoded in SQL exactly like gear's own
+  slot-key enum already is.
+- **Capstone is computed, never written.** Earning it needs no player choice and no RPC call: it's
+  fully determined by `level >= 50 AND row4 already picked` (`capstoneEarned`,
+  `src/lib/blessings.ts`) — both already-durable facts. Per ADR-0002 (compute-on-read), this
+  removes an entire write path, the "how do we stop double-granting it" question, and the "one RPC
+  or two" ambiguity that a naive "5th pickable row" design would have introduced.
+- **Three capstone flavors, all schema-supported now:** flat stat bonus, conditional stat bonus
+  (reuses `traits.ts`'s `TraitCondition`/`traitActive` verbatim — a capstone is evaluated as a
+  one-element trait list, `resolveCapstoneBonuses`), and a scripted combat ability. The first two
+  resolve entirely in `stats.ts`/`traits.ts` before `combat.ts` ever runs — a real architectural
+  seam, not a scoping convenience — so they ship in this branch. The **ability** flavor needs new
+  `combat.ts` engine surface (a small fixed vocabulary — `surviveFatal`, `partyBuffOnStart` — same
+  hardcoded-mechanic precedent as the boss spike attack, not a generic event system) and ships in
+  a follow-up branch; a character authored with `kind: 'ability'` grants no stat bonus until then
+  (`resolveCapstoneBonuses` returns `{}` for that kind on purpose).
+- **Pricing stays flat across rarity.** Both choices in a row must cost the same under
+  `characterBudget.ts`'s `STAT_PRICE` (a new `flatEffectsCost` helper + a studio-time validator on
+  `blessingRow` enforce this for `flat`-kind effects; a `pct` effect can't be priced the same way —
+  it scales with the character's own baseline — so a row using one relies on the Phase C
+  calc-script check instead, same as the itemDef wave's verification method). This closes the
+  standing TODO question ("decide tree budget size when authoring the first tree"): unlike traits
+  (rarity scales *count*, 1→5) or base stats (rarity scales *budget size*, 80→100), blessing row
+  *count* is fixed at 4 for every character — the only remaining lever would be per-row magnitude,
+  and keeping that flat matches ADR-0040's single flat "~×5–6 combined gear+blessings at the level
+  cap" target rather than a rarity-keyed one.
+- **Schema rework**, all inline objects nested on `characterDef` (no shared registry — a blessing
+  tree stays bespoke per character, ADR-0001, unlike traits which reference a shared `traitDef`
+  document): `blessingChoice` (`choiceId`, `title`, `description` — authored now, unlike items'
+  deferred flavor text, since bespoke identity is the whole point here), `blessingRow` (`row`,
+  exactly 2 `choices`), `capstoneBlessing` (`kind` + `effects`/`condition` per flavor). `nodeEffect`
+  loses its rank concept (`perRank` → `value` — a pick is always rank 0 or 1, never stacked) but
+  keeps its `{stat, kind, value}` shape unchanged, so `collectBlessingBonuses` needed no logic
+  change, only the rename. `traitDef`'s inline `condition` field was extracted into a shared
+  `conditionTrigger` object type so the capstone's conditional flavor reuses the exact same
+  cross-field validation instead of duplicating it.
+- **Content cleanup.** Querying live content turned up 19 of 19 characters carrying old-shape
+  `blessingTree` data (not just Mordrek Graveborn's documented 5-node example) — cleared to `[]`
+  across the board as part of this branch. Safe: with no write path ever having existed, every
+  character's blessing allocation has always been `{}`, so this content was inert (zero bonus
+  regardless of its shape) from the day it was authored.
+
+**Consequences.** `player_characters.blessings`'s shape changes from `{ nodeId: ranks }` to
+`{ row1..row4: 'a'|'b' }` (column comment updated; no migration needed, jsonb is schemaless) — every
+reader (`useRoster`, `TeamPage`, `WinChanceEstimate`, `mission-claim`, `charMaxHp`) now runs picks
+through `resolveBlessingAllocations` before calling `effectiveStats`, and both Sanity-querying Edge
+Functions (`mission-claim`, `charMaxHp`) flatten their own independently-fetched `blessingTree` via
+the shared `flattenBlessingTree` so the `row<N>-<choice>` nodeId format can't drift between the
+client and either server path. `CharacterCard`'s Talents tab now shows a real read-only summary of
+a character's picks (extracted to its own `TalentsTab.tsx` organism, replacing a second, unrelated
+mock — a 6×3 Death-Knight-flavored grid — that would otherwise have sat next to now-real numbers on
+the same character sheet) and links out to the real `/blessings` page for the actual picker; no
+respec control exists anywhere yet. Phase B (the ability capstone flavor) and Phase C (authoring
+real 4-row+capstone trees for all 19 characters, `docs/BLESSINGS.md`, the sizing calc-script) are
+follow-up branches, not this one.

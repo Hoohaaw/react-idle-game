@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { resolveRole } from '@/lib/roles'
-import { effectiveStats } from '@/lib/stats'
+import { effectiveStats, mergeBonuses } from '@/lib/stats'
 import { collectTraitBonuses } from '@/lib/traits'
+import { resolveBlessingAllocations, capstoneEarned, resolveCapstoneBonuses } from '@/lib/blessings'
 import { useItemDefs } from '@/hooks/useRoster'
 import type { MissionEnemyView } from '@/services/missions'
 import { estimateWinChance, missionTraitContext } from '../winChance'
@@ -36,11 +37,18 @@ export function WinChanceEstimate({ party, enemies, timeLimitSeconds, mapKey }: 
                 level: c.level,
                 baseStats: c.statInputs.baseStats,
                 growth: c.statInputs.growth,
-                blessingAllocations: c.blessings ?? {},
+                blessingAllocations: resolveBlessingAllocations(c.blessings ?? {}),
                 blessingNodes: c.statInputs.blessingNodes,
                 equipped: c.equipped ?? {},
                 itemDefs: itemDefs.data,
-                extraBonuses: collectTraitBonuses(c.traits ?? [], ctx),
+                extraBonuses: mergeBonuses(
+                  collectTraitBonuses(c.traits ?? [], ctx),
+                  resolveCapstoneBonuses(
+                    c.statInputs.capstone,
+                    capstoneEarned(c.level, c.blessings ?? {}),
+                    ctx,
+                  ),
+                ),
               })
             : c.stats, // fixtures / defs still loading: context-free stats
         currentHp: c.currentHp,

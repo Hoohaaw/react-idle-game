@@ -114,6 +114,10 @@ main context what an agent can do in its own.
 - **Items are authored per [`docs/ITEMS.md`](./docs/ITEMS.md)** (ADR-0043/0044): slot/rarity
   system, the rarity-scaled level-requirement gate, and the per-map universal-fill + build-defining
   identity pattern new maps extend.
+- **Blessing trees are bespoke per character, never a shared registry** (ADR-0045): 4 rows × 2
+  permanent choices, level-gated 10/20/30/40 in strict sequence, plus a capstone that's *earned*
+  (`level >= 50 && row4 picked`), never chosen or written. Both choices in a row must cost the same
+  (`characterBudget.ts` `STAT_PRICE`) — a real playstyle fork, not a bigger number.
 - Components target ~200 lines; presentation and logic stay separate.
 - **No emoji as UI icons** (design rule, 2026-07-12): real icon assets arrive later — until then,
   anywhere an icon belongs renders the `IconSlot` placeholder (`src/components/atoms/IconSlot`);

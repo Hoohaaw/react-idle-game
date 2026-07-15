@@ -122,6 +122,16 @@ export function growthCostPerLevel(growth: BudgetStatGrowth[], levelSpan = 49): 
   }, 0)
 }
 
+/** Cost of a flat-effects list in budget points, or null if it contains a `pct` effect — pct
+ *  scales with the character's own baseline so it can't be priced the same flat-point way
+ *  (ADR-0045); callers should fall back to the calc-script verification in that case. */
+export function flatEffectsCost(
+  effects: { stat: string; kind: 'flat' | 'pct'; value: number }[],
+): number | null {
+  if (effects.some((e) => e.kind === 'pct')) return null
+  return effects.reduce((sum, e) => sum + e.value * priceOf(e.stat), 0)
+}
+
 export type BudgetAudit = {
   baseCost: number
   baseBudget: number

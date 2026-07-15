@@ -22,7 +22,7 @@ const SCHOOL_OPTIONS = SCHOOL_DEFS.filter((s) => s.key !== 'physical').map((s) =
   value: s.key,
 }))
 
-type BlessingNodeValue = { isUltimate?: boolean }
+type BlessingRowValue = { row?: number }
 
 // The point-buy budget check (ADR-0031, docs/CHARACTERS.md): both stat arrays must spend their
 // rarity's budget within tolerance. Skipped while rarity or the array is still unauthored.
@@ -144,15 +144,28 @@ export const characterDef = defineType({
     defineField({
       name: 'blessingTree',
       title: 'Blessing tree',
+      description:
+        'Exactly 4 rows (ADR-0045), each a choice of 2. Row N unlocks at character level N×10.',
       type: 'array',
-      of: [defineArrayMember({ type: 'blessingNode' })],
+      of: [defineArrayMember({ type: 'blessingRow' })],
       validation: (rule) =>
-        rule.custom((nodes?: BlessingNodeValue[]) => {
-          if (!nodes || nodes.length === 0) return true // allow incremental authoring
-          const ultimates = nodes.filter((n) => n.isUltimate).length
-          if (ultimates > 1) return 'Only one node can be the ultimate (row 7).'
+        rule.custom((rows?: BlessingRowValue[]) => {
+          if (!rows || rows.length === 0) return true // allow incremental authoring
+          if (rows.length !== 4) return `A blessing tree has exactly 4 rows (got ${rows.length}).`
+          const numbers = rows.map((r) => r.row).filter((n): n is number => typeof n === 'number')
+          const hasAllFour = ([1, 2, 3, 4] as const).every((n) => numbers.includes(n))
+          if (new Set(numbers).size !== 4 || !hasAllFour) {
+            return 'Rows must be numbered 1-4, each exactly once.'
+          }
           return true
         }),
+    }),
+    defineField({
+      name: 'capstone',
+      title: 'Capstone blessing',
+      description:
+        'Earned at level 50 once all 4 rows are picked — not authored as a choice (ADR-0045).',
+      type: 'capstoneBlessing',
     }),
   ],
   preview: {

@@ -8,7 +8,10 @@ import { traitDef } from './traitDef'
 import { statValue } from './objects/statValue'
 import { statGrowth } from './objects/statGrowth'
 import { nodeEffect } from './objects/nodeEffect'
-import { blessingNode } from './objects/blessingNode'
+import { conditionTrigger } from './objects/conditionTrigger'
+import { blessingChoice } from './objects/blessingChoice'
+import { blessingRow } from './objects/blessingRow'
+import { capstoneBlessing } from './objects/capstoneBlessing'
 import { encounterEnemy } from './objects/encounterEnemy'
 import { itemStat } from './objects/itemStat'
 import { lootDrop } from './objects/lootDrop'
@@ -25,7 +28,10 @@ export const schemaTypes = [
   statValue,
   statGrowth,
   nodeEffect,
-  blessingNode,
+  conditionTrigger,
+  blessingChoice,
+  blessingRow,
+  capstoneBlessing,
   encounterEnemy,
   itemStat,
   lootDrop,

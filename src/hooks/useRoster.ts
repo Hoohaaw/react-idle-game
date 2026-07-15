@@ -5,10 +5,17 @@ import { fetchOwnedCharacters, fetchGatherCharacterIds, type EquippedItem } from
 import { fetchAdmissions } from '@/services/infirmary'
 import { fetchItemDefs } from '@/services/items'
 import { fetchCharacterDefs } from '@/services/characters'
-import { effectiveStats, type StatValue, type StatGrowth, type BlessingNodeDef } from '@/lib/stats'
+import { effectiveStats, mergeBonuses, type StatValue, type StatGrowth, type BlessingNodeDef } from '@/lib/stats'
 import { resolveRole, type CharacterRole } from '@/lib/roles'
 import type { School } from '@/lib/schools'
 import { collectTraitBonuses, type TraitDef } from '@/lib/traits'
+import {
+  resolveBlessingAllocations,
+  capstoneEarned,
+  resolveCapstoneBonuses,
+  type BlessingPicks,
+  type CapstoneDef,
+} from '@/lib/blessings'
 
 // Shared player-state reads + the composed roster. Used by every feature that needs "the player's
 // characters and what they're doing" — missions (dispatch/claim), infirmary (heal), gather (assign).
@@ -58,10 +65,19 @@ export type RosterMember = {
    *  the server uses context-free. Powers the dispatch estimate + infirmary projections. */
   stats: Record<string, number>
   /** The authored stat inputs (shared def references, not copies) — lets fight-context callers
-   *  (win-chance estimator) recompute effectiveStats with condition-matched trait bonuses. */
-  statInputs: { baseStats: StatValue[]; growth: StatGrowth[]; blessingNodes: BlessingNodeDef[] }
+   *  (win-chance estimator) recompute effectiveStats with condition-matched trait/capstone bonuses. */
+  statInputs: {
+    baseStats: StatValue[]
+    growth: StatGrowth[]
+    blessingNodes: BlessingNodeDef[]
+    capstone?: CapstoneDef
+  }
   equipped: Record<string, EquippedItem>
-  blessings: Record<string, number>
+  blessings: BlessingPicks
+  /** Whether this character has earned their capstone (level 50 + row 4 picked, ADR-0045) — the
+   *  roster's own `stats` already folds its bonus in context-free; fight-context callers re-derive
+   *  it themselves via `statInputs.capstone` + this flag. */
+  capstoneEarned: boolean
   busy: 'mission' | 'gathering' | 'infirmary' | null
 }
 
@@ -83,15 +99,19 @@ export function useRoster() {
     return owned.data.flatMap((c) => {
       const def = defByKey.get(c.characterDefId)
       if (!def) return [] // owned a character whose def isn't loaded/authored — skip
+      const earnedCapstone = capstoneEarned(c.level, c.blessings)
       const stats = effectiveStats({
         level: c.level,
         baseStats: def.baseStats,
         growth: def.growth,
-        blessingAllocations: c.blessings,
+        blessingAllocations: resolveBlessingAllocations(c.blessings),
         blessingNodes: def.blessingNodes,
         equipped: c.equipped,
         itemDefs: items.data!,
-        extraBonuses: collectTraitBonuses(def.traits, {}), // always-on traits only (no context)
+        extraBonuses: mergeBonuses(
+          collectTraitBonuses(def.traits, {}), // always-on traits only (no context)
+          resolveCapstoneBonuses(def.capstone, earnedCapstone, {}),
+        ),
       })
       return [{
         id: c.id,
@@ -106,9 +126,15 @@ export function useRoster() {
         maxHp: Math.max(1, Math.round(stats.health ?? 0)),
         currentHp: c.currentHp,
         stats,
-        statInputs: { baseStats: def.baseStats, growth: def.growth, blessingNodes: def.blessingNodes },
+        statInputs: {
+          baseStats: def.baseStats,
+          growth: def.growth,
+          blessingNodes: def.blessingNodes,
+          capstone: def.capstone,
+        },
         equipped: c.equipped,
         blessings: c.blessings,
+        capstoneEarned: earnedCapstone,
         busy: gathering.has(c.id)
           ? 'gathering'
           : onMission.has(c.id)

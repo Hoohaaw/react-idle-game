@@ -12,9 +12,9 @@ import {
 import {
   effectiveStats,
   finalReward,
+  mergeBonuses,
   type StatValue,
   type StatGrowth,
-  type BlessingNodeDef,
   type ItemDefBonuses,
   type EquippedItem,
 } from '../../../src/lib/stats.ts'
@@ -22,6 +22,15 @@ import { applyXp } from '../../../src/lib/leveling.ts'
 import { resolveRole, type CharacterRole } from '../../../src/lib/roles.ts'
 import type { School } from '../../../src/lib/schools.ts'
 import { collectTraitBonuses, partyAverageStat, type TraitDef, type TraitContext } from '../../../src/lib/traits.ts'
+import {
+  flattenBlessingTree,
+  resolveBlessingAllocations,
+  capstoneEarned,
+  resolveCapstoneBonuses,
+  type RawBlessingRow,
+  type CapstoneDef,
+  type BlessingPicks,
+} from '../../../src/lib/blessings.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -86,7 +95,8 @@ type CharDefRow = {
   damageSchool?: School | null
   baseStats?: StatValue[]
   growth?: StatGrowth[]
-  blessingTree?: BlessingNodeDef[]
+  blessingTree?: RawBlessingRow[]
+  capstone?: CapstoneDef
   traits?: TraitDef[]
 }
 type ItemDefRow = { itemKey: string; statBonuses?: ItemDefBonuses['statBonuses'] }
@@ -97,7 +107,7 @@ type CharRow = {
   character_def_id: string
   level: number
   xp: number
-  blessings: Record<string, number> | null
+  blessings: BlessingPicks | null
   equipped: Record<string, EquippedItem> | null
   current_hp: number | null
 }
@@ -117,7 +127,8 @@ const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
   charKey, charClass, role, damageSchool,
   baseStats[]{ stat, value },
   growth[]{ stat, perLevel, milestones[]{ level, bonus } },
-  blessingTree[]{ nodeId, effects[]{ stat, kind, perRank } },
+  blessingTree[]{ row, choices[]{ choiceId, effects[]{ stat, kind, value } } },
+  capstone{ title, kind, effects[]{ stat, kind, value }, condition{ type, value }, abilityKind, abilityParams{ stat, kind, value } },
   traits[]->{ traitKey, name, condition{ type, value }, effects[]{ stat, kind, value } }
 }`
 
@@ -234,15 +245,20 @@ Deno.serve(async (req) => {
   for (const c of chars) {
     const def = charDefByKey.get(c.character_def_id)
     if (!def) return json({ error: `Missing character definition: ${c.character_def_id}` }, 500)
+    const picks = c.blessings ?? {}
+    const earnedCapstone = capstoneEarned(c.level, picks)
     const stats = effectiveStats({
       level: c.level,
       baseStats: def.baseStats ?? [],
       growth: def.growth ?? [],
-      blessingAllocations: c.blessings ?? {},
-      blessingNodes: def.blessingTree ?? [],
+      blessingAllocations: resolveBlessingAllocations(picks),
+      blessingNodes: flattenBlessingTree(def.blessingTree),
       equipped: c.equipped ?? {},
       itemDefs: itemDefById,
-      extraBonuses: collectTraitBonuses(def.traits ?? [], traitCtx),
+      extraBonuses: mergeBonuses(
+        collectTraitBonuses(def.traits ?? [], traitCtx),
+        resolveCapstoneBonuses(def.capstone, earnedCapstone, traitCtx),
+      ),
     })
     statsById[c.id] = stats
     combatants.push({
