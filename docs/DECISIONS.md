@@ -1948,3 +1948,51 @@ mission automatically. Economy traits lost in the swaps (scholar/ironblood/goldt
 pathfinder instances) were deliberate: combat-role characters trade utility for combat identity;
 each of those traits still exists on economy-leaning characters. Rebalance freely in Studio —
 these are drafts, and trait swaps carry no schema or budget migration.
+
+## ADR-0043 — Item level-requirement gate: rarity-scaled equip gating
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex — added while scoping the itemDef content wave)
+
+**Context.** Gear equip (ADR-0022) enforces ownership/busy/stack/slot-compatibility but nothing
+about the character's level — a level-1 character could equip a Legendary the moment one entered
+inventory. With the itemDef wave about to introduce Epic/Legendary drops for the first time
+(previously dead tiers — nothing had ever rolled above Rare), this stopped being theoretical:
+Alex asked for a level floor "so that really low level characters cant just equip legendaries."
+
+**Decision.** Each itemDef authors an optional `minLevel` — the level required to equip it at
+**Common** rarity (absent/0 = no restriction, keeping pre-wave items backward compatible). A
+rarer roll of the same item adds a flat step on top, via a new shared, framework-agnostic helper
+(`src/lib/equipment.ts`, imported by both the client picker and the gear-equip Edge Function —
+same "one function, both sides" precedent as `effectiveStats`):
+
+```
+LEVEL_REQ_STEP_BY_RARITY = { Common: 0, Uncommon: 2, Rare: 5, Epic: 9, Legendary: 14 }
+requiredLevelForRarity(minLevel, rarity) = minLevel + LEVEL_REQ_STEP_BY_RARITY[rarity]
+```
+
+Flat, not proportional to `RARITY_MULT` (1/1.2/1.45/1.75/2.25) — a proportional ladder would let
+an early map's Legendary roll gate *higher* than a later map's Common item once `minLevel` grows
+across maps; the flat step keeps the ladder well-behaved (worked check across the 3 live maps'
+`minLevel` anchors ≈1/6/12: Gravemarch Legendary → 15, Embercrag → 20, Frosthollow → 26, strictly
+increasing).
+
+The check is split exactly like the existing slot-compatibility check (ADR-0022): the
+Sanity-dependent half (reading `minLevel`, computing `requiredLevel`) lives in the `gear-equip`
+Edge Function; the structural half (comparing against the character's actual `level`) is
+enforced **inside** the `equip_item` RPC's existing row-locked transaction (migration
+`20260715120000_item_level_requirement.sql` — the RPC gained a `p_required_level` parameter and
+now selects `level` alongside `equipped`, raising `'equip_item: character level too low'` if it's
+short). Doing the numeric comparison inside the same lock the ownership check already takes
+closes any TOCTOU gap between "check" and "equip." The client (`SlotPickerModal`) computes the
+same number to greet the player with a disabled tile + "Req. Lvl X" instead of a round-trip 409,
+but the server check is the actual authority (ADR-0003).
+
+**Consequences.** Epic/Legendary drops are no longer usable the instant they drop for an
+under-leveled character — they become a "grow into it" reward instead of an instant power spike.
+`unequip_item` is untouched (removing gear never needs a level check). One accepted edge case,
+not solved now: transcendence resets a character's level to 1 but keeps the character (and its
+`equipped` JSONB) — a freshly-transcended character keeps whatever was equipped pre-reset, since
+the gate only fires at equip time, not retroactively. This matches how prestige systems usually
+work (you keep gear, you regrind levels) and transcendence itself isn't built yet; revisit if it
+proves wrong once it is. Migration drops and recreates `equip_item` (adding a parameter changes
+the signature) — `gear-equip` Edge Function redeploy required alongside it.
