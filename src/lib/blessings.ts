@@ -1,5 +1,6 @@
 import type { StatBonus, NodeEffect, BlessingNodeDef } from './stats.ts'
 import { collectTraitBonuses, type TraitDef, type TraitCondition, type TraitContext } from './traits.ts'
+import type { CombatAbility, AbilityStat } from './combat.ts'
 
 // The blessing-tree picks/gating model (ADR-0045): 4 rows, 2 mutually-exclusive choices per row,
 // permanent once picked, plus a capstone earned (not chosen) after row 4. Deno-safe, no browser/
@@ -32,7 +33,7 @@ export type CapstoneDef = {
   effects?: NodeEffect[]
   condition?: TraitCondition
   abilityKind?: string
-  abilityParams?: { stat: string; kind: 'flat' | 'pct'; value: number }
+  abilityParams?: { stat: AbilityStat; kind: 'flat' | 'pct'; value: number }
 }
 
 /** Whether `row` can be picked right now — level met AND the previous row already picked AND not
@@ -118,4 +119,22 @@ export function resolveCapstoneBonuses(
     effects: capstone.effects ?? [],
   }
   return collectTraitBonuses([asTrait], ctx)
+}
+
+/**
+ * The capstone's scripted ability, if earned and its kind is 'ability' — resolved into the combat
+ * engine's `Combatant.ability` shape (ADR-0045 Phase B). Absent for stat/conditional capstones
+ * (already handled by `resolveCapstoneBonuses`) and for anyone who hasn't earned it yet.
+ */
+export function resolveCapstoneAbility(
+  capstone: CapstoneDef | undefined,
+  earned: boolean,
+): CombatAbility | undefined {
+  if (!capstone || !earned || capstone.kind !== 'ability') return undefined
+  if (capstone.abilityKind === 'surviveFatal') return { kind: 'surviveFatal' }
+  if (capstone.abilityKind === 'partyBuffOnStart' && capstone.abilityParams) {
+    const { stat, kind, value } = capstone.abilityParams
+    return { kind: 'partyBuffOnStart', stat, statKind: kind, value }
+  }
+  return undefined
 }

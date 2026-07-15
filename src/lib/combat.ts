@@ -94,6 +94,17 @@ export const COMBAT = {
 
 export type Role = 'tank' | 'damage' | 'healer' | 'utility' | 'gatherer'
 
+/** Stats a scripted ability may target — the same allowlist as `Unit`'s own directly-addressable
+ *  fields; attack/spellPower/healingPower are pre-routed into `power`/`healPower` by `partyUnit()`
+ *  and aren't separately addressable after construction (ADR-0045 Phase B). */
+export type AbilityStat = 'defense' | 'resistance' | 'critChance' | 'critDamage' | 'dodge' | 'block' | 'healthRegen'
+
+/** A capstone-earned scripted combat behavior (ADR-0045 Phase B) — a fixed, small vocabulary
+ *  (same precedent as the boss spike attack above), not a generic scripting system. */
+export type CombatAbility =
+  | { kind: 'surviveFatal' }
+  | { kind: 'partyBuffOnStart'; stat: AbilityStat; statKind: 'flat' | 'pct'; value: number }
+
 /** A party member entering combat: effective stats + role + carried-in HP (persistent damage). */
 export type Combatant = {
   id: string
@@ -104,6 +115,9 @@ export type Combatant = {
   /** School of the character's MAGIC damage (ADR-0033); 'magic' (neutral) when unauthored.
    *  Ignored when the physical routing wins — physical attacks are always school 'physical'. */
   damageSchool?: School
+  /** A capstone-earned scripted ability (ADR-0045 Phase B), resolved by the caller from the
+   *  character's earned capstone; absent for everyone else. */
+  ability?: CombatAbility
 }
 
 /** A lean enemy instance (maps from Sanity `enemyDef`, minus the wrappers; swarms are pre-expanded). */
@@ -142,8 +156,9 @@ export type Encounter = {
 export type CombatEvent = {
   t: number
   /** 'spike' = an ADR-0039 heavy hit (threat-ignoring); kept distinct from 'attack' so replay UIs
-   *  and the sweep's tank-absorption metric (which counts only 'attack'/'dodge') can tell them apart. */
-  type: 'attack' | 'heal' | 'dodge' | 'defeat' | 'spike'
+   *  and the sweep's tank-absorption metric (which counts only 'attack'/'dodge') can tell them apart.
+   *  'fatal-save' = an ADR-0045 Phase B `surviveFatal` ability consuming its one-time save. */
+  type: 'attack' | 'heal' | 'dodge' | 'defeat' | 'spike' | 'fatal-save'
   source: string
   target: string
   amount: number
@@ -215,6 +230,10 @@ type Unit = {
   spikeEvery: number
   spikeMult: number
   spikeNextAt: number
+  /** Capstone-earned scripted ability (ADR-0045 Phase B, party only); undefined = none. */
+  ability?: CombatAbility
+  /** Whether a 'surviveFatal' ability has already been consumed this fight. */
+  fatalSaveUsed: boolean
 }
 
 const num = (m: StatMap, k: string) => m[k] ?? 0
@@ -267,6 +286,8 @@ function partyUnit(c: Combatant, order: number): Unit {
     spikeEvery: 0,
     spikeMult: 1,
     spikeNextAt: Infinity,
+    ability: c.ability,
+    fatalSaveUsed: false,
   }
 }
 
@@ -303,6 +324,7 @@ function enemyUnit(e: Enemy, order: number): Unit {
     spikeMult: spikes ? e.spikeMultiplier! : 1,
     // First spike lands one full period in — an opening spike would hit before any threat exists.
     spikeNextAt: spikes ? e.spikeEverySeconds! : Infinity,
+    fatalSaveUsed: false,
   }
 }
 
@@ -418,6 +440,21 @@ export function simulateCombat(args: {
     }
   }
 
+  // Capstone party-buff abilities (ADR-0045 Phase B): applied once, before the fight starts, to
+  // every party unit. Runs after partyUnit()'s own dodge-cap clamp, so a dodge buff must be
+  // re-clamped here too (COMBAT.DODGE_CAP, ADR-0029) — otherwise it would silently reopen the
+  // exact dodge runaway that cap already fixed once.
+  for (const buffer of units) {
+    const ability = buffer.ability
+    if (buffer.side !== 'party' || !ability || ability.kind !== 'partyBuffOnStart') continue
+    const { stat, statKind, value } = ability
+    for (const target of units) {
+      if (target.side !== 'party') continue
+      target[stat] += statKind === 'flat' ? value : target[stat] * (value / 100)
+      if (stat === 'dodge') target.dodge = Math.min(target.dodge, COMBAT.DODGE_CAP)
+    }
+  }
+
   const log: CombatEvent[] = []
 
   const alive = (side: 'party' | 'enemy') => units.some((u) => u.side === side && u.hp > 0)
@@ -478,10 +515,18 @@ export function simulateCombat(args: {
       if (dmg <= 0) {
         log.push({ t, type: 'dodge', source: actor.id, target: target.id, amount: 0, school: actor.damageType })
       } else {
-        target.hp = Math.max(0, target.hp - dmg)
+        // surviveFatal (ADR-0045 Phase B): a hit that would take this unit to ≤0 HP instead
+        // clamps to 1 HP, once per fight.
+        const saved = dmg >= target.hp && target.ability?.kind === 'surviveFatal' && !target.fatalSaveUsed
+        if (saved) target.fatalSaveUsed = true
+        target.hp = saved ? 1 : Math.max(0, target.hp - dmg)
         if (actor.side === 'party') actor.threat += dmg * actor.threatMult
         log.push({ t, type: isSpike ? 'spike' : 'attack', source: actor.id, target: target.id, amount: dmg, school: actor.damageType })
-        if (target.hp === 0) log.push({ t, type: 'defeat', source: actor.id, target: target.id, amount: 0 })
+        if (saved) {
+          log.push({ t, type: 'fatal-save', source: target.id, target: target.id, amount: 0 })
+        } else if (target.hp === 0) {
+          log.push({ t, type: 'defeat', source: actor.id, target: target.id, amount: 0 })
+        }
       }
     }
     actor.nextAt += actor.interval

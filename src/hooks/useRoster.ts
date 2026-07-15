@@ -8,11 +8,13 @@ import { fetchCharacterDefs } from '@/services/characters'
 import { effectiveStats, mergeBonuses, type StatValue, type StatGrowth, type BlessingNodeDef } from '@/lib/stats'
 import { resolveRole, type CharacterRole } from '@/lib/roles'
 import type { School } from '@/lib/schools'
+import type { CombatAbility } from '@/lib/combat'
 import { collectTraitBonuses, type TraitDef } from '@/lib/traits'
 import {
   resolveBlessingAllocations,
   capstoneEarned,
   resolveCapstoneBonuses,
+  resolveCapstoneAbility,
   type BlessingPicks,
   type CapstoneDef,
 } from '@/lib/blessings'
@@ -78,6 +80,10 @@ export type RosterMember = {
    *  roster's own `stats` already folds its bonus in context-free; fight-context callers re-derive
    *  it themselves via `statInputs.capstone` + this flag. */
   capstoneEarned: boolean
+  /** The earned capstone ability (ADR-0045 Phase B), if its kind is 'ability' — unlike the stat/
+   *  conditional flavors, an ability isn't trait-context-dependent, so it's resolved once here
+   *  and carried as-is into the win-chance estimator's Combatant construction. */
+  ability?: CombatAbility
   busy: 'mission' | 'gathering' | 'infirmary' | null
 }
 
@@ -135,6 +141,7 @@ export function useRoster() {
         equipped: c.equipped,
         blessings: c.blessings,
         capstoneEarned: earnedCapstone,
+        ability: resolveCapstoneAbility(def.capstone, earnedCapstone),
         busy: gathering.has(c.id)
           ? 'gathering'
           : onMission.has(c.id)

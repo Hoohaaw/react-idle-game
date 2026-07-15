@@ -146,6 +146,7 @@ export default function MissionsPage() {
     traits: m.traits,
     statInputs: m.statInputs,
     blessings: m.blessings,
+    ability: m.ability,
     equipped: m.equipped,
     busy: m.busy === 'mission' ? 'On mission' : m.busy === 'gathering' ? 'Gathering' : m.busy === 'infirmary' ? 'In Infirmary' : undefined,
     downed: m.currentHp === 0,

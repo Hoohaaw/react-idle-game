@@ -1,4 +1,4 @@
-import { simulateCombat, type Combatant, type Enemy } from '@/lib/combat'
+import { simulateCombat, type Combatant, type Enemy, type CombatAbility } from '@/lib/combat'
 import type { CharacterRole } from '@/lib/roles'
 import type { School } from '@/lib/schools'
 import type { TraitContext } from '@/lib/traits'
@@ -30,6 +30,9 @@ export type EstimateMember = {
   stats: Record<string, number>
   currentHp?: number | null
   damageSchool?: School
+  /** Earned capstone ability (ADR-0045 Phase B) — folded into the sim's Combatant so the estimate
+   *  reflects surviveFatal/partyBuffOnStart the same way mission-claim resolves the real fight. */
+  ability?: CombatAbility
 }
 
 /** Win percentage (0–100) over ESTIMATE_RUNS simulated fights, or null when the mission's
@@ -73,6 +76,7 @@ export function estimateWinChance(args: {
     stats: m.stats,
     currentHp: m.currentHp ?? undefined,
     damageSchool: m.damageSchool,
+    ability: m.ability,
   }))
 
   let wins = 0

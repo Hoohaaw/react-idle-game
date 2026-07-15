@@ -27,6 +27,7 @@ import {
   resolveBlessingAllocations,
   capstoneEarned,
   resolveCapstoneBonuses,
+  resolveCapstoneAbility,
   type RawBlessingRow,
   type CapstoneDef,
   type BlessingPicks,
@@ -267,6 +268,7 @@ Deno.serve(async (req) => {
       stats,
       currentHp: c.current_hp ?? undefined, // null = full → sim uses maxHp
       damageSchool: def.damageSchool ?? undefined, // ADR-0033; sim defaults to neutral 'magic'
+      ability: resolveCapstoneAbility(def.capstone, earnedCapstone), // ADR-0045 Phase B
     })
   }
 

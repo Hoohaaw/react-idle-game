@@ -330,6 +330,78 @@ describe('per-fight variance (ADR-0038) + boss spikes (ADR-0039)', () => {
   })
 })
 
+describe('capstone abilities (ADR-0045 Phase B)', () => {
+  it('surviveFatal clamps a lethal hit to 1 HP once, then a later lethal hit kills normally', () => {
+    const guardian: Combatant = {
+      id: 'guardian',
+      role: 'damage',
+      stats: { health: 50, speed: 10 },
+      ability: { kind: 'surviveFatal' },
+    }
+    const brute: Enemy = { id: 'brute', health: 100000, attack: 1000, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [guardian], encounter: encounterWith([brute], 20), seed: 'fatal-1' })
+    const saves = r.log.filter((e) => e.type === 'fatal-save')
+    expect(saves.length).toBe(1)
+    expect(saves[0].source).toBe('guardian')
+    expect(r.outcome).toBe('loss')
+    expect(r.reason).toBe('party-wiped')
+    expect(r.endingHp.guardian).toBe(0)
+  })
+
+  it('no ability → no fatal-save events (mechanic dormant without it)', () => {
+    const r = simulateCombat({ party: [warrior], encounter: encounterWith([ghoul]), seed: 'run-1' })
+    expect(r.log.some((e) => e.type === 'fatal-save')).toBe(false)
+  })
+
+  it('partyBuffOnStart applies a flat stat buff once, before the fight starts', () => {
+    const buffed: Combatant = {
+      id: 'buffed',
+      role: 'damage',
+      stats: { health: 1000, speed: 10 },
+      ability: { kind: 'partyBuffOnStart', stat: 'defense', statKind: 'flat', value: 100 },
+    }
+    const plain: Combatant = { id: 'plain', role: 'damage', stats: { health: 1000, speed: 10 } }
+    const attacker: Enemy = { id: 'attacker', health: 100000, attack: 200, damageType: 'physical', speed: 10 }
+    const dmgTo = (c: Combatant) => {
+      const r = simulateCombat({ party: [c], encounter: encounterWith([attacker], 6), seed: 'buff-1' })
+      return r.log.find((e) => e.type === 'attack' && e.source === 'attacker')!.amount
+    }
+    expect(dmgTo(buffed)).toBeLessThan(dmgTo(plain))
+  })
+
+  it('partyBuffOnStart supports a percent buff off the base stat', () => {
+    const buffed: Combatant = {
+      id: 'buffed',
+      role: 'damage',
+      stats: { health: 1000, speed: 10, defense: 50 },
+      ability: { kind: 'partyBuffOnStart', stat: 'defense', statKind: 'pct', value: 50 }, // 50 + 50% of 50
+    }
+    const plain: Combatant = { id: 'plain', role: 'damage', stats: { health: 1000, speed: 10, defense: 50 } }
+    const attacker: Enemy = { id: 'attacker', health: 100000, attack: 200, damageType: 'physical', speed: 10 }
+    const dmgTo = (c: Combatant) => {
+      const r = simulateCombat({ party: [c], encounter: encounterWith([attacker], 6), seed: 'buff-2' })
+      return r.log.find((e) => e.type === 'attack' && e.source === 'attacker')!.amount
+    }
+    expect(dmgTo(buffed)).toBeLessThan(dmgTo(plain))
+  })
+
+  it('partyBuffOnStart on dodge re-clamps to DODGE_CAP — the buff cannot bypass the cap (ADR-0029)', () => {
+    const evader: Combatant = {
+      id: 'evader',
+      role: 'damage',
+      stats: { health: 10000, speed: 10, dodge: 20 },
+      ability: { kind: 'partyBuffOnStart', stat: 'dodge', statKind: 'flat', value: 50 }, // 20+50=70, must clamp to 25
+    }
+    const pecker: Enemy = { id: 'pecker', health: 100000, attack: 10, damageType: 'physical', speed: 30 }
+    const r = simulateCombat({ party: [evader], encounter: encounterWith([pecker], 120), seed: 'run-1' })
+    const swings = r.log.filter((e) => e.source === 'pecker')
+    const dodged = swings.filter((e) => e.type === 'dodge').length / swings.length
+    expect(swings.length).toBeGreaterThan(50)
+    expect(dodged).toBeGreaterThan(0.15) // capped ~25%, same band as the uncapped-25%-only test below
+    expect(dodged).toBeLessThan(0.35)
+  })
+})
+
 describe('reward helpers', () => {
   it('marginBonus scales surviving HP% by MARGIN_MAX', () => {
     expect(marginBonus(1)).toBeCloseTo(COMBAT.MARGIN_MAX)

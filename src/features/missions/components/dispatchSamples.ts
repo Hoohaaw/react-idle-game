@@ -4,6 +4,7 @@ import type { School } from '@/lib/schools'
 import type { TraitDef } from '@/lib/traits'
 import type { StatValue, StatGrowth, BlessingNodeDef, EquippedItem } from '@/lib/stats'
 import type { BlessingPicks, CapstoneDef } from '@/lib/blessings'
+import type { CombatAbility } from '@/lib/combat'
 import type { MissionEnemyView } from '@/services/missions'
 
 // Prop shapes for MissionDispatch + the sample data that drives the /design showcase (replaced by
@@ -43,6 +44,9 @@ export type DispatchChar = {
     capstone?: CapstoneDef
   }
   blessings?: BlessingPicks
+  /** Earned capstone ability (ADR-0045 Phase B) — passed straight into the win-chance estimate's
+   *  Combatant construction; omitted in fixtures. */
+  ability?: CombatAbility
   equipped?: Record<string, EquippedItem>
   busy?: string // a label (e.g. "On mission") — present means the character can't be selected
   downed?: boolean
