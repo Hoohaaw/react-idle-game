@@ -9,6 +9,7 @@ import {
   resolveBlessingAllocations,
   flattenBlessingTree,
   resolveCapstoneBonuses,
+  resolveCapstoneAbility,
   type BlessingPicks,
   type CapstoneDef,
 } from './blessings'
@@ -174,5 +175,50 @@ describe('resolveCapstoneBonuses', () => {
   it('grants no stat bonus for an ability capstone — that flavor is resolved by the combat sim, not the stat engine', () => {
     const ability: CapstoneDef = { title: 'Avatar', kind: 'ability', abilityKind: 'surviveFatal' }
     expect(resolveCapstoneBonuses(ability, true, {})).toEqual({})
+  })
+})
+
+// ---------------------------------------------------------------------------
+// resolveCapstoneAbility (ADR-0045 Phase B)
+// ---------------------------------------------------------------------------
+
+describe('resolveCapstoneAbility', () => {
+  const surviveFatal: CapstoneDef = { title: 'Avatar', kind: 'ability', abilityKind: 'surviveFatal' }
+  const partyBuff: CapstoneDef = {
+    title: 'Bulwark',
+    kind: 'ability',
+    abilityKind: 'partyBuffOnStart',
+    abilityParams: { stat: 'defense', kind: 'flat', value: 25 },
+  }
+
+  it('grants nothing when not earned', () => {
+    expect(resolveCapstoneAbility(surviveFatal, false)).toBeUndefined()
+  })
+
+  it('grants nothing when no capstone is authored', () => {
+    expect(resolveCapstoneAbility(undefined, true)).toBeUndefined()
+  })
+
+  it('grants nothing for a stat/conditional capstone — ability resolution is Ability-kind only', () => {
+    const stat: CapstoneDef = { title: 'Ascendant', kind: 'stat', effects: [{ stat: 'attack', kind: 'flat', value: 20 }] }
+    expect(resolveCapstoneAbility(stat, true)).toBeUndefined()
+  })
+
+  it('resolves an earned surviveFatal capstone to its combat-engine shape', () => {
+    expect(resolveCapstoneAbility(surviveFatal, true)).toEqual({ kind: 'surviveFatal' })
+  })
+
+  it('resolves an earned partyBuffOnStart capstone, carrying stat/kind/value through', () => {
+    expect(resolveCapstoneAbility(partyBuff, true)).toEqual({
+      kind: 'partyBuffOnStart',
+      stat: 'defense',
+      statKind: 'flat',
+      value: 25,
+    })
+  })
+
+  it('grants nothing for partyBuffOnStart missing its params (incomplete authoring)', () => {
+    const incomplete: CapstoneDef = { title: 'Bulwark', kind: 'ability', abilityKind: 'partyBuffOnStart' }
+    expect(resolveCapstoneAbility(incomplete, true)).toBeUndefined()
   })
 })

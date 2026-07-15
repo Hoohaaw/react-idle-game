@@ -53,6 +53,7 @@ export function WinChanceEstimate({ party, enemies, timeLimitSeconds, mapKey }: 
             : c.stats, // fixtures / defs still loading: context-free stats
         currentHp: c.currentHp,
         damageSchool: c.damageSchool,
+        ability: c.ability,
       })),
       enemies,
       timeLimitSeconds,

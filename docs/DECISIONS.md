@@ -2134,3 +2134,35 @@ the same character sheet) and links out to the real `/blessings` page for the ac
 respec control exists anywhere yet. Phase B (the ability capstone flavor) and Phase C (authoring
 real 4-row+capstone trees for all 19 characters, `docs/BLESSINGS.md`, the sizing calc-script) are
 follow-up branches, not this one.
+
+**Phase B addendum (2026-07-15) — the ability capstone flavor ships.** `src/lib/combat.ts` gains
+`Combatant.ability`, a small fixed union (same hardcoded-mechanic precedent as the ADR-0039 boss
+spike, not a generic scripting system):
+- **`surviveFatal`** — a hit that would take the unit to ≤0 HP instead clamps it to 1 HP, once per
+  fight (`Unit.fatalSaveUsed`). Implemented as a branch right at the existing damage-application
+  line; logs a new `'fatal-save'` `CombatEvent` so replay UIs can show it.
+- **`partyBuffOnStart`** — a flat/pct stat buff applied to every party `Unit` once, in a new pass
+  run right after the ADR-0038 per-fight power roll and before the main loop. Restricted to a fixed
+  `AbilityStat` allowlist (`defense`, `resistance`, `critChance`, `critDamage`, `dodge`, `block`,
+  `healthRegen`) — the same fields `Unit` exposes directly; `attack`/`spellPower`/`healingPower`
+  are pre-routed into a single `power`/`healPower` field by `partyUnit()` and aren't separately
+  addressable after construction, so they're not offered. **A dodge buff is re-clamped to
+  `COMBAT.DODGE_CAP` immediately after applying** — the buff pass runs after `partyUnit()`'s own
+  dodge-cap clamp, so an unclamped add would silently reopen the exact dodge runaway ADR-0029
+  fixed once already.
+
+`src/lib/blessings.ts` gains `resolveCapstoneAbility(capstone, earned)`, mirroring
+`resolveCapstoneBonuses`'s shape but returning a `CombatAbility | undefined` instead of a stat-bonus
+map — the two are mutually exclusive per capstone (an `ability`-kind capstone grants zero stat
+bonus; a `stat`/`conditional` one grants zero `CombatAbility`). Every place that already resolves a
+character's earned capstone into stats now also resolves it into an ability, threaded through
+unchanged: `mission-claim` attaches it per combatant before calling `simulateCombat`; `useRoster`
+resolves it once (it isn't trait-context-dependent like the conditional stat flavor, so — unlike
+`statInputs.capstone` — it needs no per-mission recompute) and carries it on `RosterMember.ability`
+through `DispatchChar` into `WinChanceEstimate`'s 200-run estimate, so a dispatched party's success
+% already reflects an earned ability the same way it already reflected traits. `capstoneBlessing.ts`
+gains `abilityKind` (radio: `surviveFatal` | `partyBuffOnStart`) and `abilityParams` (`stat`
+restricted to the `AbilityStat` allowlist, `kind`, `value`), both hidden/validated conditionally on
+`kind`/`abilityKind` so authoring a flat or conditional capstone never shows them. No player-facing
+UI changes: `CapstoneCard`/`TalentsTab` already rendered `title`/`kind`/`effects` generically and
+degrade gracefully for a kind with no `effects` (ability capstones still show title + "Ability").
