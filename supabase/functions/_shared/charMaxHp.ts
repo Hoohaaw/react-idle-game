@@ -1,14 +1,23 @@
 import { sanityQuery } from './sanity.ts'
 import {
   effectiveStats,
+  mergeBonuses,
   type StatValue,
   type StatGrowth,
-  type BlessingNodeDef,
   type ItemDefBonuses,
   type EquippedItem,
   type StatMap,
 } from '../../../src/lib/stats.ts'
 import { collectTraitBonuses, type TraitDef, type TraitContext } from '../../../src/lib/traits.ts'
+import {
+  flattenBlessingTree,
+  resolveBlessingAllocations,
+  capstoneEarned,
+  resolveCapstoneBonuses,
+  type RawBlessingRow,
+  type CapstoneDef,
+  type BlessingPicks,
+} from '../../../src/lib/blessings.ts'
 
 // Shared effective-stats fetcher for Edge Functions: stats are never stored (ADR-0002), so any
 // function that needs them recomputes the same way mission-claim builds combatants — Sanity
@@ -18,7 +27,7 @@ export type CharRowForHp = {
   id: string
   character_def_id: string
   level: number
-  blessings: Record<string, number> | null
+  blessings: BlessingPicks | null
   equipped: Record<string, EquippedItem> | null
 }
 
@@ -26,7 +35,8 @@ type CharDefRow = {
   charKey: string
   baseStats?: StatValue[]
   growth?: StatGrowth[]
-  blessingTree?: BlessingNodeDef[]
+  blessingTree?: RawBlessingRow[]
+  capstone?: CapstoneDef
   traits?: TraitDef[]
 }
 type ItemDefRow = { itemKey: string; statBonuses?: ItemDefBonuses['statBonuses'] }
@@ -35,7 +45,8 @@ const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
   charKey,
   baseStats[]{ stat, value },
   growth[]{ stat, perLevel, milestones[]{ level, bonus } },
-  blessingTree[]{ nodeId, effects[]{ stat, kind, perRank } },
+  blessingTree[]{ row, choices[]{ choiceId, effects[]{ stat, kind, value } } },
+  capstone{ title, kind, effects[]{ stat, kind, value }, condition{ type, value }, abilityKind, abilityParams{ stat, kind, value } },
   traits[]->{ traitKey, name, condition{ type, value }, effects[]{ stat, kind, value } }
 }`
 const ITEMDEFS_GROQ = `*[_type == "itemDef" && itemKey in $keys]{ itemKey, statBonuses[]{ stat, kind, value } }`
@@ -64,15 +75,19 @@ export async function statsByCharacter(
   for (const c of chars) {
     const def = charDefByKey.get(c.character_def_id)
     if (!def) throw new Error(`Missing character definition: ${c.character_def_id}`)
+    const picks = c.blessings ?? {}
     out[c.id] = effectiveStats({
       level: c.level,
       baseStats: def.baseStats ?? [],
       growth: def.growth ?? [],
-      blessingAllocations: c.blessings ?? {},
-      blessingNodes: def.blessingTree ?? [],
+      blessingAllocations: resolveBlessingAllocations(picks),
+      blessingNodes: flattenBlessingTree(def.blessingTree),
       equipped: c.equipped ?? {},
       itemDefs: itemDefById,
-      extraBonuses: collectTraitBonuses(def.traits ?? [], ctx),
+      extraBonuses: mergeBonuses(
+        collectTraitBonuses(def.traits ?? [], ctx),
+        resolveCapstoneBonuses(def.capstone, capstoneEarned(c.level, picks), ctx),
+      ),
     })
   }
   return out
