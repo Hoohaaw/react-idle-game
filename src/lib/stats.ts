@@ -27,10 +27,10 @@ export type Milestone = { level: number; bonus: number }
 /** Per-stat growth: a flat per-level increment plus optional additive milestones. */
 export type StatGrowth = { stat: string; perLevel: number; milestones?: Milestone[] }
 
-/** A single blessing-node effect: adds `perRank` of `stat` (flat points or a percent) per rank. */
-export type NodeEffect = { stat: string; kind: 'flat' | 'pct'; perRank: number }
+/** A single blessing effect: grants `value` of `stat` (flat points or a percent) once picked. */
+export type NodeEffect = { stat: string; kind: 'flat' | 'pct'; value: number }
 
-/** The bits of a blessing node the engine needs to total bonuses. */
+/** The bits of a blessing choice the engine needs to total bonuses. */
 export type BlessingNodeDef = { nodeId: string; effects?: NodeEffect[] }
 
 /** A map of stat key -> number (baselines or effective values). */
@@ -97,9 +97,10 @@ export function applyBonuses(baselines: StatMap, bonuses: Record<string, StatBon
 }
 
 /**
- * Total the {flat, pct} bonus each stat gets from a player's allocated blessing ranks.
- * `allocations` is the `{ nodeId: ranks }` map stored on the player row; nodes with 0 (or no)
- * ranks contribute nothing.
+ * Total the {flat, pct} bonus each stat gets from a player's picked blessings (ADR-0045).
+ * `allocations` is the `{ nodeId: 1 }` map for every row-choice the player has picked — build it
+ * from stored picks via `resolveBlessingAllocations` (src/lib/blessings.ts). Nodes absent from the
+ * map contribute nothing.
  */
 export function collectBlessingBonuses(
   allocations: Record<string, number>,
@@ -107,11 +108,11 @@ export function collectBlessingBonuses(
 ): Record<string, StatBonus> {
   const out: Record<string, StatBonus> = {}
   for (const node of nodes) {
-    const ranks = allocations[node.nodeId] ?? 0
-    if (ranks <= 0 || !node.effects) continue
+    const picked = allocations[node.nodeId] ?? 0
+    if (picked <= 0 || !node.effects) continue
     for (const effect of node.effects) {
       const bonus = (out[effect.stat] ??= { flat: 0, pct: 0 })
-      const amount = effect.perRank * ranks
+      const amount = effect.value * picked
       if (effect.kind === 'flat') bonus.flat += amount
       else bonus.pct += amount
     }
