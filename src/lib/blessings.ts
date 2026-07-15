@@ -1,5 +1,5 @@
-import type { StatBonus, NodeEffect, BlessingNodeDef } from './stats'
-import { collectTraitBonuses, type TraitDef, type TraitCondition, type TraitContext } from './traits'
+import type { StatBonus, NodeEffect, BlessingNodeDef } from './stats.ts'
+import { collectTraitBonuses, type TraitDef, type TraitCondition, type TraitContext } from './traits.ts'
 
 // The blessing-tree picks/gating model (ADR-0045): 4 rows, 2 mutually-exclusive choices per row,
 // permanent once picked, plus a capstone earned (not chosen) after row 4. Deno-safe, no browser/
