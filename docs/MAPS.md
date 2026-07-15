@@ -32,6 +32,10 @@ payout on the map, priced against being genuinely harder. Bosses carry the stand
 attack** (`spikeEverySeconds: 20`, `spikeMultiplier: 2.5`, ADR-0039) unless deliberately tuned —
 a periodic heavy hit at a random member that the tank cannot cover.
 
+Authored HP/attack values are **roll midpoints, not floors or ceilings** — every fight rolls each
+enemy's HP and attack ±12% (`ENEMY_STAT_ROLL`, ADR-0038) around the number you write. Template
+math targets the center of that band.
+
 ## Difficulty rhythm — where the 60/40 moments live (Alex, 2026-07-14)
 
 A map is an oscillation, not a monotone ramp. Target win rates for a player at the map's
@@ -98,3 +102,7 @@ legible — always author `resistances` so that line tells the truth.
    (docs/BALANCE.md).
 7. Check the rhythm: stages 5–7 each pose a comp question, the boss lands 55–70% at the map's
    expected power (BALANCE.md power-budget table), and no stage is a freebie or a hidden wall.
+8. Check trait coverage: does an existing traitDef counter this map's dominant school (see
+   docs/TRAITS.md vocabulary)? Earth/wind/holy wards were pre-authored waiting for their maps
+   (ADR-0042) — if the dominant school has no ward yet, note it as a small follow-up content
+   wave; it does not block shipping the map.
