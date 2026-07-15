@@ -7,6 +7,10 @@ import { PackageIcon } from '@sanity/icons'
 // (Common) stat bonuses; rarity scaling of those is deferred (project_undecided). Slots are the
 // item TYPE (a "ring" item fills any of the ring slots); the 14 equip slots (8 gear + 4 ring +
 // 2 trinket) are a UI concern, not authored here.
+//
+// `minLevel` (ADR-0043) is the level required to equip this item at Common rarity; a rarer roll
+// adds LEVEL_REQ_STEP_BY_RARITY on top (src/lib/equipment.ts) — enforced server-side in the
+// equip_item RPC, not just the client picker.
 const SLOT_OPTIONS = [
   { title: 'Head', value: 'head' },
   { title: 'Shoulders', value: 'shoulders' },
@@ -58,6 +62,14 @@ export const itemDef = defineType({
     }),
     defineField({ name: 'sprite', title: 'Sprite (WebP)', type: 'image', fieldset: 'identity' }),
     defineField({ name: 'description', type: 'text', rows: 2 }),
+    defineField({
+      name: 'minLevel',
+      title: 'Min level (Common)',
+      description:
+        'Level required to equip this item at Common rarity. A rarer roll adds a per-rarity step on top (ADR-0043). Leave blank for no restriction.',
+      type: 'number',
+      validation: (rule) => rule.min(1).integer(),
+    }),
     defineField({
       name: 'statBonuses',
       title: 'Stat bonuses',

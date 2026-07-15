@@ -2,7 +2,7 @@ import { Modal } from '@/components/organisms/Modal'
 import { ItemTile } from '@/components/molecules/ItemTile'
 import { Alert } from '@/components/atoms/Alert'
 import { PrimaryButton } from '@/components/atoms/Button'
-import { itemSlotForSlotKey, slotKeyLabel, type GearSlotKey } from '@/lib/equipment'
+import { itemSlotForSlotKey, slotKeyLabel, requiredLevelForRarity, type GearSlotKey } from '@/lib/equipment'
 import { scaledItemStats } from '@/lib/itemStats'
 import { useInventory } from '@/hooks/useInventory'
 import { useItemDefs, type RosterMember } from '@/hooks/useRoster'
@@ -11,7 +11,9 @@ import { useEquipItem, useUnequipItem } from '../hooks'
 // The slot picker (ADR-0022): click a slot on the character sheet → choose which inventory
 // stack to equip there. Eligibility = the stack's authored slot matches the slot key's base
 // slot (a ring item fits any of ring1..ring4). Equipping into an occupied slot swaps — the
-// old item returns to inventory server-side.
+// old item returns to inventory server-side. A stack whose rarity-scaled level requirement
+// (ADR-0043) the member doesn't meet is shown but not clickable — the server enforces the same
+// gate, this just avoids a round-trip to a 409.
 
 export function SlotPickerModal({ member, slotKey, onClose }: {
   member: RosterMember
@@ -87,6 +89,8 @@ export function SlotPickerModal({ member, slotKey, onClose }: {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
             {eligible.map((stack) => {
               const def = itemDefs.data?.[stack.itemDefId]
+              const requiredLevel = requiredLevelForRarity(def?.minLevel ?? 0, stack.rarity)
+              const locked = member.level < requiredLevel
               return (
                 <ItemTile
                   key={stack.id}
@@ -98,10 +102,10 @@ export function SlotPickerModal({ member, slotKey, onClose }: {
                     value: 0,
                     quantity: stack.quantity,
                   }}
-                  onClick={() => handleEquip(stack.itemDefId, stack.rarity)}
+                  onClick={locked ? undefined : () => handleEquip(stack.itemDefId, stack.rarity)}
                   footer={
-                    <span style={{ color: 'var(--color-gold-light)', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
-                      {equip.isPending ? 'Equipping…' : 'Equip'}
+                    <span style={{ color: locked ? 'var(--color-text-muted)' : 'var(--color-gold-light)', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
+                      {locked ? `Req. Lvl ${requiredLevel}` : equip.isPending ? 'Equipping…' : 'Equip'}
                     </span>
                   }
                 />
