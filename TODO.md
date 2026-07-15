@@ -32,10 +32,23 @@ character sprite art. Older open items below may be stale — trust the mileston
 - [ ] **Mission durations / pacing** — all 21 missions carry PLACEHOLDER durations (15s stage 1 →
   15min map-3 boss). Playtest Gravemarch→Frosthollow, then decide the real pacing curve.
   `↳ context: project-maps (placeholders), project-undecided (mission-speed sources) · Sanity missionDef drafts`
-- [ ] **itemDef authoring session** — only 4 items exist; gates map loot identity (waves 2+:
-  earth/wind/holy/shadow maps), gear progression feel, and the Upgrading page. ~20–30 items
-  across slots/tiers, wired into the 21 mission loot tables.
-  `↳ context: project-gear-equip, project-maps (loot focus) · studio/schemaTypes/itemDef.ts, docs/MAPS.md`
+- [x] **itemDef authoring session** (ADR-0043/0044, 2026-07-15) — 23 itemDefs live (19 new + 4
+  backfilled), all 10 slot types covered, rarity-scaled level-requirement gate shipped, 21
+  mission loot tables rewired, `docs/ITEMS.md` written for replicating on future maps.
+  `↳ context: project-items · docs/ITEMS.md, docs/DECISIONS.md ADR-0043/0044`
+- [ ] **Caster/healer weapon-equivalent itemization** — wave 1's `weapon` slot lane is
+  physical-attack only; casters/healers get spellPower/healingPower solely from trinkets,
+  measuring ~23% vs. physical's ~32% in the wave-1 verification. Needs a magic-implement item
+  lane (or a second weapon-slot variant per map) for role parity.
+  `↳ context: project-items · docs/ITEMS.md, src/lib/stats.ts`
+- [ ] **Item flavour text** — all 23 itemDefs ship with a blank `description`. Author map-themed
+  prose once the roster/attribute list settles; not done this wave on purpose.
+  `↳ context: project-items · studio/schemaTypes/itemDef.ts`
+- [ ] **Item power-budget file** — an `itemBudget.ts` analogous to `src/lib/characterBudget.ts`,
+  validating an item's authored stat total against a per-slot/per-rarity budget at studio
+  schema-validation time. Today items are authored free-form with no cap, verified only by the
+  ad-hoc calc-script check in docs/ITEMS.md.
+  `↳ context: project-items, project-character-budget · src/lib/characterBudget.ts, docs/ITEMS.md`
 
 ## Decisions queue — 2026-07-10 (post balance-tuning + character-budget session)
 - [x] **Elemental damage schools + enemy resistances** — BUILT: engine + schema + content

@@ -236,8 +236,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         body:
           'Equip items from your inventory on the Team page — 14 slots per hero. Rarer copies of an ' +
           'item are stronger: each step up (Common → Uncommon → Rare → Epic) adds a solid bonus, and ' +
-          'Legendary jumps the hardest — more than twice a Common. Gear is locked while a hero is ' +
-          'out on a mission or gathering.',
+          'Legendary jumps the hardest — more than twice a Common. That power comes with a level ' +
+          'requirement: a rarer copy of the same item needs a higher level to equip, so a low-level ' +
+          'hero can\'t wear a Legendary the moment one drops — it grows into being usable. Gear is ' +
+          'locked while a hero is out on a mission or gathering.',
       },
       {
         name: 'Upgrading',
