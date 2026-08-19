@@ -41,8 +41,10 @@ character sprite art. Older open items below may be stale — trust the mileston
   measuring ~23% vs. physical's ~32% in the wave-1 verification. Needs a magic-implement item
   lane (or a second weapon-slot variant per map) for role parity.
   `↳ context: project-items · docs/ITEMS.md, src/lib/stats.ts`
-- [ ] **Item flavour text** — all 23 itemDefs ship with a blank `description`. Author map-themed
-  prose once the roster/attribute list settles; not done this wave on purpose.
+- [x] **Item flavour text** (2026-08-19) — all 23 itemDefs given map-themed one-sentence
+  descriptions (Gravemarch: burial-road/shadow/bone; Embercrag: volcanic/fire; Frosthollow:
+  glacier/ice), written to Sanity drafts. No mechanical restatement — statBonuses already show
+  the numbers, description is flavor only.
   `↳ context: project-items · studio/schemaTypes/itemDef.ts`
 - [ ] **Item power-budget file** — an `itemBudget.ts` analogous to `src/lib/characterBudget.ts`,
   validating an item's authored stat total against a per-slot/per-rarity budget at studio
