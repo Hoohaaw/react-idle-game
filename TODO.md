@@ -44,11 +44,16 @@ character sprite art. Older open items below may be stale — trust the mileston
 - [ ] **Item flavour text** — all 23 itemDefs ship with a blank `description`. Author map-themed
   prose once the roster/attribute list settles; not done this wave on purpose.
   `↳ context: project-items · studio/schemaTypes/itemDef.ts`
-- [ ] **Item power-budget file** — an `itemBudget.ts` analogous to `src/lib/characterBudget.ts`,
-  validating an item's authored stat total against a per-slot/per-rarity budget at studio
-  schema-validation time. Today items are authored free-form with no cap, verified only by the
-  ad-hoc calc-script check in docs/ITEMS.md.
-  `↳ context: project-items, project-character-budget · src/lib/characterBudget.ts, docs/ITEMS.md`
+- [x] **Item power-budget file** — `src/lib/itemBudget.ts` built, wired into `itemDef.ts`'s
+  `statBonuses` validation. Budget is a per-slot cost-PER-LEVEL rate (not per-rarity — items only
+  author a Common baseline), with a wider tolerance for minLevel≤3 "universal fill" items. New
+  `PCT_STAT_PRICE` table prices pct effects (first-pass approximation, not modeled equivalence).
+  `↳ context: project-items, project-character-budget · src/lib/itemBudget.ts, docs/ITEMS.md`
+- [ ] **5 wave-1 items fail the new item budget** — `rusted-blade`, `battered-cuirass`,
+  `iron-band` (all minLevel-1 starter placeholders, overcosted), `deadfen-treads` (carries a
+  `dodge` bonus that also violates docs/ITEMS.md's "armor slots = health only" rule), `grave-sigil`
+  (healingPower pct priced ~3.6x richer than `hoarfrost-talisman`'s). Retune values in Sanity drafts.
+  `↳ context: project-items · src/lib/itemBudget.ts (auditItem), docs/ITEMS.md`
 
 ## Decisions queue — 2026-07-10 (post balance-tuning + character-budget session)
 - [x] **Elemental damage schools + enemy resistances** — BUILT: engine + schema + content
