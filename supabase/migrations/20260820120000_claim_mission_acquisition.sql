@@ -46,7 +46,6 @@ declare
   v_loot  jsonb;
   v_key   text;
   v_val   numeric;
-  v_already boolean;
   v_actually_unlocked text[] := '{}';
 begin
   -- Double-claim guard + free the party: an atomic conditional delete. Only one concurrent caller can
@@ -117,15 +116,17 @@ begin
   end loop;
 
   -- Newly-unlocked characters: additive-only. Only report keys THIS call actually set, so a
-  -- retried/duplicate call never re-fires the surprise reveal (spec §10).
+  -- retried/duplicate call never re-fires the surprise reveal (spec §10). The check (key not
+  -- already present) and the write happen in the SAME statement via the WHERE clause, so two
+  -- concurrent claim_mission calls for the same player racing on the same charKey can't both
+  -- see "not present" and both report the unlock (no separate SELECT to go stale before the
+  -- UPDATE lands).
   foreach v_key in array coalesce(p_newly_unlocked, '{}')
   loop
-    select (unlocked_characters ? v_key) into v_already
-      from public.profiles where player_id = p_player;
-    if not coalesce(v_already, false) then
-      update public.profiles
-         set unlocked_characters = jsonb_set(unlocked_characters, array[v_key], to_jsonb(now()))
-       where player_id = p_player;
+    update public.profiles
+       set unlocked_characters = jsonb_set(unlocked_characters, array[v_key], to_jsonb(now()))
+     where player_id = p_player and not (unlocked_characters ? v_key);
+    if found then
       v_actually_unlocked := array_append(v_actually_unlocked, v_key);
     end if;
   end loop;
