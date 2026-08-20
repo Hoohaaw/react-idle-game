@@ -15,6 +15,7 @@ export type ClaimMember = {
   xpGained: number // 0 = no XP (downed, or a loss). Survivors on a win get > 0.
 }
 export type ClaimBonus = { label: string; detail: string; pct: number }
+export type NewRecruitReveal = { charKey: string; name: string; role: string | null }
 export type ClaimResultView = {
   outcome: 'win' | 'loss'
   reason: 'enemies-defeated' | 'party-wiped' | 'timeout'
@@ -28,6 +29,7 @@ export type ClaimResultView = {
   resources: { label: string; value: number }[]
   loot: { name: string; slot: string; rarity: string }[]
   bonuses: ClaimBonus[] // margin, level, party, transcendence
+  newlyUnlocked: NewRecruitReveal[]
 }
 
 // --- Sample results: drive the /design showcase; replaced by the real claim payload when wired. -----
@@ -55,6 +57,7 @@ export const SAMPLE_CLAIM_WIN: ClaimResultView = {
     { label: 'Party size', detail: '×2', pct: 10 },
     { label: 'Transcendence', detail: '×1', pct: 10 },
   ],
+  newlyUnlocked: [],
 }
 
 // Timeout loss: the clock expired with enemies alive — survivors keep their (reduced) HP.
@@ -73,6 +76,7 @@ export const SAMPLE_CLAIM_LOSS: ClaimResultView = {
   resources: [],
   loot: [],
   bonuses: [],
+  newlyUnlocked: [],
 }
 
 // Wipe loss: every hero at 0 HP before the enemies died.
@@ -91,4 +95,5 @@ export const SAMPLE_CLAIM_WIPE: ClaimResultView = {
   resources: [],
   loot: [],
   bonuses: [],
+  newlyUnlocked: [],
 }

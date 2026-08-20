@@ -32,6 +32,8 @@ import {
   type CapstoneDef,
   type BlessingPicks,
 } from '../../../src/lib/blessings.ts'
+import { evaluateCondition, type PlayerAcquisitionState } from '../../../src/lib/acquisition.ts'
+import { fetchAcquisitionCandidates } from '../_shared/characterAcquisition.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -201,11 +203,13 @@ Deno.serve(async (req) => {
   // 3. Player profile: transcendence multiplier + map progress (for the first-clear check).
   const { data: profile } = await admin
     .from('profiles')
-    .select('transcendence_count, map_progress')
+    .select('transcendence_count, map_progress, lifetime_stats, unlocked_characters')
     .eq('player_id', playerId)
     .maybeSingle()
   const transcendenceCount = profile?.transcendence_count ?? 0
   const mapProgress = (profile?.map_progress ?? {}) as Record<string, number>
+  const lifetimeStats = (profile?.lifetime_stats ?? {}) as Record<string, number>
+  const unlockedCharacters = (profile?.unlocked_characters ?? {}) as Record<string, string>
 
   // 4. Fetch authored defs from Sanity: the mission (rewards/loot/encounter), the character defs, and
   //    every equipped item's bonuses.
@@ -342,6 +346,13 @@ Deno.serve(async (req) => {
     return { id: c.id, level, xp, current_hp: endHp }
   })
 
+  // Acquisition: filled in two places below — Task 12's character-loot-drop roll (inside step 10,
+  // right after the item-loot loop) pushes here directly; the condition-evaluation block (after
+  // step 10, once `currencies` is known) pushes here too. Both read/write the SAME two collections
+  // so either source can unlock a character exactly once each.
+  const newlyUnlockedCharKeys: string[] = []
+  const candidateByKey = new Map<string, { name: string; role: string | null }>()
+
   // 10. Wallet + loot (win only). Economy stats stack as the party AVERAGE (ADR-0035):
   //     goldFind scales the gold payout, magicFind scales each drop's chance (capped at 100%),
   //     luck gives each drop a chance at +1 quantity.
@@ -374,9 +385,49 @@ Deno.serve(async (req) => {
     }
   }
 
+  // 10a. Acquisition: lifetime-stat deltas this claim contributes, and which not-yet-unlocked
+  // characters this claim's post-state newly satisfies (docs/superpowers/specs/2026-08-20-
+  // character-acquisition-design.md §6). Scoped to THIS party (see Task 8's scoping note in the
+  // implementation plan) — a character's level/stats only change via mission-claim, so a character
+  // outside this party has nothing new to check.
+  const lifetimeStatsDelta: Record<string, number> = {}
+  if (win) {
+    const goldGranted = currencies['gold'] ?? 0
+    if (goldGranted > 0) lifetimeStatsDelta.goldEarned = goldGranted
+  }
+  lifetimeStatsDelta.missionSecondsSent = result.durationSeconds
+
+  const postClaimLifetimeStats: Record<string, number> = { ...lifetimeStats }
+  for (const [key, delta] of Object.entries(lifetimeStatsDelta)) {
+    postClaimLifetimeStats[key] = (postClaimLifetimeStats[key] ?? 0) + delta
+  }
+  const postClaimMapProgress =
+    win && firstClear && mission.map?.mapKey && typeof mission.stage === 'number'
+      ? { ...mapProgress, [mission.map.mapKey]: Math.max(mapProgress[mission.map.mapKey] ?? 0, mission.stage) }
+      : mapProgress
+
+  const acquisitionState: PlayerAcquisitionState = {
+    characters: charUpdates.map((c) => ({ level: c.level, stats: statsById[c.id] ?? {} })),
+    lifetimeStats: postClaimLifetimeStats,
+    mapProgress: postClaimMapProgress,
+  }
+
+  try {
+    const candidates = await fetchAcquisitionCandidates(Object.keys(unlockedCharacters))
+    for (const c of candidates) {
+      if (!candidateByKey.has(c.charKey)) candidateByKey.set(c.charKey, { name: c.name, role: c.role })
+      if (!newlyUnlockedCharKeys.includes(c.charKey) && evaluateCondition(c.condition, acquisitionState)) {
+        newlyUnlockedCharKeys.push(c.charKey)
+      }
+    }
+  } catch (e) {
+    // Acquisition evaluation must never block a claim from completing — log and continue with none.
+    console.error('acquisition candidate fetch failed — skipping unlock checks this claim', e)
+  }
+
   // 11. Apply everything atomically (the RPC owns the double-claim guard). Map progression
   //     (ADR-0034) advances inside the RPC on a win; null map/stage = legacy mission, no-op.
-  const { error: claimErr } = await admin.rpc('claim_mission', {
+  const { data: claimData, error: claimErr } = await admin.rpc('claim_mission', {
     p_player: playerId,
     p_run_id: run.id,
     p_char_updates: charUpdates,
@@ -386,6 +437,8 @@ Deno.serve(async (req) => {
     p_map_key: mission.map?.mapKey ?? null,
     p_stage: mission.stage ?? null,
     p_won: result.outcome === 'win',
+    p_lifetime_stats: lifetimeStatsDelta,
+    p_newly_unlocked: newlyUnlockedCharKeys,
   })
   if (claimErr) {
     // Most likely the double-claim guard: the row was already claimed or isn't finished.
@@ -393,6 +446,13 @@ Deno.serve(async (req) => {
     const reason = claimErr.message.replace(/^.*claim_mission:\s*/, '')
     return json({ error: reason || 'Could not claim mission' }, 409)
   }
+
+  const actuallyUnlocked = ((claimData as { actually_unlocked?: string[] } | null)?.actually_unlocked ?? [])
+  const newlyUnlocked = actuallyUnlocked.map((charKey) => ({
+    charKey,
+    name: candidateByKey.get(charKey)?.name ?? charKey,
+    role: candidateByKey.get(charKey)?.role ?? null,
+  }))
 
   return json(
     {
@@ -403,6 +463,7 @@ Deno.serve(async (req) => {
       firstClear,
       rewards: { currencies, resources, loot },
       characters: charUpdates,
+      newlyUnlocked,
     },
     200,
   )
