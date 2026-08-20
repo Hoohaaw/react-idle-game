@@ -87,7 +87,7 @@ function buildClaimResult(
     resources: Object.entries(resp.rewards.resources).map(([code, value]) => ({ label: code, value })),
     loot,
     bonuses,
-    newlyUnlocked: resp.newlyUnlocked,
+    newlyUnlocked: resp.newlyUnlocked ?? [],
   }
 }
 

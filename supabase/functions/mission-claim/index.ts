@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
   // 1. Load the run (owner-scoped) — the RPC re-guards atomically, this is a friendly early-out.
   const { data: run, error: runErr } = await admin
     .from('mission_runs')
-    .select('id, mission_def_id, party, ends_at')
+    .select('id, mission_def_id, party, started_at, ends_at')
     .eq('id', runId)
     .eq('player_id', playerId)
     .maybeSingle()
@@ -418,7 +418,12 @@ Deno.serve(async (req) => {
     const goldGranted = currencies['gold'] ?? 0
     if (goldGranted > 0) lifetimeStatsDelta.goldEarned = goldGranted
   }
-  lifetimeStatsDelta.missionSecondsSent = result.durationSeconds
+  // Wall-clock mission time (ends_at − started_at), NOT result.durationSeconds — that's simulateCombat's
+  // in-fight virtual time (scripts/balance/enemies.ts:29-31), which runs 60-170s per mission regardless
+  // of the mission's real wait. Task 16 calibrated Brom Ironwall's missionTimeTotal threshold against
+  // missionDef.durationSeconds (real-world pacing), so this delta has to use the same clock.
+  lifetimeStatsDelta.missionSecondsSent =
+    (new Date(run.ends_at).getTime() - new Date(run.started_at).getTime()) / 1000
 
   const postClaimLifetimeStats: Record<string, number> = { ...lifetimeStats }
   for (const [key, delta] of Object.entries(lifetimeStatsDelta)) {

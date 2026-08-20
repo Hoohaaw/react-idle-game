@@ -106,7 +106,7 @@ export default function GatherPage() {
                 yieldPerTick={mine.yieldPerTick}
                 assignedSecAgo={secSince(assignment.last_collected_at)}
                 onStop={() => collectG.mutate({ assignmentId: assignment.id, stop: true }, {
-                  onSuccess: (data) => setNewlyUnlocked(data.newlyUnlocked),
+                  onSuccess: (data) => setNewlyUnlocked(data.newlyUnlocked ?? []),
                 })}
               />
             ))}
@@ -137,10 +137,10 @@ export default function GatherPage() {
                   assignedSecAgo={a ? secSince(a.last_collected_at) : undefined}
                   onAssign={() => setAssigningResource(mine.resourceKey)}
                   onCollect={a ? () => collectG.mutate({ assignmentId: a.id }, {
-                    onSuccess: (data) => setNewlyUnlocked(data.newlyUnlocked),
+                    onSuccess: (data) => setNewlyUnlocked(data.newlyUnlocked ?? []),
                   }) : undefined}
                   onStop={a ? () => collectG.mutate({ assignmentId: a.id, stop: true }, {
-                    onSuccess: (data) => setNewlyUnlocked(data.newlyUnlocked),
+                    onSuccess: (data) => setNewlyUnlocked(data.newlyUnlocked ?? []),
                   }) : undefined}
                 />
               )
