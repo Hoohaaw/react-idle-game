@@ -56,6 +56,13 @@ export const STAT_DEFS: StatDef[] = [
   { key: 'gatherYield', label: 'Gather Yield', category: 'misc', reward: false },
   { key: 'magicFind', label: 'Magic Find', category: 'misc', reward: false },
   { key: 'luck', label: 'Luck', category: 'misc', reward: false },
+
+  // Trait-era economy/recovery stats (ADR-0035). Percent-point values consumed at their sites:
+  // goldFind scales mission gold (party average), xpGain scales a survivor's OWN mission XP,
+  // recoverySpeed scales that character's infirmary healing rate.
+  { key: 'goldFind', label: 'Gold Find', category: 'misc', reward: false },
+  { key: 'xpGain', label: 'XP Gain', category: 'misc', reward: false },
+  { key: 'recoverySpeed', label: 'Recovery Speed', category: 'misc', reward: false },
 ]
 
 export const STAT_KEYS: string[] = STAT_DEFS.map((s) => s.key)

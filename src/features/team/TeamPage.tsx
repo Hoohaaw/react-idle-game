@@ -2,12 +2,15 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { Avatar } from '@/components/atoms/Avatar'
 import { RoleBadge } from '@/components/atoms/RoleBadge'
 import { ClassBadge } from '@/components/atoms/ClassBadge'
+import { SchoolBadge } from '@/components/atoms/SchoolBadge'
+import { TraitChips } from '@/components/molecules/TraitChips'
 import { Modal } from '@/components/organisms/Modal'
 import { CharacterCard } from '@/components/organisms/CharacterCard'
 import { useCharacters } from '@/hooks/useCharacters'
 import { useRoster, useItemDefs, type RosterMember } from '@/hooks/useRoster'
 import { xpToNext } from '@/lib/leveling'
 import { effectiveStatBreakdown } from '@/lib/stats'
+import { resolveBlessingAllocations } from '@/lib/blessings'
 import type { GearSlotKey } from '@/lib/equipment'
 import { resolveGearSlots } from './lib'
 import { SlotPickerModal } from './components/SlotPickerModal'
@@ -70,8 +73,14 @@ export default function TeamPage() {
             xpCurrent={openMember.xp}
             xpNeeded={xpToNext(openMember.level)}
             role={openDef.role}
+            damageSchool={openDef.damageSchool}
+            traits={openDef.traits}
             baseStats={openDef.baseStats}
             growth={openDef.growth}
+            blessingTree={openDef.blessingTree}
+            blessings={openMember.blessings}
+            capstone={openDef.capstone}
+            capstoneEarned={openMember.capstoneEarned}
             gear={{
               slots: resolveGearSlots(openMember.equipped, itemDefs.data),
               onSlotClick: setPickerSlot,
@@ -81,7 +90,7 @@ export default function TeamPage() {
               level: openMember.level,
               baseStats: openDef.baseStats,
               growth: openDef.growth,
-              blessingAllocations: openMember.blessings,
+              blessingAllocations: resolveBlessingAllocations(openMember.blessings),
               blessingNodes: openDef.blessingNodes,
               equipped: openMember.equipped,
               itemDefs: itemDefs.data ?? {},
@@ -129,7 +138,13 @@ function PartyMemberCard({ member, onOpen }: { member: RosterMember; onOpen: () 
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
         <ClassBadge charClass={member.charClass} size="sm" />
         <RoleBadge role={member.role} size="sm" />
+        {member.damageSchool && <SchoolBadge school={member.damageSchool} size="sm" />}
       </div>
+      {member.traits.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <TraitChips traits={member.traits} />
+        </div>
+      )}
     </div>
   )
 }

@@ -10,12 +10,14 @@ export type PlayerProfile = {
   resources: Record<string, number>
   transcendenceCount: number
   infirmaryLevel: number
+  /** Highest stage cleared per map, keyed by mapKey (ADR-0034). Absent key = nothing cleared. */
+  mapProgress: Record<string, number>
 }
 
 export async function fetchProfile(): Promise<PlayerProfile> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('currencies, resources, transcendence_count, infirmary_level')
+    .select('currencies, resources, transcendence_count, infirmary_level, map_progress')
     .maybeSingle()
   if (error) throw error
   return {
@@ -23,5 +25,6 @@ export async function fetchProfile(): Promise<PlayerProfile> {
     resources: (data?.resources ?? {}) as Record<string, number>,
     transcendenceCount: data?.transcendence_count ?? 0,
     infirmaryLevel: data?.infirmary_level ?? 1,
+    mapProgress: (data?.map_progress ?? {}) as Record<string, number>,
   }
 }

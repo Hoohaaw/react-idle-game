@@ -12,14 +12,16 @@ const MissionsPage = lazy(() => import('@/features/missions').then((m) => ({ def
 const InfirmaryPage = lazy(() => import('@/features/infirmary').then((m) => ({ default: m.InfirmaryPage })))
 const GatherPage = lazy(() => import('@/features/gather').then((m) => ({ default: m.GatherPage })))
 const TeamPage = lazy(() => import('@/features/team').then((m) => ({ default: m.TeamPage })))
+const BlessingsPage = lazy(() => import('@/features/blessings').then((m) => ({ default: m.BlessingsPage })))
+const RespecPage = lazy(() => import('@/features/respec').then((m) => ({ default: m.RespecPage })))
 const UpgradingPage = lazy(() => import('./pages/UpgradingPage'))
 const ShopPage = lazy(() => import('./pages/ShopPage'))
 const InventoryPage = lazy(() => import('./pages/InventoryPage'))
 const CraftingPage = lazy(() => import('./pages/CraftingPage'))
 const UpgradesPage = lazy(() => import('./pages/UpgradesPage'))
-const BlessingsPage = lazy(() => import('./pages/BlessingsPage'))
 const TranscendencePage = lazy(() => import('./pages/TranscendencePage'))
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
+const GameStatsPage = lazy(() => import('./pages/GameStatsPage'))
 
 function PageLoading() {
   return (
@@ -50,8 +52,10 @@ export default function App() {
             <Route path="/crafting" element={<CraftingPage />} />
             <Route path="/upgrades" element={<UpgradesPage />} />
             <Route path="/blessings" element={<BlessingsPage />} />
+            <Route path="/respec" element={<RespecPage />} />
             <Route path="/transcendence" element={<TranscendencePage />} />
             <Route path="/statistics" element={<StatisticsPage />} />
+            <Route path="/game-stats" element={<GameStatsPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/missions" replace />} />

@@ -50,7 +50,7 @@ export default function CraftingPage() {
             </motion.div>
           ) : (
             <motion.div key="opener" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.11 }} style={{ gridColumn: '3', justifySelf: 'start' }}>
-              <SecondaryButton onClick={() => setBookOpen(true)}>📖 Show Recipe Book</SecondaryButton>
+              <SecondaryButton onClick={() => setBookOpen(true)}>Show Recipe Book</SecondaryButton>
             </motion.div>
           )}
         </AnimatePresence>

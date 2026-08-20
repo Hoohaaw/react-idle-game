@@ -83,12 +83,12 @@ describe('applyBonuses', () => {
 
 describe('collectBlessingBonuses', () => {
   const nodes: BlessingNodeDef[] = [
-    { nodeId: 'a', effects: [{ stat: 'attack', kind: 'flat', perRank: 2 }] },
-    { nodeId: 'b', effects: [{ stat: 'attack', kind: 'pct', perRank: 5 }] },
-    { nodeId: 'c', effects: [{ stat: 'health', kind: 'flat', perRank: 10 }] },
+    { nodeId: 'a', effects: [{ stat: 'attack', kind: 'flat', value: 2 }] },
+    { nodeId: 'b', effects: [{ stat: 'attack', kind: 'pct', value: 5 }] },
+    { nodeId: 'c', effects: [{ stat: 'health', kind: 'flat', value: 10 }] },
   ]
 
-  it('multiplies perRank by allocated ranks and splits flat vs pct per stat', () => {
+  it('multiplies value by allocated ranks and splits flat vs pct per stat', () => {
     const out = collectBlessingBonuses({ a: 3, b: 2 }, nodes)
     expect(out.attack).toEqual({ flat: 6, pct: 10 }) // 2×3 flat, 5×2 pct
   })
@@ -100,8 +100,8 @@ describe('collectBlessingBonuses', () => {
 
   it('sums contributions to the same stat across nodes', () => {
     const stacked: BlessingNodeDef[] = [
-      { nodeId: 'x', effects: [{ stat: 'attack', kind: 'flat', perRank: 1 }] },
-      { nodeId: 'y', effects: [{ stat: 'attack', kind: 'flat', perRank: 4 }] },
+      { nodeId: 'x', effects: [{ stat: 'attack', kind: 'flat', value: 1 }] },
+      { nodeId: 'y', effects: [{ stat: 'attack', kind: 'flat', value: 4 }] },
     ]
     const out = collectBlessingBonuses({ x: 2, y: 1 }, stacked)
     expect(out.attack).toEqual({ flat: 6, pct: 0 }) // 1×2 + 4×1
@@ -142,20 +142,20 @@ describe('collectGearBonuses', () => {
     'ruby-ring': { statBonuses: [{ stat: 'attack', kind: 'pct', value: 5 }, { stat: 'health', kind: 'flat', value: 20 }] },
   }
 
-  it('scales each base bonus by the equipped rarity (ADR-0017 ×2/step)', () => {
+  it('scales each base bonus by the equipped rarity (ADR-0032 flattened ladder)', () => {
     const equipped: Record<string, EquippedItem> = { weapon: { itemDefId: 'iron-sword', rarity: 'Epic' } }
-    // Epic ×8 → base +10 attack becomes +80.
-    expect(collectGearBonuses(equipped, itemDefs).attack).toEqual({ flat: 80, pct: 0 })
+    // Epic ×1.75 → base +10 attack becomes +17.5.
+    expect(collectGearBonuses(equipped, itemDefs).attack).toEqual({ flat: 17.5, pct: 0 })
   })
 
   it('accumulates flat and pct across slots at their own rarities', () => {
     const equipped: Record<string, EquippedItem> = {
       weapon: { itemDefId: 'iron-sword', rarity: 'Common' }, // attack +10 flat
-      ring: { itemDefId: 'ruby-ring', rarity: 'Rare' }, // ×4 → attack +20% pct, health +80 flat
+      ring: { itemDefId: 'ruby-ring', rarity: 'Rare' }, // ×1.45 → attack +7.25% pct, health +29 flat
     }
     const out = collectGearBonuses(equipped, itemDefs)
-    expect(out.attack).toEqual({ flat: 10, pct: 20 })
-    expect(out.health).toEqual({ flat: 80, pct: 0 })
+    expect(out.attack).toEqual({ flat: 10, pct: 7.25 })
+    expect(out.health).toEqual({ flat: 29, pct: 0 })
   })
 
   it('skips unknown items and falls back to ×1 for an unknown rarity', () => {
@@ -165,7 +165,7 @@ describe('collectGearBonuses', () => {
   })
 
   it('exposes the full rarity ladder', () => {
-    expect(RARITY_MULT).toEqual({ Common: 1, Uncommon: 2, Rare: 4, Epic: 8, Legendary: 16 })
+    expect(RARITY_MULT).toEqual({ Common: 1, Uncommon: 1.2, Rare: 1.45, Epic: 1.75, Legendary: 2.25 })
   })
 })
 
@@ -184,12 +184,12 @@ describe('effectiveStats', () => {
       baseStats: [{ stat: 'attack', value: 10 }, { stat: 'health', value: 100 }],
       growth: [{ stat: 'attack', perLevel: 5 }], // → baseline attack 30
       blessingAllocations: { might: 2 },
-      blessingNodes: [{ nodeId: 'might', effects: [{ stat: 'attack', kind: 'pct', perRank: 10 }] }], // +20% pct
-      equipped: { weapon: { itemDefId: 'sword', rarity: 'Uncommon' } }, // ×2 → +10 flat attack
+      blessingNodes: [{ nodeId: 'might', effects: [{ stat: 'attack', kind: 'pct', value: 10 }] }], // +20% pct
+      equipped: { weapon: { itemDefId: 'sword', rarity: 'Uncommon' } }, // ×1.2 → +6 flat attack
       itemDefs: { sword: { statBonuses: [{ stat: 'attack', kind: 'flat', value: 5 }] } },
     })
-    // attack: baseline 30 + gear flat 10 + 30×20% = 46
-    expect(out.attack).toBeCloseTo(46)
+    // attack: baseline 30 + gear flat 6 + 30×20% = 42
+    expect(out.attack).toBeCloseTo(42)
     expect(out.health).toBe(100)
   })
 })
@@ -300,7 +300,7 @@ describe('effectiveStatBreakdown', () => {
 
   it('blessing flat bonus lands in blessings', () => {
     const nodes: BlessingNodeDef[] = [
-      { nodeId: 'might', effects: [{ stat: 'attack', kind: 'flat', perRank: 3 }] },
+      { nodeId: 'might', effects: [{ stat: 'attack', kind: 'flat', value: 3 }] },
     ]
     const breakdown = effectiveStatBreakdown({
       level: 1,
@@ -320,7 +320,7 @@ describe('effectiveStatBreakdown', () => {
   it('blessing pct bonus computes against the baseline', () => {
     // attack baseline at level 1 = 10; +20% pct from blessing → blessings = 10 × 20/100 = 2
     const nodes: BlessingNodeDef[] = [
-      { nodeId: 'power', effects: [{ stat: 'attack', kind: 'pct', perRank: 10 }] },
+      { nodeId: 'power', effects: [{ stat: 'attack', kind: 'pct', value: 10 }] },
     ]
     const breakdown = effectiveStatBreakdown({
       level: 1,
@@ -338,8 +338,8 @@ describe('effectiveStatBreakdown', () => {
   it('total === base + items + blessings for every stat AND matches effectiveStats (the invariant)', () => {
     // Mixed fixture: gear + blessings + a stat that only exists in gear (no baseline)
     const nodes: BlessingNodeDef[] = [
-      { nodeId: 'might', effects: [{ stat: 'attack', kind: 'pct', perRank: 10 }] },
-      { nodeId: 'vitality', effects: [{ stat: 'health', kind: 'flat', perRank: 20 }] },
+      { nodeId: 'might', effects: [{ stat: 'attack', kind: 'pct', value: 10 }] },
+      { nodeId: 'vitality', effects: [{ stat: 'health', kind: 'flat', value: 20 }] },
     ]
     const equipped: Record<string, EquippedItem> = {
       weapon: { itemDefId: 'sword', rarity: 'Uncommon' }, // ×2 → attack +10 flat
@@ -407,7 +407,7 @@ describe('integration: level → baselines → effective → reward bonus', () =
     const baseStats = [{ stat: 'attack', value: 10 }, { stat: 'health', value: 100 }]
     const growth: StatGrowth[] = [{ stat: 'attack', perLevel: 5 }]
     const nodes: BlessingNodeDef[] = [
-      { nodeId: 'might', effects: [{ stat: 'attack', kind: 'pct', perRank: 10 }] },
+      { nodeId: 'might', effects: [{ stat: 'attack', kind: 'pct', value: 10 }] },
     ]
 
     const baselines = computeBaselines(5, baseStats, growth) // attack 30, health 100

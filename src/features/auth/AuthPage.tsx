@@ -45,7 +45,7 @@ export function AuthPage() {
           fontSize: 22,
           letterSpacing: '1.5px',
           textShadow: '0 0 12px rgba(240,208,96,0.4), 0 2px 3px rgba(0,0,0,0.9)',
-        }}>⚔ The Idle Game</h1>
+        }}>The Idle Game</h1>
         <p style={{ textAlign: 'center', marginBottom: 24, color: 'var(--color-text-muted)', fontSize: 13 }}>
           {mode === 'login' ? 'Sign in to continue your adventure.' : 'Create an account to begin.'}
         </p>

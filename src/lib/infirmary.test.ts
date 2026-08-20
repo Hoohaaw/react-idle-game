@@ -168,6 +168,16 @@ describe('healState — healing phase after stabilize', () => {
     const state = healState({ ...base, nowMs: 310_000 })
     expect(state.secondsToFull).toBe(10)
   })
+
+  // ADR-0035: recoverySpeed (Ironblood trait) scales the heal RATE; stabilize is untouched.
+  it('recoverySpeedPct speeds healing but not the stabilize window', () => {
+    // +25%: rate 12.5 HP/s → at 310s, floor(10 × 12.5) = 125 HP (vs 100 unmodified).
+    const boosted = healState({ ...base, nowMs: 310_000, recoverySpeedPct: 25 })
+    expect(boosted.currentHp).toBe(125)
+    // Stabilize end unchanged: still stabilizing at 299s, healing at 300s.
+    expect(healState({ ...base, nowMs: 299_000, recoverySpeedPct: 25 }).phase).toBe('stabilizing')
+    expect(healState({ ...base, nowMs: 300_000, recoverySpeedPct: 25 }).phase).toBe('healing')
+  })
 })
 
 // ---------------------------------------------------------------------------

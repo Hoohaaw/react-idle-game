@@ -27,10 +27,10 @@ export type Milestone = { level: number; bonus: number }
 /** Per-stat growth: a flat per-level increment plus optional additive milestones. */
 export type StatGrowth = { stat: string; perLevel: number; milestones?: Milestone[] }
 
-/** A single blessing-node effect: adds `perRank` of `stat` (flat points or a percent) per rank. */
-export type NodeEffect = { stat: string; kind: 'flat' | 'pct'; perRank: number }
+/** A single blessing effect: grants `value` of `stat` (flat points or a percent) once picked. */
+export type NodeEffect = { stat: string; kind: 'flat' | 'pct'; value: number }
 
-/** The bits of a blessing node the engine needs to total bonuses. */
+/** The bits of a blessing choice the engine needs to total bonuses. */
 export type BlessingNodeDef = { nodeId: string; effects?: NodeEffect[] }
 
 /** A map of stat key -> number (baselines or effective values). */
@@ -97,9 +97,10 @@ export function applyBonuses(baselines: StatMap, bonuses: Record<string, StatBon
 }
 
 /**
- * Total the {flat, pct} bonus each stat gets from a player's allocated blessing ranks.
- * `allocations` is the `{ nodeId: ranks }` map stored on the player row; nodes with 0 (or no)
- * ranks contribute nothing.
+ * Total the {flat, pct} bonus each stat gets from a player's picked blessings (ADR-0045).
+ * `allocations` is the `{ nodeId: 1 }` map for every row-choice the player has picked — build it
+ * from stored picks via `resolveBlessingAllocations` (src/lib/blessings.ts). Nodes absent from the
+ * map contribute nothing.
  */
 export function collectBlessingBonuses(
   allocations: Record<string, number>,
@@ -107,11 +108,11 @@ export function collectBlessingBonuses(
 ): Record<string, StatBonus> {
   const out: Record<string, StatBonus> = {}
   for (const node of nodes) {
-    const ranks = allocations[node.nodeId] ?? 0
-    if (ranks <= 0 || !node.effects) continue
+    const picked = allocations[node.nodeId] ?? 0
+    if (picked <= 0 || !node.effects) continue
     for (const effect of node.effects) {
       const bonus = (out[effect.stat] ??= { flat: 0, pct: 0 })
-      const amount = effect.perRank * ranks
+      const amount = effect.value * picked
       if (effect.kind === 'flat') bonus.flat += amount
       else bonus.pct += amount
     }
@@ -122,16 +123,17 @@ export function collectBlessingBonuses(
 // ---- Layer 2b: equipped-gear bonuses ----------------------------------------------------------
 
 /**
- * Per-rarity multiplier on an item's BASE (Common) stat bonuses (first-pass, ADR-0017). Authored
- * `itemDef.statBonuses` are the Common values; a rarer copy of the same item multiplies EACH bonus
- * (flat and pct) by this factor. Steep ×2 per step — provisional like the combat constants.
+ * Per-rarity multiplier on an item's BASE (Common) stat bonuses (ADR-0032, supersedes the ADR-0017
+ * ×2/step values). Authored `itemDef.statBonuses` are the Common values; a rarer copy multiplies
+ * EACH bonus (flat and pct) by this factor. Flattened curve: every tier matters, Legendary jumps
+ * hardest (decided by Alex) — the old ×16 Legendary out-valued a character's whole growth ladder.
  */
 export const RARITY_MULT: Record<string, number> = {
   Common: 1,
-  Uncommon: 2,
-  Rare: 4,
-  Epic: 8,
-  Legendary: 16,
+  Uncommon: 1.2,
+  Rare: 1.45,
+  Epic: 1.75,
+  Legendary: 2.25,
 }
 
 /** A single equip-time stat bonus authored on an item (base/Common values). */
@@ -185,6 +187,9 @@ export function mergeBonuses(...maps: Record<string, StatBonus>[]): Record<strin
  * A character's EFFECTIVE stats: level baselines + blessing bonuses + equipped-gear bonuses, stacked
  * with the {flat, pct} rule. This is the single computation the combat sim consumes on BOTH the client
  * (replay) and the server (resolve) — ADR-0016.
+ *
+ * `extraBonuses` (optional) folds additional pre-collected bonus maps into the same rule — the
+ * trait layer (ADR-0035) passes its condition-matched bonuses here (src/lib/traits.ts).
  */
 export function effectiveStats(input: {
   level: number
@@ -194,11 +199,13 @@ export function effectiveStats(input: {
   blessingNodes: BlessingNodeDef[]
   equipped: Record<string, EquippedItem>
   itemDefs: Record<string, ItemDefBonuses>
+  extraBonuses?: Record<string, StatBonus>
 }): StatMap {
   const baselines = computeBaselines(input.level, input.baseStats, input.growth)
   const bonuses = mergeBonuses(
     collectBlessingBonuses(input.blessingAllocations, input.blessingNodes),
     collectGearBonuses(input.equipped, input.itemDefs),
+    input.extraBonuses ?? {},
   )
   return applyBonuses(baselines, bonuses)
 }

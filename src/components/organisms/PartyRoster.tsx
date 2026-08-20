@@ -1,7 +1,9 @@
 import { Avatar } from '../atoms/Avatar'
 import { StatusTag } from '../atoms/StatusTag'
 import { RoleBadge } from '../atoms/RoleBadge'
+import { SchoolBadge } from '../atoms/SchoolBadge'
 import { resolveRole, type CharacterRole } from '../../lib/roles'
+import type { School } from '../../lib/schools'
 
 // A character row in the roster. `activity` is derived server-side from the
 // character's current assignment (on a mission / gathering / idle).
@@ -10,9 +12,10 @@ export type RosterCharacter = {
   name: string
   charClass: string
   level: number
-  activity: 'idle' | 'mission' | 'gather' | 'infirmary'
+  activity: 'idle' | 'mission' | 'gather' | 'infirmary' | 'downed'
   detail?: string // mission name or resource being gathered
   role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
+  damageSchool?: School // the caster's magic school, when authored (ADR-0033)
 }
 
 // Select-mode roster: lists EVERY owned character (busy ones included, shown
@@ -41,8 +44,11 @@ function RosterRow({ char, selected, onSelect }: { char: RosterCharacter; select
       ? 'On Mission'
       : char.activity === 'gather'
         ? 'Gathering'
-        : 'In Infirmary'
-  const detailIcon = char.activity === 'mission' ? '⚔' : char.activity === 'gather' ? '⛏' : char.activity === 'infirmary' ? '✚' : ''
+        : char.activity === 'downed'
+          ? 'Downed'
+          : 'In Infirmary'
+  const statusTone = free ? 'ready' : char.activity === 'downed' ? 'danger' : char.activity === 'mission' ? 'busy' : 'locked'
+  const detail = char.activity === 'gather' && char.detail ? `Gathering — ${char.detail}` : char.detail
   const borderColor = selected ? 'var(--color-gold-light)' : free ? 'var(--color-gold-mid)' : 'var(--color-gold-dark)'
 
   return (
@@ -67,9 +73,10 @@ function RosterRow({ char, selected, onSelect }: { char: RosterCharacter; select
         <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 7 }}>{char.charClass} · Lv {char.level}</p>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <RoleBadge role={resolveRole(char.charClass, char.role)} size="sm" />
-          <StatusTag tone={free ? 'ready' : 'busy'}>{status}</StatusTag>
+          {char.damageSchool && <SchoolBadge school={char.damageSchool} size="sm" />}
+          <StatusTag tone={statusTone}>{status}</StatusTag>
         </div>
-        {char.detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detailIcon} {char.detail}</p>}
+        {detail && <p style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detail}</p>}
       </div>
       {/* Selection indicator — only meaningful for free, selectable characters */}
       {free && (

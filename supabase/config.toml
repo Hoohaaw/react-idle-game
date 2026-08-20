@@ -420,6 +420,12 @@ verify_jwt = true
 [functions.gear-unequip]
 verify_jwt = true
 
+# blessing-respec: pay gold to wipe a character's blessing tree (ADR-0047) via the
+# respec_blessings RPC. Imports RESPEC_COST from src/lib directly (bundled from disk like
+# mission-claim).
+[functions.blessing-respec]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

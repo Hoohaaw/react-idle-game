@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { ResourceChip } from '../atoms/ResourceChip'
 import { CoinDisplay } from '../atoms/CoinDisplay'
+import { IconSlot } from '../atoms/IconSlot'
 import { useAuthStore } from '@/stores/authStore'
 import { signOut } from '@/services/auth'
 import { useProfile } from '@/hooks/useProfile'
@@ -22,8 +23,10 @@ const NAV = [
   { label: 'Crafting', to: '/crafting' },
   { label: 'Upgrades', to: '/upgrades' },
   { label: 'Blessings', to: '/blessings' },
+  { label: 'Respec', to: '/respec' },
   { label: 'Transcendence', to: '/transcendence' },
   { label: 'Statistics', to: '/statistics' },
+  { label: 'Game Stats', to: '/game-stats' },
   { label: 'Design', to: '/design' }, // dev-only — remove before production
 ]
 
@@ -99,7 +102,8 @@ export function GameHeader() {
           textShadow: '0 0 12px rgba(240,208,96,0.5), 0 2px 3px rgba(0,0,0,0.9)',
           whiteSpace: 'nowrap',
           textDecoration: 'none',
-        }}>⚔ The Idle Game</NavLink>
+          display: 'inline-flex', alignItems: 'center', gap: 7,
+        }}><IconSlot size={15} />The Idle Game</NavLink>
         <nav style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
           {NAV.map(item => (
             <NavLink

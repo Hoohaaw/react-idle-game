@@ -5,8 +5,19 @@ import { fetchOwnedCharacters, fetchGatherCharacterIds, type EquippedItem } from
 import { fetchAdmissions } from '@/services/infirmary'
 import { fetchItemDefs } from '@/services/items'
 import { fetchCharacterDefs } from '@/services/characters'
-import { effectiveStats } from '@/lib/stats'
+import { effectiveStats, mergeBonuses, type StatValue, type StatGrowth, type BlessingNodeDef } from '@/lib/stats'
 import { resolveRole, type CharacterRole } from '@/lib/roles'
+import type { School } from '@/lib/schools'
+import type { CombatAbility } from '@/lib/combat'
+import { collectTraitBonuses, type TraitDef } from '@/lib/traits'
+import {
+  resolveBlessingAllocations,
+  capstoneEarned,
+  resolveCapstoneBonuses,
+  resolveCapstoneAbility,
+  type BlessingPicks,
+  type CapstoneDef,
+} from '@/lib/blessings'
 
 // Shared player-state reads + the composed roster. Used by every feature that needs "the player's
 // characters and what they're doing" — missions (dispatch/claim), infirmary (heal), gather (assign).
@@ -44,12 +55,35 @@ export type RosterMember = {
   name: string
   charClass: string
   role: CharacterRole
+  damageSchool?: School
+  /** Innate traits (ADR-0035) — the roster view's stats include only the always-on ones;
+   *  fight/gather-conditional matching happens at the site with its context. */
+  traits: TraitDef[]
   level: number
   xp: number
   maxHp: number
   currentHp: number | null
+  /** Full effective stat map (level + blessings + gear + always-on traits) — same computation
+   *  the server uses context-free. Powers the dispatch estimate + infirmary projections. */
+  stats: Record<string, number>
+  /** The authored stat inputs (shared def references, not copies) — lets fight-context callers
+   *  (win-chance estimator) recompute effectiveStats with condition-matched trait/capstone bonuses. */
+  statInputs: {
+    baseStats: StatValue[]
+    growth: StatGrowth[]
+    blessingNodes: BlessingNodeDef[]
+    capstone?: CapstoneDef
+  }
   equipped: Record<string, EquippedItem>
-  blessings: Record<string, number>
+  blessings: BlessingPicks
+  /** Whether this character has earned their capstone (level 50 + row 4 picked, ADR-0045) — the
+   *  roster's own `stats` already folds its bonus in context-free; fight-context callers re-derive
+   *  it themselves via `statInputs.capstone` + this flag. */
+  capstoneEarned: boolean
+  /** The earned capstone ability (ADR-0045 Phase B), if its kind is 'ability' — unlike the stat/
+   *  conditional flavors, an ability isn't trait-context-dependent, so it's resolved once here
+   *  and carried as-is into the win-chance estimator's Combatant construction. */
+  ability?: CombatAbility
   busy: 'mission' | 'gathering' | 'infirmary' | null
 }
 
@@ -71,14 +105,19 @@ export function useRoster() {
     return owned.data.flatMap((c) => {
       const def = defByKey.get(c.characterDefId)
       if (!def) return [] // owned a character whose def isn't loaded/authored — skip
+      const earnedCapstone = capstoneEarned(c.level, c.blessings)
       const stats = effectiveStats({
         level: c.level,
         baseStats: def.baseStats,
         growth: def.growth,
-        blessingAllocations: c.blessings,
+        blessingAllocations: resolveBlessingAllocations(c.blessings),
         blessingNodes: def.blessingNodes,
         equipped: c.equipped,
         itemDefs: items.data!,
+        extraBonuses: mergeBonuses(
+          collectTraitBonuses(def.traits, {}), // always-on traits only (no context)
+          resolveCapstoneBonuses(def.capstone, earnedCapstone, {}),
+        ),
       })
       return [{
         id: c.id,
@@ -86,12 +125,23 @@ export function useRoster() {
         name: def.name,
         charClass: def.charClass,
         role: resolveRole(def.charClass, def.role),
+        damageSchool: def.damageSchool,
+        traits: def.traits,
         level: c.level,
         xp: c.xp,
         maxHp: Math.max(1, Math.round(stats.health ?? 0)),
         currentHp: c.currentHp,
+        stats,
+        statInputs: {
+          baseStats: def.baseStats,
+          growth: def.growth,
+          blessingNodes: def.blessingNodes,
+          capstone: def.capstone,
+        },
         equipped: c.equipped,
         blessings: c.blessings,
+        capstoneEarned: earnedCapstone,
+        ability: resolveCapstoneAbility(def.capstone, earnedCapstone),
         busy: gathering.has(c.id)
           ? 'gathering'
           : onMission.has(c.id)

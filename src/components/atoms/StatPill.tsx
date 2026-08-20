@@ -1,4 +1,4 @@
-export function StatPill({ label, value }: { label: string; value: number }) {
+export function StatPill({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="atom-heavy" style={{
       display: 'flex',

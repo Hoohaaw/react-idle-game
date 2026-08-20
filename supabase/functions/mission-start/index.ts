@@ -1,6 +1,8 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
+import { statsByCharacter } from '../_shared/charMaxHp.ts'
+import { missionDurationMultiplier } from '../../../src/lib/traits.ts'
 
 // mission-start: dispatch a party on a mission (ADR-0003 server-authoritative write). Validates the
 // caller, resolves the mission's authored duration from Sanity (the client is NOT trusted for it), and
@@ -41,11 +43,24 @@ Deno.serve(async (req) => {
     return json({ error: 'party must be 1–3 character ids' }, 400)
   }
 
-  // Authored mission duration (server-trusted). Also validates the mission exists.
-  let def: { durationSeconds?: number } | null
+  // Authored mission duration + map/stage placement (server-trusted). Also validates the mission
+  // exists. `prevMapKey` = the map immediately before this mission's map in world order — the RPC
+  // gates on its boss being cleared (ADR-0034); null for the first map or unplaced legacy missions.
+  type MissionDef = {
+    durationSeconds?: number
+    stage?: number
+    map?: { mapKey?: string; order?: number; prevMapKey?: string | null } | null
+  }
+  let def: MissionDef | null
   try {
-    def = await sanityQuery<{ durationSeconds?: number } | null>(
-      '*[_type == "missionDef" && missionKey == $id][0]{ durationSeconds }',
+    def = await sanityQuery<MissionDef | null>(
+      `*[_type == "missionDef" && missionKey == $id][0]{
+        durationSeconds, stage,
+        "map": map->{
+          mapKey, order,
+          "prevMapKey": *[_type == "mapDef" && order < ^.order] | order(order desc)[0].mapKey
+        }
+      }`,
       { id: missionDefId },
     )
   } catch (e) {
@@ -57,11 +72,33 @@ Deno.serve(async (req) => {
     return json({ error: 'Mission has no valid duration' }, 500)
   }
 
+  // Party missionSpeedDecrease (traits/gear/blessings, ADR-0035) shortens the wait — summed
+  // across members, capped 30% (src/lib/traits.ts). Stat lookup failure = unmodified duration
+  // (the RPC still owns ownership/busy validation; this is a bonus, not a gate).
+  let durationSeconds = def.durationSeconds
+  try {
+    const { data: partyRows } = await admin
+      .from('player_characters')
+      .select('id, character_def_id, level, blessings, equipped')
+      .in('id', party as string[])
+      .eq('player_id', playerId)
+    if (partyRows && partyRows.length === party.length) {
+      const stats = await statsByCharacter(partyRows, { mapKey: def.map?.mapKey ?? null })
+      const mult = missionDurationMultiplier(partyRows.map((r) => stats[r.id]))
+      durationSeconds = Math.max(1, Math.round(def.durationSeconds * mult))
+    }
+  } catch (e) {
+    console.error('party stats lookup failed — using authored duration', e)
+  }
+
   const { data: run, error: rpcErr } = await admin.rpc('start_mission', {
     p_player: playerId,
     p_mission_def_id: missionDefId,
     p_party: party as string[],
-    p_duration_seconds: def.durationSeconds,
+    p_duration_seconds: durationSeconds,
+    p_map_key: def.map?.mapKey ?? null,
+    p_stage: def.stage ?? null,
+    p_prev_map_key: def.map?.prevMapKey ?? null,
   })
 
   if (rpcErr) {

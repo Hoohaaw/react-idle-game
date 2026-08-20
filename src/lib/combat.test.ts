@@ -78,6 +78,20 @@ describe('simulateCombat — role behaviours', () => {
     expect(r.endingHp.tank).toBeGreaterThan(0)
   })
 
+  it('a slow tank holds aggro against a much faster damage dealer (stat-accrual threat)', () => {
+    // Damage-only threat loses this matchup: the dps attacks 6× as often and out-threats the tank.
+    // The ADR-0027 passive (defense + maxHp/10) accrual keeps the enemy on the tank anyway.
+    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 20, health: 300, defense: 40, speed: 5 } }
+    const dps: Combatant = { id: 'dps', role: 'damage', stats: { attack: 60, health: 120, speed: 30 } }
+    const brute: Enemy = { id: 'brute', health: 900, attack: 20, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [tank, dps], encounter: encounterWith([brute]), seed: 'run-1' })
+    expect(r.outcome).toBe('win')
+    const enemyHits = r.log.filter((e) => (e.type === 'attack' || e.type === 'dodge') && e.source === 'brute')
+    expect(enemyHits.length).toBeGreaterThan(2)
+    expect(enemyHits.every((e) => e.target === 'tank')).toBe(true)
+    expect(r.endingHp.dps).toBe(120)
+  })
+
   it('a healer sustains the party and stays safe (deals no damage → no threat)', () => {
     const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 20, health: 300, defense: 40, speed: 10 } }
     const healer: Combatant = { id: 'healer', role: 'healer', stats: { healingPower: 40, health: 150, speed: 10 } }
@@ -93,6 +107,298 @@ describe('simulateCombat — role behaviours', () => {
     const r = simulateCombat({ party: [warrior], encounter: encounterWith([untouchable], 40), seed: 'run-1' })
     expect(r.reason).toBe('timeout')
     expect(r.outcome).toBe('loss')
+  })
+
+  it('damage schools: per-school resists mitigate the matching school, weaknesses take full damage', () => {
+    // Same caster, same enemy stats — only the enemy's fire resistance differs (ADR-0033).
+    const pyro: Combatant = {
+      id: 'pyro',
+      role: 'damage',
+      stats: { spellPower: 60, intelligence: 40, health: 500, speed: 10 },
+      damageSchool: 'fire',
+    }
+    const dmgVs = (resistances?: Partial<Record<'fire' | 'ice', number>>) => {
+      const foe: Enemy = { id: 'foe', health: 100000, attack: 0, damageType: 'physical', speed: 10, resistances }
+      const r = simulateCombat({ party: [pyro], encounter: encounterWith([foe], 30), seed: 'run-1' })
+      const hit = r.log.find((e) => e.type === 'attack' && e.source === 'pyro')
+      return hit ? hit.amount : 0
+    }
+    // Same seed everywhere → the ADR-0038 power roll is identical across variants, so the
+    // RATIOS stay exact even though the absolute number wobbles within the ±10% roll band.
+    const vsNothing = dmgVs(undefined) // falls back to generic resistance (0) → full damage
+    const vsFireWall = dmgVs({ fire: 100 }) // 100/(100+100) = 50% DR
+    const vsIceWall = dmgVs({ ice: 100 }) // wrong school — fire passes untouched
+    expect(vsNothing).toBeGreaterThanOrEqual(90) // 100 × roll ∈ [0.9, 1.1]
+    expect(vsNothing).toBeLessThanOrEqual(110)
+    expect(vsFireWall / vsNothing).toBeCloseTo(0.5)
+    expect(vsIceWall).toBeCloseTo(vsNothing)
+  })
+
+  it('neutral magic is mitigated by the generic resistance stat', () => {
+    const caster: Combatant = {
+      id: 'caster',
+      role: 'damage',
+      stats: { spellPower: 60, intelligence: 40, health: 500, speed: 10 }, // no damageSchool → 'magic'
+    }
+    // Twin fights, same seed → identical ADR-0038 rolls; only the resistance differs.
+    const hitWith = (resistance: number) => {
+      const foe: Enemy = { id: 'foe', health: 100000, attack: 0, damageType: 'physical', speed: 10, resistance }
+      const r = simulateCombat({ party: [caster], encounter: encounterWith([foe], 30), seed: 'run-1' })
+      return r.log.find((e) => e.type === 'attack' && e.source === 'caster')
+    }
+    const resisted = hitWith(100)
+    const clean = hitWith(0)
+    expect(resisted!.amount / clean!.amount).toBeCloseTo(0.5) // 100/(100+100) DR
+    expect(resisted!.school).toBe('magic')
+  })
+
+  it('speed has diminishing returns above baseline; at/below baseline is untouched', () => {
+    // A speed-110 unit acted 11× as often as baseline under linear scaling; with the DR curve
+    // (ADR-0030, K=30) its effective speed is ~33 → ~3.3×. Baseline speed 10 must be exactly 3s.
+    const count = (speed: number) => {
+      const attacker: Combatant = { id: 'a', role: 'damage', stats: { attack: 1, health: 1000, speed } }
+      const wall: Enemy = { id: 'wall', health: 100000, attack: 0, damageType: 'physical', speed: 10, defense: 200 }
+      const r = simulateCombat({ party: [attacker], encounter: encounterWith([wall], 60), seed: 'run-1' })
+      return r.log.filter((e) => e.source === 'a').length
+    }
+    const baseline = count(10)
+    expect(baseline).toBe(21) // 60s / 3s inclusive of t=0 — the baseline interval is untouched
+    const ratio = count(110) / baseline
+    expect(ratio).toBeGreaterThan(2.5) // still clearly faster…
+    expect(ratio).toBeLessThan(4.5) // …but nowhere near the linear 11×
+  })
+
+  it('party dodge is capped: an 80-dodge unit avoids only ~DODGE_CAP% of hits', () => {
+    const evader: Combatant = {
+      id: 'evader',
+      role: 'damage',
+      stats: { health: 10000, speed: 10, dodge: 80 },
+    }
+    const pecker: Enemy = { id: 'pecker', health: 100000, attack: 10, damageType: 'physical', speed: 30 }
+    const r = simulateCombat({ party: [evader], encounter: encounterWith([pecker], 120), seed: 'run-1' })
+    const swings = r.log.filter((e) => e.source === 'pecker')
+    const dodged = swings.filter((e) => e.type === 'dodge').length / swings.length
+    expect(swings.length).toBeGreaterThan(50)
+    expect(dodged).toBeGreaterThan(0.15) // uncapped 80% dodge would sit near 0.8
+    expect(dodged).toBeLessThan(0.35)
+  })
+
+  it('regen is time-normalized: a fast unit cannot out-regen sustained damage per action', () => {
+    // speed 30 = 3 actions per enemy swing. Per-action regen made this unit immortal
+    // (30 HP × 3/s > 15 dmg/s incoming); time-normalized (ADR-0028) it is 10 HP/s and bleeds out.
+    const speedster: Combatant = {
+      id: 'speedster',
+      role: 'damage',
+      stats: { attack: 5, health: 200, speed: 30, healthRegen: 30 },
+    }
+    const juggernaut: Enemy = { id: 'juggernaut', health: 5000, attack: 45, damageType: 'physical', speed: 10, defense: 200 }
+    const r = simulateCombat({ party: [speedster], encounter: encounterWith([juggernaut], 120), seed: 'run-1' })
+    expect(r.reason).toBe('party-wiped')
+    expect(r.endingHp.speedster).toBe(0)
+  })
+
+  it('a healer attacks while the party is above the heal threshold', () => {
+    // Enemy deals 0 damage → no party member ever drops below HEALER_HEAL_THRESHOLD.
+    // Healer has real spell power so its attack power is non-zero.
+    const healer: Combatant = {
+      id: 'healer',
+      role: 'healer',
+      stats: { spellPower: 30, intelligence: 10, healingPower: 20, health: 150, speed: 10 },
+    }
+    const dummy: Enemy = { id: 'dummy', health: 500, attack: 0, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [healer], encounter: encounterWith([dummy], 30), seed: 'run-1' })
+    expect(r.log.some((e) => e.type === 'attack' && e.source === 'healer')).toBe(true)
+    expect(r.log.some((e) => e.type === 'heal' && e.source === 'healer')).toBe(false)
+  })
+
+  it('a healer starts healing once an ally drops below the threshold', () => {
+    // Tank has 100 HP and no defense; enemy attack 50 means one hit takes the tank to 50 HP (50%),
+    // well below the 0.7 threshold — healer must engage.
+    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 5, health: 100, speed: 10 } }
+    const healer: Combatant = {
+      id: 'healer',
+      role: 'healer',
+      stats: { spellPower: 20, healingPower: 20, health: 150, speed: 10 },
+    }
+    const bruiser: Enemy = { id: 'bruiser', health: 500, attack: 50, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [tank, healer], encounter: encounterWith([bruiser], 60), seed: 'run-1' })
+    expect(r.log.some((e) => e.type === 'heal' && e.source === 'healer')).toBe(true)
+  })
+
+  it('healer hysteresis: no attack events from the healer between the first heal and the ally reaching full HP', () => {
+    // Tank has 100 HP, no defense; enemy hits for ~50 → tank at 50% triggers healing.
+    // Healer healPower=10 (small) so it takes multiple ticks to top the tank up, letting us
+    // assert that all healer actions between first-heal and full-HP are heals (no attacks).
+    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 5, health: 100, speed: 10 } }
+    const healer: Combatant = {
+      id: 'healer',
+      role: 'healer',
+      stats: { spellPower: 30, healingPower: 10, health: 150, speed: 10 },
+    }
+    const bruiser: Enemy = { id: 'bruiser', health: 500, attack: 50, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [tank, healer], encounter: encounterWith([bruiser], 60), seed: 'run-1' })
+
+    const healerEvents = r.log.filter((e) => e.source === 'healer')
+    const firstHealIdx = healerEvents.findIndex((e) => e.type === 'heal')
+    // Healer must have healed at least once (threshold was crossed)
+    expect(firstHealIdx).toBeGreaterThanOrEqual(0)
+
+    // Find when the tank first reaches full HP after the first heal: look for a heal event that
+    // brings the tank's running HP back to maxHp (100). Replay healer heal amounts cumulatively.
+    const firstHeal = healerEvents[firstHealIdx]
+    let runningHp = 0
+    // Recompute tank HP at the time healing started so we can track top-up.
+    // We know tank fell below 70 (threshold) — find the exact HP by summing damage/heals on the tank.
+    let tankHp = 100
+    for (const e of r.log) {
+      if (e.target === 'tank' && e.type === 'attack') tankHp = Math.max(0, tankHp - e.amount)
+      if (e.target === 'tank' && e.type === 'heal') tankHp = Math.min(100, tankHp + e.amount)
+      if (e === firstHeal) { runningHp = tankHp; break }
+    }
+    // Replay healer events from first heal onward until tank is topped up
+    let topUpIdx = -1
+    let hp = runningHp
+    for (let i = firstHealIdx; i < healerEvents.length; i++) {
+      const e = healerEvents[i]
+      if (e.type === 'heal' && e.target === 'tank') {
+        hp = Math.min(100, hp + e.amount)
+        if (hp >= 100) { topUpIdx = i; break }
+      }
+    }
+
+    if (topUpIdx > firstHealIdx) {
+      // Every healer event between first heal (inclusive) and top-up (exclusive) must be a heal
+      const between = healerEvents.slice(firstHealIdx, topUpIdx)
+      expect(between.every((e) => e.type === 'heal')).toBe(true)
+    }
+    // If topUpIdx === firstHealIdx, a single heal topped the tank up — hysteresis had no span to check,
+    // but the heal itself fired, which is sufficient.
+    expect(r.log.some((e) => e.type === 'heal' && e.source === 'healer')).toBe(true)
+  })
+})
+
+describe('per-fight variance (ADR-0038) + boss spikes (ADR-0039)', () => {
+  it('a marginal fight is probabilistic across seeds — both outcomes occur', () => {
+    // Kill time ≈ time limit by construction (61 actions × 60 atk = 3660 vs 3900 hp). Without
+    // the per-fight rolls this config is ONE fixed outcome for every seed (per-hit rng averages
+    // out); the rolls turn it into a contested band, so both outcomes must appear.
+    const hero: Combatant = { id: 'hero', role: 'damage', stats: { attack: 60, health: 500, speed: 10 } }
+    const wall: Enemy = { id: 'wall', health: 3900, attack: 0, damageType: 'physical', speed: 10 }
+    let wins = 0
+    for (let s = 0; s < 100; s++) {
+      const r = simulateCombat({ party: [hero], encounter: encounterWith([wall], 180), seed: `var-${s}` })
+      if (r.outcome === 'win') wins++
+    }
+    expect(wins).toBeGreaterThan(0)
+    expect(wins).toBeLessThan(100)
+  })
+
+  it('the ±10% attack roll changes hit damage across seeds', () => {
+    // warrior has no crit; ghoul has no dodge/block — only the per-fight roll moves this number.
+    const dmgAt = (seed: string) => {
+      const r = simulateCombat({ party: [warrior], encounter: encounterWith([ghoul]), seed })
+      return r.log.find((e) => e.type === 'attack' && e.source === 'warrior')!.amount
+    }
+    expect(Math.abs(dmgAt('roll-a') - dmgAt('roll-b'))).toBeGreaterThan(0.1)
+  })
+
+  it('an armed boss lands spike hits: heavier than its normal attacks, at random members', () => {
+    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 20, health: 4000, defense: 50, speed: 10 } }
+    const dps: Combatant = { id: 'dps', role: 'damage', stats: { attack: 30, health: 800, speed: 10 } }
+    const buddy: Combatant = { id: 'buddy', role: 'damage', stats: { attack: 30, health: 800, speed: 10 } }
+    const boss: Enemy = {
+      id: 'boss', health: 100000, attack: 40, damageType: 'physical', speed: 10,
+      spikeEverySeconds: 20, spikeMultiplier: 3,
+    }
+    const r = simulateCombat({ party: [tank, dps, buddy], encounter: encounterWith([boss], 180), seed: 'spike-1' })
+    const spikes = r.log.filter((e) => e.type === 'spike' && e.source === 'boss')
+    const normals = r.log.filter((e) => e.type === 'attack' && e.source === 'boss')
+    expect(spikes.length).toBeGreaterThanOrEqual(8) // one per 20s over 180s (first at t≥20)
+    // Random targeting ignores threat: with 3 living members, P(8+ spikes all on tank) ≈ (1/3)^8.
+    expect(spikes.some((e) => e.target !== 'tank')).toBe(true)
+    // Normal attacks still respect threat — the tank holds aggro between spikes.
+    expect(normals.length).toBeGreaterThan(0)
+    expect(normals.every((e) => e.target === 'tank')).toBe(true)
+    // ×3 power from the same attacker: every spike outdamages every normal hit (no crits here,
+    // and mitigation per target is ≤ the tank's, so the ordering is strict).
+    expect(Math.min(...spikes.map((e) => e.amount))).toBeGreaterThan(Math.max(...normals.map((e) => e.amount)))
+  })
+
+  it('no spike fields → no spike events (mechanic disarmed)', () => {
+    const r = simulateCombat({ party: [warrior], encounter: encounterWith([ghoul]), seed: 'run-1' })
+    expect(r.log.some((e) => e.type === 'spike')).toBe(false)
+  })
+})
+
+describe('capstone abilities (ADR-0045 Phase B)', () => {
+  it('surviveFatal clamps a lethal hit to 1 HP once, then a later lethal hit kills normally', () => {
+    const guardian: Combatant = {
+      id: 'guardian',
+      role: 'damage',
+      stats: { health: 50, speed: 10 },
+      ability: { kind: 'surviveFatal' },
+    }
+    const brute: Enemy = { id: 'brute', health: 100000, attack: 1000, damageType: 'physical', speed: 10 }
+    const r = simulateCombat({ party: [guardian], encounter: encounterWith([brute], 20), seed: 'fatal-1' })
+    const saves = r.log.filter((e) => e.type === 'fatal-save')
+    expect(saves.length).toBe(1)
+    expect(saves[0].source).toBe('guardian')
+    expect(r.outcome).toBe('loss')
+    expect(r.reason).toBe('party-wiped')
+    expect(r.endingHp.guardian).toBe(0)
+  })
+
+  it('no ability → no fatal-save events (mechanic dormant without it)', () => {
+    const r = simulateCombat({ party: [warrior], encounter: encounterWith([ghoul]), seed: 'run-1' })
+    expect(r.log.some((e) => e.type === 'fatal-save')).toBe(false)
+  })
+
+  it('partyBuffOnStart applies a flat stat buff once, before the fight starts', () => {
+    const buffed: Combatant = {
+      id: 'buffed',
+      role: 'damage',
+      stats: { health: 1000, speed: 10 },
+      ability: { kind: 'partyBuffOnStart', stat: 'defense', statKind: 'flat', value: 100 },
+    }
+    const plain: Combatant = { id: 'plain', role: 'damage', stats: { health: 1000, speed: 10 } }
+    const attacker: Enemy = { id: 'attacker', health: 100000, attack: 200, damageType: 'physical', speed: 10 }
+    const dmgTo = (c: Combatant) => {
+      const r = simulateCombat({ party: [c], encounter: encounterWith([attacker], 6), seed: 'buff-1' })
+      return r.log.find((e) => e.type === 'attack' && e.source === 'attacker')!.amount
+    }
+    expect(dmgTo(buffed)).toBeLessThan(dmgTo(plain))
+  })
+
+  it('partyBuffOnStart supports a percent buff off the base stat', () => {
+    const buffed: Combatant = {
+      id: 'buffed',
+      role: 'damage',
+      stats: { health: 1000, speed: 10, defense: 50 },
+      ability: { kind: 'partyBuffOnStart', stat: 'defense', statKind: 'pct', value: 50 }, // 50 + 50% of 50
+    }
+    const plain: Combatant = { id: 'plain', role: 'damage', stats: { health: 1000, speed: 10, defense: 50 } }
+    const attacker: Enemy = { id: 'attacker', health: 100000, attack: 200, damageType: 'physical', speed: 10 }
+    const dmgTo = (c: Combatant) => {
+      const r = simulateCombat({ party: [c], encounter: encounterWith([attacker], 6), seed: 'buff-2' })
+      return r.log.find((e) => e.type === 'attack' && e.source === 'attacker')!.amount
+    }
+    expect(dmgTo(buffed)).toBeLessThan(dmgTo(plain))
+  })
+
+  it('partyBuffOnStart on dodge re-clamps to DODGE_CAP — the buff cannot bypass the cap (ADR-0029)', () => {
+    const evader: Combatant = {
+      id: 'evader',
+      role: 'damage',
+      stats: { health: 10000, speed: 10, dodge: 20 },
+      ability: { kind: 'partyBuffOnStart', stat: 'dodge', statKind: 'flat', value: 50 }, // 20+50=70, must clamp to 25
+    }
+    const pecker: Enemy = { id: 'pecker', health: 100000, attack: 10, damageType: 'physical', speed: 30 }
+    const r = simulateCombat({ party: [evader], encounter: encounterWith([pecker], 120), seed: 'run-1' })
+    const swings = r.log.filter((e) => e.source === 'pecker')
+    const dodged = swings.filter((e) => e.type === 'dodge').length / swings.length
+    expect(swings.length).toBeGreaterThan(50)
+    expect(dodged).toBeGreaterThan(0.15) // capped ~25%, same band as the uncapped-25%-only test below
+    expect(dodged).toBeLessThan(0.35)
   })
 })
 

@@ -24,6 +24,83 @@ and ADRs 0012–0017. Done since the sections below were written:
 (profile hook); gather start/claim loop; transcendence flow; balance combat constants + loot odds;
 character sprite art. Older open items below may be stale — trust the milestone + ARCHITECTURE.md §5.3.
 
+## Current queue — 2026-07-13 (post maps session)
+- [x] **World maps + stage progression** (ADR-0034, PRs #51/#52, deployed + e2e-verified) — map
+  toggle, 7 stages per map (7 = boss), sequential unlock, boss-gated next map. 3 maps live in
+  drafts (Gravemarch / Embercrag / Frosthollow, 21 missions). Add maps per `docs/MAPS.md`.
+  `↳ context: project-maps · docs/MAPS.md, docs/DECISIONS.md ADR-0034`
+- [ ] **Mission durations / pacing** — all 21 missions carry PLACEHOLDER durations (15s stage 1 →
+  15min map-3 boss). Playtest Gravemarch→Frosthollow, then decide the real pacing curve.
+  `↳ context: project-maps (placeholders), project-undecided (mission-speed sources) · Sanity missionDef drafts`
+- [x] **itemDef authoring session** (ADR-0043/0044, 2026-07-15) — 23 itemDefs live (19 new + 4
+  backfilled), all 10 slot types covered, rarity-scaled level-requirement gate shipped, 21
+  mission loot tables rewired, `docs/ITEMS.md` written for replicating on future maps.
+  `↳ context: project-items · docs/ITEMS.md, docs/DECISIONS.md ADR-0043/0044`
+- [ ] **Caster/healer weapon-equivalent itemization** — wave 1's `weapon` slot lane is
+  physical-attack only; casters/healers get spellPower/healingPower solely from trinkets,
+  measuring ~23% vs. physical's ~32% in the wave-1 verification. Needs a magic-implement item
+  lane (or a second weapon-slot variant per map) for role parity.
+  `↳ context: project-items · docs/ITEMS.md, src/lib/stats.ts`
+- [ ] **Item flavour text** — all 23 itemDefs ship with a blank `description`. Author map-themed
+  prose once the roster/attribute list settles; not done this wave on purpose.
+  `↳ context: project-items · studio/schemaTypes/itemDef.ts`
+- [ ] **Item power-budget file** — an `itemBudget.ts` analogous to `src/lib/characterBudget.ts`,
+  validating an item's authored stat total against a per-slot/per-rarity budget at studio
+  schema-validation time. Today items are authored free-form with no cap, verified only by the
+  ad-hoc calc-script check in docs/ITEMS.md.
+  `↳ context: project-items, project-character-budget · src/lib/characterBudget.ts, docs/ITEMS.md`
+
+## Decisions queue — 2026-07-10 (post balance-tuning + character-budget session)
+- [x] **Elemental damage schools + enemy resistances** — BUILT: engine + schema + content
+  (ADR-0033, PR #46), mission-claim deployed 2026-07-11, UI surfaces (dispatch strong/weak,
+  mission-card resist line, roster school badges) in PR #48. Remaining: character-side resist
+  gear affixes (v2, deferred by design — see docs/ELEMENTS.md).
+  `↳ context: project-design-decisions, project-combat (hit pipeline), src/lib/combat.ts, studio/schemaTypes/enemyDef.ts`
+- [x] **Blessing trees = real build choices** (ADR-0045, 2026-07-15) — redesigned as 4 rows × 2
+  choices (permanent, level-gated 10/20/30/40) + an earned capstone (stat/conditional/ability
+  flavors). Mechanism shipped (`choose_blessing` RPC, real `/blessings` page); flat pricing across
+  rarity closes the budget question. Ability-flavor combat engine + real per-character content are
+  follow-ups (see below).
+  `↳ context: project-blessings · docs/DECISIONS.md ADR-0045, src/lib/blessings.ts`
+- [x] **Blessing capstone ability engine** (ADR-0045 Phase B, 2026-07-15) — `combat.ts` gained
+  `surviveFatal` (once-per-fight lethal-hit save) and `partyBuffOnStart` (party-wide stat buff,
+  dodge re-clamped to `COMBAT.DODGE_CAP`). Wired through mission-claim/roster/win-chance estimator.
+  `↳ context: project-blessings · docs/DECISIONS.md ADR-0045, src/lib/combat.ts`
+- [x] **Blessing tree content wave 1** (ADR-0046, 2026-07-15) — real 4-row+capstone trees authored
+  for all 19 characters: per-role fork templates (damage offense/bulk+finishing-move, tank
+  wall/off-tank, healer heal-style+tankiness, utility throughput/economy, gatherer
+  resource-flavor+hybrid-combat), 6 ability/7 conditional/6 stat capstone split. `docs/BLESSINGS.md`
+  is the methodology doc.
+  `↳ context: project-blessings · docs/DECISIONS.md ADR-0046, docs/BLESSINGS.md`
+- [x] **Blessing respec** (ADR-0047, 2026-07-15) — gold-cost (`RESPEC_COST`), all-or-nothing wipe
+  of a character's entire tree via a new `/respec` page + `respec_blessings` RPC. Doubles as an
+  intentional resource sink.
+  `↳ context: project-blessings · docs/DECISIONS.md ADR-0047, supabase/migrations/20260715140000_blessing_respec.sql`
+- [ ] **Blessing row-level conditions** — `blessingChoice` has no `condition` field (only the
+  capstone does), so a row pick can't be gated to a specific resource/map/enemy. Gatherer rows
+  work around this with unconditional, flavor-only bonuses (ADR-0046). Real engine PR if ever wanted.
+  `↳ context: project-blessings · docs/BLESSINGS.md, studio/schemaTypes/objects/blessingChoice.ts`
+- [ ] **`blessingBudget.ts` validator script** — a dedicated equal-cost/pct-drift checker for
+  blessing content (mirrors the still-open `itemBudget.ts` TODO from ADR-0044); wave 1 verified
+  by a throwaway scratchpad script instead.
+  `↳ context: project-blessings · docs/BLESSINGS.md, src/lib/characterBudget.ts`
+- [ ] **Re-derive harness power-tier proxy from real blessing content** — ADR-0040's own ask;
+  `scripts/balance/roster.ts` is still the naked-baseline snapshot, unaware of wave 1's trees.
+  `↳ context: project-balance-harness · docs/DECISIONS.md ADR-0040, scripts/balance/roster.ts`
+- [x] **Item rarity multiplier flattened** (was ×2/step = ×16 Legendary) — see ADR-0032.
+- [x] **Mission failed screen** — distinguish *ran out of time* (team alive, enemy stood) from
+  *party wiped*; claim UI needs a failure state that explains the loss honestly. Built (PR #49):
+  reason-keyed Party Wiped / Out of Time screens in ClaimReward.
+  `↳ context: project-combat (timeout = loss), feedback-game-stats-guide · src/features/missions/components/ClaimReward.tsx`
+- [ ] **History / activity log component** — a place where the player can look back at what
+  happened: missions run (win/loss, loot, XP), characters recruited/leveled/downed, gathers
+  collected, upgrades made. Needs an events table (or derive from existing rows) + a page.
+  `↳ context: project-next-steps · supabase/ (new events table?), src/features/`
+- [ ] **Character acquisition economy** — recruit costs/sources per rarity (rarity now exists,
+  ADR-0031); is the empty Legendary tier a launch character or long-term carrot?
+  `↳ context: project-character-budget, project-undecided · docs/CHARACTERS.md`
+- Party size: **3 is the law** (max 3, sending 1–2 allowed) — recorded in ADR-0032 consequences.
+
 ## Backend (Supabase)
 - [ ] First Edge Function (recruit / level-up) — the server-authoritative write path
   `↳ context: project-data-architecture, project-tech-stack · supabase/functions/, src/lib/supabase.ts`

@@ -2,6 +2,7 @@ export type ItemStat = { key: string; value: string }
 
 // Canonical item shape used by the inventory, shop, and item tooltip.
 export type Item = {
+  itemDefId?: string // Sanity item key; required for server-side upgrade mutations
   name: string
   rarity: string
   slot: string

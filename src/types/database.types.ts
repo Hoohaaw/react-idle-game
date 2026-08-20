@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       gather_assignments: {
@@ -201,6 +176,7 @@ export type Database = {
           created_at: string
           currencies: Json
           infirmary_level: number
+          map_progress: Json
           player_id: string
           resources: Json
           transcendence_count: number
@@ -209,6 +185,7 @@ export type Database = {
           created_at?: string
           currencies?: Json
           infirmary_level?: number
+          map_progress?: Json
           player_id: string
           resources?: Json
           transcendence_count?: number
@@ -217,6 +194,7 @@ export type Database = {
           created_at?: string
           currencies?: Json
           infirmary_level?: number
+          map_progress?: Json
           player_id?: string
           resources?: Json
           transcendence_count?: number
@@ -244,14 +222,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      choose_blessing: {
+        Args: {
+          p_char: string
+          p_choice: string
+          p_player: string
+          p_row: string
+        }
+        Returns: Json
+      }
       claim_mission: {
         Args: {
           p_char_updates: Json
           p_currencies: Json
           p_loot: Json
+          p_map_key?: string
           p_player: string
           p_resources: Json
           p_run_id: string
+          p_stage?: number
+          p_won?: boolean
         }
         Returns: Json
       }
@@ -276,6 +266,7 @@ export type Database = {
           p_item_def_id: string
           p_player: string
           p_rarity: string
+          p_required_level?: number
           p_slot_key: string
         }
         Returns: Json
@@ -300,9 +291,12 @@ export type Database = {
       start_mission: {
         Args: {
           p_duration_seconds: number
+          p_map_key?: string
           p_mission_def_id: string
           p_party: string[]
           p_player: string
+          p_prev_map_key?: string
+          p_stage?: number
         }
         Returns: {
           ends_at: string
@@ -332,6 +326,10 @@ export type Database = {
           p_settlements: Json
         }
         Returns: Json
+      }
+      upgrade_items: {
+        Args: { p_ops: Json; p_player: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -461,9 +459,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

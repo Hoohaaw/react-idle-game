@@ -9,7 +9,11 @@ import { ClaimReward } from './components/ClaimReward'
 import type { DispatchChar, DispatchMission } from './components/dispatchSamples'
 import type { ClaimResultView, ClaimBonus } from './components/claimSamples'
 import { useMissions, useStartMission, useClaimMission } from './hooks'
+import { summarizeResistances } from './resistSummary'
+import { sortedMaps, isMapUnlocked, isStageLocked, BOSS_STAGE } from './mapProgress'
+import { MapSelector } from './components/MapSelector'
 import { useMissionRuns, useRoster, type RosterMember } from '@/hooks/useRoster'
+import { useProfile } from '@/hooks/useProfile'
 
 const fmtDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
@@ -29,6 +33,9 @@ function toDispatchMission(m: GameMission): DispatchMission {
     duration: fmtDuration(m.durationSeconds),
     baseXp: m.baseXp,
     loot: m.loot.map((l) => ({ name: l.name, slot: l.slot, chances: l.chances })),
+    enemies: m.enemies,
+    timeLimitSeconds: m.timeLimitSeconds,
+    mapKey: m.map?.mapKey ?? null,
   }
 }
 
@@ -61,6 +68,7 @@ function buildClaimResult(
     { label: 'Level bonus', detail: `avg Lv ${avgLevel.toFixed(0)}`, pct: +(avgLevel * 0.4).toFixed(1) },
   ]
   if (party.length > 1) bonuses.push({ label: 'Party size', detail: `×${party.length}`, pct: (party.length - 1) * 10 })
+  if (resp.firstClear) bonuses.push({ label: 'First clear', detail: 'stage beaten for the first time', pct: 50 })
 
   const loot = resp.rewards.loot.map((l) => {
     const def = mission?.loot.find((x) => x.itemKey === l.item_def_id)
@@ -97,16 +105,34 @@ export default function MissionsPage() {
   const missionsQ = useMissions()
   const runsQ = useMissionRuns()
   const { roster } = useRoster()
+  const { data: profile } = useProfile()
   const startM = useStartMission()
   const claimM = useClaimMission()
 
   const [dispatchKey, setDispatchKey] = useState<string | null>(null) // missionKey of the open dispatch modal
   const [claimResult, setClaimResult] = useState<ClaimResultView | null>(null)
+  const [selectedMap, setSelectedMap] = useState<string | null>(null)
 
   const missions = missionsQ.data ?? []
   const runs = runsQ.data ?? []
   const missionByKey = new Map(missions.map((m) => [m.missionKey, m]))
   const dispatchMission = dispatchKey ? missionByKey.get(dispatchKey) : undefined
+
+  // World maps (ADR-0034): group missions by map, gate stages by profile progress. Missions
+  // without a map (legacy drafts) stay visible at the end of the list. No maps authored at
+  // all → the flat list renders unchanged.
+  const mapProgress = profile?.mapProgress ?? {}
+  const maps = sortedMaps(missions.map((m) => m.map))
+  const activeMap = selectedMap ?? maps[0]?.mapKey ?? null
+  const shownMissions = maps.length
+    ? [
+        ...missions.filter((m) => m.map?.mapKey === activeMap).sort((a, b) => (a.stage ?? 0) - (b.stage ?? 0)),
+        ...missions.filter((m) => !m.map),
+      ]
+    : missions
+  const activeMapUnlocked = activeMap == null || isMapUnlocked(maps, mapProgress, activeMap)
+  const missionLocked = (m: GameMission) =>
+    m.map != null && m.stage != null && (!activeMapUnlocked || isStageLocked(mapProgress, m.map.mapKey, m.stage))
 
   const dispatchRoster: DispatchChar[] = roster.map((m) => ({
     id: m.id,
@@ -114,6 +140,14 @@ export default function MissionsPage() {
     charClass: m.charClass,
     level: m.level,
     role: m.role,
+    damageSchool: m.damageSchool,
+    stats: m.stats,
+    currentHp: m.currentHp,
+    traits: m.traits,
+    statInputs: m.statInputs,
+    blessings: m.blessings,
+    ability: m.ability,
+    equipped: m.equipped,
     busy: m.busy === 'mission' ? 'On mission' : m.busy === 'gathering' ? 'Gathering' : m.busy === 'infirmary' ? 'In Infirmary' : undefined,
     downed: m.currentHp === 0,
   }))
@@ -167,19 +201,31 @@ export default function MissionsPage() {
         ) : missions.length === 0 ? (
           <p style={NOTE}>No missions authored yet.</p>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
-            {missions.map((m) => (
-              <MissionCard
-                key={m.missionKey}
-                name={m.name}
-                gold={m.baseGold}
-                xp={m.baseXp}
-                duration={fmtDuration(m.durationSeconds)}
-                dropCount={m.loot.length}
-                onSend={() => setDispatchKey(m.missionKey)}
-              />
-            ))}
-          </div>
+          <>
+            <MapSelector maps={maps} progress={mapProgress} selected={activeMap} onSelect={setSelectedMap} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
+              {shownMissions.map((m) => {
+                const { strong, weak } = summarizeResistances(m.enemies)
+                const locked = missionLocked(m)
+                return (
+                  <MissionCard
+                    key={m.missionKey}
+                    name={m.name}
+                    stage={m.stage ?? undefined}
+                    boss={m.stage === BOSS_STAGE}
+                    locked={locked}
+                    gold={m.baseGold}
+                    xp={m.baseXp}
+                    duration={fmtDuration(m.durationSeconds)}
+                    dropCount={m.loot.length}
+                    resists={strong}
+                    weakTo={weak}
+                    onSend={locked ? undefined : () => setDispatchKey(m.missionKey)}
+                  />
+                )
+              })}
+            </div>
+          </>
         )}
       </section>
 

@@ -5,14 +5,15 @@ import type { ItemDefBonuses } from '../lib/stats'
 // stat engine consumes (so the roster's max-HP matches the resolver's) plus the display metadata
 // (name/slot) the inventory grid and the slot picker need. One query, one cache (['itemDefs']).
 
-export type ItemDefMeta = ItemDefBonuses & { name: string; slot: string }
+export type ItemDefMeta = ItemDefBonuses & { name: string; slot: string; minLevel: number }
 
-const ITEM_DEFS_QUERY = `*[_type == "itemDef" && defined(itemKey)]{ itemKey, name, slot, statBonuses[]{ stat, kind, value } }`
+const ITEM_DEFS_QUERY = `*[_type == "itemDef" && defined(itemKey)]{ itemKey, name, slot, minLevel, statBonuses[]{ stat, kind, value } }`
 
 type RawItemDef = {
   itemKey: string
   name?: string
   slot?: string
+  minLevel?: number
   statBonuses?: { stat: string; kind: 'flat' | 'pct'; value: number }[]
 }
 
@@ -21,7 +22,7 @@ export async function fetchItemDefs(): Promise<Record<string, ItemDefMeta>> {
   return Object.fromEntries(
     raw.map((i) => [
       i.itemKey,
-      { name: i.name ?? i.itemKey, slot: i.slot ?? '', statBonuses: i.statBonuses },
+      { name: i.name ?? i.itemKey, slot: i.slot ?? '', minLevel: i.minLevel ?? 0, statBonuses: i.statBonuses },
     ]),
   )
 }

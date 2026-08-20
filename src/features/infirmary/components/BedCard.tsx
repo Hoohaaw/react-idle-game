@@ -18,6 +18,7 @@ export function BedCard({ member, admission, infirmaryLevel, onDischarge, discha
   discharging: boolean
 }) {
   const now = useNow()
+  const recoverySpeedPct = member.stats.recoverySpeed ?? 0
   const state = healState({
     hpAtAdmission: admission.hp_at_admission,
     admittedAtMs: new Date(admission.admitted_at).getTime(),
@@ -25,13 +26,15 @@ export function BedCard({ member, admission, infirmaryLevel, onDischarge, discha
     charLevel: member.level,
     infirmaryLevel,
     maxHp: member.maxHp,
+    recoverySpeedPct,
   })
 
+  const effRate = Math.round(regenPerSec(infirmaryLevel) * (1 + Math.max(0, recoverySpeedPct) / 100))
   const phaseLine =
     state.phase === 'stabilizing'
-      ? `✚ Stabilizing — ${formatRemaining(state.stabilizeRemainingSec * 1000)} · full in ${formatRemaining(state.secondsToFull * 1000)}`
+      ? `Stabilizing — ${formatRemaining(state.stabilizeRemainingSec * 1000)} · full in ${formatRemaining(state.secondsToFull * 1000)}`
       : state.phase === 'healing'
-        ? `Healing +${regenPerSec(infirmaryLevel)} HP/s · full in ${formatRemaining(state.secondsToFull * 1000)}`
+        ? `Healing +${effRate} HP/s · full in ${formatRemaining(state.secondsToFull * 1000)}`
         : 'Fully healed'
 
   return (

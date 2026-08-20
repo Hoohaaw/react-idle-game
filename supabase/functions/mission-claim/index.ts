@@ -12,14 +12,26 @@ import {
 import {
   effectiveStats,
   finalReward,
+  mergeBonuses,
   type StatValue,
   type StatGrowth,
-  type BlessingNodeDef,
   type ItemDefBonuses,
   type EquippedItem,
 } from '../../../src/lib/stats.ts'
 import { applyXp } from '../../../src/lib/leveling.ts'
 import { resolveRole, type CharacterRole } from '../../../src/lib/roles.ts'
+import type { School } from '../../../src/lib/schools.ts'
+import { collectTraitBonuses, partyAverageStat, type TraitDef, type TraitContext } from '../../../src/lib/traits.ts'
+import {
+  flattenBlessingTree,
+  resolveBlessingAllocations,
+  capstoneEarned,
+  resolveCapstoneBonuses,
+  resolveCapstoneAbility,
+  type RawBlessingRow,
+  type CapstoneDef,
+  type BlessingPicks,
+} from '../../../src/lib/blessings.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -31,6 +43,9 @@ import { resolveRole, type CharacterRole } from '../../../src/lib/roles.ts'
 
 const TRANSCENDENCE_BONUS_PER_COUNT = 0.1 // ADR-0014/design: transcendence_count × 10% to all rewards.
 const PARTY_BONUS_PER_EXTRA_MEMBER = 0.1 // (partySize − 1) × 10%.
+// First-time clear of a map stage pays this on XP/gold/resources (ADR-0041) — pushing new
+// content is rewarded once; repeat clears (farming) pay the normal pipeline. Loot is untouched.
+const FIRST_CLEAR_MULT = 1.5
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -43,21 +58,27 @@ function json(body: unknown, status: number) {
 
 type EnemyRow = {
   enemyKey: string
+  archetype?: string
   health: number
   attack: number
-  damageType: 'physical' | 'magic'
+  damageType: School
   speed: number
   defense?: number
   resistance?: number
+  resistances?: { school: School; value: number }[]
   block?: number
   critChance?: number
   critDamage?: number
   armorPen?: number
   dodge?: number
   healthRegen?: number
+  spikeEverySeconds?: number
+  spikeMultiplier?: number
 }
 type MissionForClaim = {
   baseXp?: number
+  stage?: number
+  map?: { mapKey?: string } | null
   rewards?: { kind: 'currency' | 'resource'; code: string; amount: number }[]
   loot?: {
     itemKey: string | null
@@ -72,9 +93,12 @@ type CharDefRow = {
   charKey: string
   charClass: string
   role?: CharacterRole | null
+  damageSchool?: School | null
   baseStats?: StatValue[]
   growth?: StatGrowth[]
-  blessingTree?: BlessingNodeDef[]
+  blessingTree?: RawBlessingRow[]
+  capstone?: CapstoneDef
+  traits?: TraitDef[]
 }
 type ItemDefRow = { itemKey: string; statBonuses?: ItemDefBonuses['statBonuses'] }
 
@@ -84,26 +108,29 @@ type CharRow = {
   character_def_id: string
   level: number
   xp: number
-  blessings: Record<string, number> | null
+  blessings: BlessingPicks | null
   equipped: Record<string, EquippedItem> | null
   current_hp: number | null
 }
 
 const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
-  baseXp,
+  baseXp, stage,
+  "map": map->{ mapKey },
   rewards[]{ kind, code, amount },
   loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
   encounter->{
     timeLimitSeconds,
-    enemies[]{ count, "enemy": enemy->{ enemyKey, health, attack, damageType, speed, defense, resistance, block, critChance, critDamage, armorPen, dodge, healthRegen } }
+    enemies[]{ count, "enemy": enemy->{ enemyKey, archetype, health, attack, damageType, speed, defense, resistance, resistances[]{ school, value }, block, critChance, critDamage, armorPen, dodge, healthRegen, spikeEverySeconds, spikeMultiplier } }
   }
 }`
 
 const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
-  charKey, charClass, role,
+  charKey, charClass, role, damageSchool,
   baseStats[]{ stat, value },
   growth[]{ stat, perLevel, milestones[]{ level, bonus } },
-  blessingTree[]{ nodeId, effects[]{ stat, kind, perRank } }
+  blessingTree[]{ row, choices[]{ choiceId, effects[]{ stat, kind, value } } },
+  capstone{ title, kind, effects[]{ stat, kind, value }, condition{ type, value }, abilityKind, abilityParams{ stat, kind, value } },
+  traits[]->{ traitKey, name, condition{ type, value }, effects[]{ stat, kind, value } }
 }`
 
 const ITEMDEFS_GROQ = `*[_type == "itemDef" && itemKey in $keys]{ itemKey, statBonuses[]{ stat, kind, value } }`
@@ -171,13 +198,14 @@ Deno.serve(async (req) => {
   const chars = (charsData ?? []) as CharRow[]
   if (chars.length !== party.length) return json({ error: 'Party is missing characters' }, 500)
 
-  // 3. Player wallet (for the transcendence multiplier).
+  // 3. Player profile: transcendence multiplier + map progress (for the first-clear check).
   const { data: profile } = await admin
     .from('profiles')
-    .select('transcendence_count')
+    .select('transcendence_count, map_progress')
     .eq('player_id', playerId)
     .maybeSingle()
   const transcendenceCount = profile?.transcendence_count ?? 0
+  const mapProgress = (profile?.map_progress ?? {}) as Record<string, number>
 
   // 4. Fetch authored defs from Sanity: the mission (rewards/loot/encounter), the character defs, and
   //    every equipped item's bonuses.
@@ -204,25 +232,43 @@ Deno.serve(async (req) => {
     itemDefs.map((i) => [i.itemKey, { statBonuses: i.statBonuses }]),
   )
 
-  // 5. Build combatants: effective stats (level baselines + blessings + gear) + role + carried HP.
+  // 5. Build combatants: effective stats (level baselines + blessings + gear + condition-matched
+  //    traits, ADR-0035) + role + carried HP. The trait context is this mission's map + enemy lineup.
+  const traitCtx: TraitContext = {
+    mapKey: mission.map?.mapKey ?? null,
+    enemyArchetypes: [
+      ...new Set(mission.encounter.enemies.map((l) => l.enemy.archetype).filter((a): a is string => Boolean(a))),
+    ],
+    enemySchools: [...new Set(mission.encounter.enemies.map((l) => l.enemy.damageType))],
+  }
+  const statsById: Record<string, Record<string, number>> = {}
   const combatants: Combatant[] = []
   for (const c of chars) {
     const def = charDefByKey.get(c.character_def_id)
     if (!def) return json({ error: `Missing character definition: ${c.character_def_id}` }, 500)
+    const picks = c.blessings ?? {}
+    const earnedCapstone = capstoneEarned(c.level, picks)
     const stats = effectiveStats({
       level: c.level,
       baseStats: def.baseStats ?? [],
       growth: def.growth ?? [],
-      blessingAllocations: c.blessings ?? {},
-      blessingNodes: def.blessingTree ?? [],
+      blessingAllocations: resolveBlessingAllocations(picks),
+      blessingNodes: flattenBlessingTree(def.blessingTree),
       equipped: c.equipped ?? {},
       itemDefs: itemDefById,
+      extraBonuses: mergeBonuses(
+        collectTraitBonuses(def.traits ?? [], traitCtx),
+        resolveCapstoneBonuses(def.capstone, earnedCapstone, traitCtx),
+      ),
     })
+    statsById[c.id] = stats
     combatants.push({
       id: c.id,
       role: resolveRole(def.charClass, def.role),
       stats,
       currentHp: c.current_hp ?? undefined, // null = full → sim uses maxHp
+      damageSchool: def.damageSchool ?? undefined, // ADR-0033; sim defaults to neutral 'magic'
+      ability: resolveCapstoneAbility(def.capstone, earnedCapstone), // ADR-0045 Phase B
     })
   }
 
@@ -239,12 +285,17 @@ Deno.serve(async (req) => {
         speed: e.speed,
         defense: e.defense,
         resistance: e.resistance,
+        resistances: e.resistances
+          ? Object.fromEntries(e.resistances.map((r) => [r.school, r.value]))
+          : undefined,
         block: e.block,
         critChance: e.critChance,
         critDamage: e.critDamage,
         armorPen: e.armorPen,
         dodge: e.dodge,
         healthRegen: e.healthRegen,
+        spikeEverySeconds: e.spikeEverySeconds,
+        spikeMultiplier: e.spikeMultiplier,
       })
     }
   })
@@ -257,6 +308,14 @@ Deno.serve(async (req) => {
   })
   const win = result.outcome === 'win'
 
+  // First clear (ADR-0041): this win advances map progress past the player's best stage.
+  // Read from the pre-claim snapshot; the RPC's greatest() write stays the atomic authority
+  // (double-claiming the SAME run is blocked there — this read only prices the reward).
+  const firstClear =
+    win && mission.map?.mapKey != null && typeof mission.stage === 'number' &&
+    mission.stage > (mapProgress[mission.map.mapKey] ?? 0)
+  const firstClearMult = firstClear ? FIRST_CLEAR_MULT : 1
+
   // 8. Reward multipliers (win-gated pipeline — ADR-0012/0014).
   const mods = {
     marginBonus: marginBonus(result.survivingHpPct),
@@ -267,13 +326,15 @@ Deno.serve(async (req) => {
   const baseXp = typeof mission.baseXp === 'number' ? mission.baseXp : 0
 
   // 9. Per-character updates. HP is always persisted (win OR loss). XP only for SURVIVORS on a win
-  //    (ending HP > 0) — a character that died mid-fight earns nothing (ADR-0017).
+  //    (ending HP > 0) — a character that died mid-fight earns nothing (ADR-0017). A survivor's own
+  //    `xpGain` stat (Scholar trait etc., ADR-0035 — self-only by design) scales their share.
   const charUpdates = chars.map((c) => {
     const endHp = Math.round(result.endingHp[c.id] ?? 0)
     let level = c.level
     let xp = c.xp
     if (win && endHp > 0 && baseXp > 0) {
-      const gained = Math.round(finalReward(baseXp, mods))
+      const xpMult = 1 + Math.max(0, statsById[c.id]?.xpGain ?? 0) / 100
+      const gained = Math.round(finalReward(baseXp, mods) * xpMult * firstClearMult)
       const rolled = applyXp(c.level, c.xp, gained)
       level = rolled.level
       xp = rolled.xp
@@ -281,13 +342,20 @@ Deno.serve(async (req) => {
     return { id: c.id, level, xp, current_hp: endHp }
   })
 
-  // 10. Wallet + loot (win only).
+  // 10. Wallet + loot (win only). Economy stats stack as the party AVERAGE (ADR-0035):
+  //     goldFind scales the gold payout, magicFind scales each drop's chance (capped at 100%),
+  //     luck gives each drop a chance at +1 quantity.
+  const partyStats = chars.map((c) => statsById[c.id] ?? {})
+  const goldMult = 1 + Math.max(0, partyAverageStat(partyStats, 'goldFind')) / 100
+  const magicFind = Math.max(0, partyAverageStat(partyStats, 'magicFind'))
+  const luck = Math.max(0, partyAverageStat(partyStats, 'luck'))
   const currencies: Record<string, number> = {}
   const resources: Record<string, number> = {}
   const loot: { item_def_id: string; rarity: string; quantity: number }[] = []
   if (win) {
     for (const r of mission.rewards ?? []) {
-      const amount = Math.round(finalReward(r.amount, mods))
+      const isGold = r.kind === 'currency' && r.code === 'gold'
+      const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1) * firstClearMult)
       if (amount <= 0) continue
       const bucket = r.kind === 'resource' ? resources : currencies
       bucket[r.code] = (bucket[r.code] ?? 0) + amount
@@ -295,16 +363,19 @@ Deno.serve(async (req) => {
     const lootRng = makeRng(`${run.id}:loot`)
     for (const drop of mission.loot ?? []) {
       if (!drop.itemKey) continue
-      if (lootRng() * 100 >= (drop.dropChance ?? 0)) continue // this item didn't drop
+      const chance = Math.min(100, (drop.dropChance ?? 0) * (1 + magicFind / 100))
+      if (lootRng() * 100 >= chance) continue // this item didn't drop
       const rarity = rollRarity(drop.rarityWeights, lootRng)
       const qMin = drop.quantityMin ?? 1
       const qMax = Math.max(qMin, drop.quantityMax ?? qMin)
-      const quantity = qMin + Math.floor(lootRng() * (qMax - qMin + 1))
+      let quantity = qMin + Math.floor(lootRng() * (qMax - qMin + 1))
+      if (lootRng() * 100 < luck) quantity += 1
       loot.push({ item_def_id: drop.itemKey, rarity, quantity })
     }
   }
 
-  // 11. Apply everything atomically (the RPC owns the double-claim guard).
+  // 11. Apply everything atomically (the RPC owns the double-claim guard). Map progression
+  //     (ADR-0034) advances inside the RPC on a win; null map/stage = legacy mission, no-op.
   const { error: claimErr } = await admin.rpc('claim_mission', {
     p_player: playerId,
     p_run_id: run.id,
@@ -312,6 +383,9 @@ Deno.serve(async (req) => {
     p_loot: loot,
     p_currencies: currencies,
     p_resources: resources,
+    p_map_key: mission.map?.mapKey ?? null,
+    p_stage: mission.stage ?? null,
+    p_won: result.outcome === 'win',
   })
   if (claimErr) {
     // Most likely the double-claim guard: the row was already claimed or isn't finished.
@@ -326,6 +400,7 @@ Deno.serve(async (req) => {
       reason: result.reason,
       survivingHpPct: result.survivingHpPct,
       durationSeconds: result.durationSeconds,
+      firstClear,
       rewards: { currencies, resources, loot },
       characters: charUpdates,
     },

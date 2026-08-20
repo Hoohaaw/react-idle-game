@@ -1107,3 +1107,1152 @@ rebalanced against both trees at build time.
   table must NOT be purged on a Reset, only on a Transcendence.
 - The Paragon concept from earlier notes is retired; Transcendence fills the same role with a more
   defined mechanism.
+
+## ADR-0024 — Enemy tier template v2: speed excluded from per-tier growth
+**Date:** 2026-07-10 · **Status:** Accepted (first accepted change of the ADR-0015 tuning loop)
+
+**Context.** ADR-0015 §G defined the enemy tier template as *every* stat × 1.4^(tier−1), including
+speed. The balance harness (`scripts/balance/`, docs/BALANCE.md) measured what that does across
+1.44M simulated fights: because action rate is linear in speed, scaling attack AND speed multiplies
+effective enemy DPS by ~×1.96 per tier while party HP grows far slower. Result (see
+`scripts/balance/reports/2026-07-10-baseline.md`): ~130 difficulty cliffs (win rate 100%→~0% in one
+tier step), a near-empty 30–80% win band, bimodal margins (wins flawless, losses total) leaving
+`marginBonus` inert, and high-tier fights compressed to sub-0.3s enemy action intervals where
+crit/dodge variance averages away.
+
+**Decision.** The tier template scales **HP, attack, and defense** by ×1.4^(tier−1); **speed stays
+flat** at the tier-1 base (10). Speed variation is an *authoring* tool (a fast enemy is a designed
+threat, not an automatic consequence of tier). Both currently authored enemies already conform
+(Rotting Ghoul speed 10, Bone Colossus speed 12 despite ~tier-4-boss HP/atk).
+
+**Evidence (before → after, same 1.44M-fight grid, `2026-07-10-speed-flat` report):**
+- Difficulty cliffs: ~130 → ~78 flagged; a real middle band appears (38%/46%/48% win cells with
+  mid-range margins) — `marginBonus` now has dynamic range.
+- Healer inversions: 8 → 4 cells, and milder (worst gap 73pts → 27pts).
+- New binding constraint exposed: timeouts jump 22 → 87 heavy cells — enemy HP ×1.4/tier against a
+  flat 60s limit is now the wall (39 cells win ≥40pts more at 180s). **Next knob: per-tier time
+  limits** (authoring guidance, e.g. scale `timeLimitSeconds` with tier), not further stat changes.
+- Confirmed separately: per-action `healthRegen` + speed growth makes a L50 solo tank literally
+  untouchable (100% win, margin 1.0, all tiers). Queued as its own tuning iteration (fixed-cadence
+  regen), per the one-change-per-branch loop.
+
+**Alternatives considered.** Gentle speed growth (×1.1/tier) — rejected for v2: reintroduces the
+compounding DPS problem in diluted form and muddies the before/after measurement; can be revisited
+once time limits are tuned. Softening HP growth instead — rejected: HP growth is what makes higher
+tiers *feel* bigger; the clock is the cheaper, more surgical follow-up lever.
+
+**Consequences.**
+- `scripts/balance/enemies.ts` implements v2; ADR-0015 §G is superseded on the speed point only.
+- Enemy authoring in Sanity: do not scale speed with tier by default; author fast enemies
+  deliberately.
+- Endgame note: L50 parties clear tier 8 at ~100% — the ladder needs tiers 9+ authored (or the
+  sweep grid extended) for endgame content; that is content headroom, not a template flaw.
+
+## ADR-0025 — Encounter time limit: 180s recommended (was 60s), flat across tiers
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 2)
+
+**Context.** After ADR-0024 the clock became the binding constraint: 87 cells >30% timeouts, and 39
+cells flipped loss→win when the limit was raised 60s→180s. Analysis of the flipped cells showed the
+timeout wall was NOT tier-dependent: legitimate slow wins (sustain comps — `duo-tank-heal` was 26 of
+the 39 flips — grinding fights down) run 60–170s at EVERY tier, tier 1 included. A per-tier limit
+formula was therefore the wrong shape; the 60s limit was punishing a play style, not preventing
+stalls.
+
+**Decision.** Recommended `timeLimitSeconds` for authored encounters = **180s, flat across tiers**
+(`RECOMMENDED_TIME_LIMIT` in `scripts/balance/enemies.ts`). Both authored encounter drafts
+(`graveyard-awakening`, `trial-of-ruin`) patched 60→180 in Sanity. Key insight: combat time is
+VIRTUAL — the fight resolves instantly at claim, and real-world pacing lives in
+`missionDef.durationSeconds` — so a generous limit costs nothing. The clock's only job (ADR-0014) is
+to turn can't-ever-kill stalls into losses, which 180s still does.
+
+**Evidence (`2026-07-10-limit-180` report, 180s primary + 300s probe, vs `speed-flat`):**
+- Timeout-heavy cells: 87 → 35 (the rest are genuine kill-ceiling edges, not clock artifacts).
+- **Healer inversions: 4 → 0.** The longer clock lets healer comps convert sustain into wins;
+  the healer slot is no longer a downgrade anywhere in the grid.
+- Clock-bound (180s→300s flips): 8 cells, ALL `duo-tank-heal` boss grinds — the extreme turtle duo
+  still meets the clock at the top edge, exactly the ADR-0014 "unkillable must still beat the
+  clock" intent. 180s is the plateau; 300s buys nothing structural.
+- Difficulty cliffs persist (~70, wipe-driven) — that is the tier ×1.4 stat jump itself, next in
+  the tuning queue via threat/healer-AI/regen iterations, not a clock issue.
+
+**Alternatives considered.** Per-tier scaling (60×1.2^(tier−1) or +30s/tier) — rejected: duration
+data is comp-dependent, not tier-dependent; scaling adds authoring complexity for nothing.
+Unlimited time — rejected: removes the anti-stall guard and the ADR-0014 clock gate on pure-turtle
+comps.
+
+**Consequences.**
+- Encounter authoring default: `timeLimitSeconds: 180`; deviate deliberately (a "race" mission can
+  author lower, a siege higher).
+- The sweep grid's time-limit dimension is now [180 primary, 300 probe].
+- Client fight-replay UI (future) should expect fights up to ~3 virtual minutes; consider replay
+  time compression regardless.
+
+## ADR-0026 — Healer AI: heal threshold + hysteresis (healers attack when the party is healthy)
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 3 — first engine change)
+
+**Context.** The v1 sim healer healed whenever *any* ally was below 100% HP — so in practice a
+healer never attacked after the first scratch, trading its entire damage contribution for overheal.
+The baseline sweep flagged this as "healer inversion" (a second damage dealer beat the healer slot
+in 8 cells). ADR-0025's longer clock fixed the inversions by letting sustain win anyway, but the
+degenerate never-attacks behavior remained: wrong for fights (wasted actions), wrong for player
+expectations (a Shaman with 300 spell power contributing zero damage), and wrong for future content
+where healer damage stats are priced.
+
+**Decision.** `COMBAT.HEALER_HEAL_THRESHOLD = 0.7` with hysteresis: a healer starts healing when a
+living ally falls below 70% of max HP, keeps healing (most-hurt first) until the whole party is back
+to full, then returns to attacking. Implemented in `simulateCombat` (a `healing` flag per unit +
+`pickHealTarget(units, belowPct)`); pure engine change, no schema or API impact. The threshold was
+chosen empirically but is ROBUST: sweeps at 0.5 / 0.7 / 0.9 were statistically indistinguishable on
+aggregates (healer-advantage cells 10–11, inversions 0, safe-win margins 0.93–0.96), so 0.7 is a
+sensible middle with hysteresis preserving end-of-fight margins.
+
+**Evidence (`2026-07-10-healer-threshold` report vs `limit-180`, same grid):**
+- Strictly targeted upside: only 4 cells move >15pts and ALL move up — healer damage converts
+  sustain-edge timeouts into kills (`duo-tank-heal` L50 T7 boss 59%→99.5%, L10 T4 boss 16%→41%;
+  `trio-no-tank` L5 T3 pack 69%→100%). No cell regresses.
+- Timeout-heavy cells 35 → 29; clock-bound 8 → 6; threat-failure 102 → 96 (healer damage adds
+  nothing to inversion risk — still 0 everywhere).
+- Honest sizing: the effect is modest because ADR-0025 already rescued the healer's win rates;
+  this ADR fixes the *behavior* (and the reward/pacing texture of healer fights) rather than
+  rewriting outcomes.
+
+**Alternatives considered.** Stateless threshold (heal only below 70%, no hysteresis) — rejected:
+parks party HP at ~70% and eats `marginBonus` on wins, punishing healer comps in rewards. Healing
+stance whenever damaged + damage sharing — out of scope for passive-stats v1 (ADR-0013).
+
+**Consequences.**
+- `mission-claim` picks the change up on its next deploy (it bundles `src/lib/combat.ts`);
+  determinism is preserved per-deploy — same seed + same engine version = same result — but replays
+  of runs resolved under the old engine would differ. No stored replays exist yet, so no migration.
+- Healer characters' attack-side stats (Tyla's `spellPower`, etc.) now DO something — factor that
+  into blessing-tree and itemDef authoring for healer characters.
+- The dedicated `healingCrit` / `healingPower` vs damage trade-off becomes a real build decision.
+
+## ADR-0027 — Tank threat: passive stat accrual (defense/HP × time), not damage alone
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 4 — engine change)
+
+**Context.** v1 threat was damage-only: `threat += damage × mult`, tank mult ×4 (ADR-0015 D).
+That fails STRUCTURALLY, not numerically: action rate is linear in speed, so a speed-growth dps
+generates threat per action and its threat *rate* outgrows the slow tank's as levels rise (at L50 a
+Rogue attacks ~12× as often as the Warrior; the needed multiplier would be ~16 and still climbing).
+Baseline flagged 67 threat-failure cells; after ADR-0024/25/26 it stood at 96 (worst: tank absorbing
+21% of hits). ADR-0013 already named the intended fix: threat = "role weight + Defense/Health".
+
+**Decision.** Tanks passively accrue threat with combat time, on top of damage threat:
+
+```
+effectiveThreat(t) = damageThreat + threatStatRate × t
+threatStatRate     = (defense + maxHp/10) × TANK_THREAT_STAT_RATE   (tanks only, else 0)
+TANK_THREAT_STAT_RATE = 3
+```
+
+Evaluated lazily in `pickThreatTarget(units, t)` — no per-tick mutation, determinism intact.
+Damage threat + ×4 mult stay: a grossly over-geared dps can still rip aggro (intended risk), and
+tank damage still contributes. The accrual is action-rate independent, so tanking no longer decays
+with level. Defensive stats now generate threat — gearing a tank defensively IS gearing its aggro.
+
+**Evidence (`2026-07-10-threat-stat` report vs `healer-threshold`):**
+- Rate swept 1/3/5: 1 under-holds (40 fail cells), 3 and 5 identical (28) — plateau at 3; picked 3
+  (smallest value at the plateau keeps damage threat relevant).
+- Of the remaining sub-60% cells at rate 3, ALL but one sit in doomed fights (win rate <50%,
+  avg 2.67 members downed) where the tank correctly dies first and survivors soak the rest — tank
+  mortality, not aggro failure. In winnable fights: ONE marginal cell grid-wide.
+- The threat-failure anomaly rule was refined accordingly (only cells with win rate ≥50% count);
+  under it the flag is ZERO in the final 500-seed sweep. Avg tank absorption across tank comps:
+  ~89%. Win rates and downed counts across tank comps unchanged (aggro was already mostly held in
+  easy fights; this fixes the scaling edge).
+- Regression test added: slow tank (speed 5) vs 6×-faster dps — enemy attacks land 100% on the
+  tank; test FAILS at rate 0 (old behavior), passes at 3.
+
+**Alternatives considered.** Raising `TANK_THREAT_MULT` — rejected: flat multiplier vs a
+level-growing rate ratio is the wrong shape (needs ~8 at L20, ~16 at L50). Hard taunt (enemies
+always prefer tanks) — rejected: deletes threat as a system and the overgear-rip risk with it.
+
+**Consequences.**
+- `mission-claim` picks this up on its next deploy (same note as ADR-0026 — no stored replays, no
+  migration).
+- Tank defense/health gear and blessing nodes double as aggro tools — price that into authoring.
+- Multiple tanks split accrual naturally (both accrue; highest effective threat tanks).
+
+## ADR-0028 — healthRegen is time-normalized (HP per BASE_INTERVAL, not per action)
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 5 — engine change)
+
+**Context.** v1 applied `healthRegen` in full on each of a unit's OWN actions — so effective regen
+scaled linearly with speed. Combined with speed growth this was a confirmed hard degeneracy: a L50
+Death Knight (speed 55 → an action every 0.55s) regenerated ~95 HP/s against ~20 HP/s incoming and
+was literally untouchable — 100% win at margin 1.0 against every tier in the grid. Regen also
+double-dipped with every future +speed/+haste source, poisoning stat pricing.
+
+**Decision.** `healthRegen` = HP per `BASE_INTERVAL` (3s) of combat time. Applied on the unit's own
+action, scaled by its interval: `regen = healthRegen × interval / BASE_INTERVAL`. Total regen over a
+fight is now `healthRegen × t / 3` regardless of speed or haste. One-line engine change; slow units
+are correctly buffed to the same normalized rate (they previously ticked less often than baseline).
+
+**Evidence (`2026-07-10-regen-cadence` report vs `threat-stat`):**
+- 23 cells move >15pts, in BOTH directions and all explainable: regen-carried overtier immortality
+  collapses (`solo-tank` L20 T6 boss 100%→0%, L35 T8 boss 100%→12%, `trio-utility` L35 T6 boss
+  100%→5% — no-healer comps that were riding per-action regen), while slow sustain comps get the
+  correct normalization buff (`duo-tank-heal` L1 T4 solo 59%→99%).
+- Regression test: a speed-30 unit with healthRegen 30 vs 15 dmg/s sustained — immortal under
+  per-action regen, bleeds out time-normalized. Test fails on the old engine, passes on the new.
+- Anomalies stable: healer inversions 0, threat failures 1 marginal cell, cliffs ~79 (the tier
+  ×1.4 jump itself), timeouts 25→33 (former regen-stall wins now honestly time out).
+
+**Discovered in passing — NEXT tuning target:** `solo-tank` (Mordrek) L50 still clears every tier
+at ~100%, but the driver is no longer regen: his AUTHORED `dodge` growth (+1/level → 53% dodge at
+L50) halves incoming damage. Dodge-from-growth stacking to 50%+ is an authoring/content problem
+(possibly wanting an engine-side dodge cap) — queued, not addressed here.
+
+**Alternatives considered.** Global fixed-cadence regen ticks (scheduler events every 3s for every
+unit) — rejected: more sim machinery for the same math. Removing in-combat regen entirely —
+rejected: it's an authored stat with build identity (Brewmaster/Death Knight flavor); ADR-0013's
+no-OOC-regen rule already bounds it.
+
+**Consequences.**
+- `healthRegen`'s canonical meaning everywhere (authoring, tooltips, stat sheets): **HP per 3
+  seconds of combat**. Sanity-authored values keep their magnitudes (baseline-speed units behave
+  identically); only speed-outliers change.
+- `mission-claim` picks this up on next deploy (no stored replays, no migration).
+- +speed/+haste no longer buy extra regen — one less double-dip when pricing blessing/item stats.
+
+## ADR-0029 — Party dodge capped at 25% + percent-stat runaway audit
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 6 — engine change)
+
+**Context.** After ADR-0028 removed regen immortality, solo Mordrek still swept the grid — driven
+by his authored `dodge` growth (+1/level → 53% at L50; Vex reaches 59%). Dodge is FULL avoidance,
+so it compounds multiplicatively with every other defensive layer, and any growth/gear/blessing
+stacking runs away. Decision (Alex): cap it.
+
+**Decision.** `COMBAT.DODGE_CAP = 25` — party units' dodge is clamped at 25% in the sim.
+**Enemies are NOT capped**: their stats are hand-authored (no growth runaway), and an untouchable
+ghost remains a legitimate encounter design tool (the timeout-loss test depends on it).
+
+**Percent-stat audit (the rest of the family, measured):**
+- **critChance** — previously UNPROBED (the only crit-growth character, Dace [WIP], was in no sweep
+  comp). Added a `solo-crit` probe comp. Verdict: HEALTHY — 57% crit at L50 produces big damage but
+  a clean difficulty gradient (margins fall 0.95→0.17 across tiers, win rates collapse at T8), no
+  immortality. Crit is offense: it bounds fight LENGTH, not survival. No cap now; re-audit when
+  `critDamage` gear/blessings exist (nobody authors critDamage today).
+- **block** — Mordrek 62% / Brom 58% at L50. Same runaway *shape* as dodge but bounded impact:
+  a proc removes only `BLOCK_FACTOR` (50%) of one hit, so worst case asymptotes at −50% damage,
+  not invulnerability. Left uncapped for now; flagged for authoring guidance (block growth should
+  stay modest) and a possible later cap if gear stacking pushes it past ~60%.
+- **defense/resistance** — self-limiting by the DR curve (`def/(def+100)` is hyperbolic;
+  even def 400 = 80%). No action.
+- **armorPen** — self-limiting (`max(0, mitigation − pen)` can at most zero the target's
+  mitigation). No action.
+- **healthRegen** — fixed by ADR-0028. **healingPower/healingCrit** — bounded by the heal-target
+  cap and threshold AI. No action.
+- **speed (and haste)** — THE remaining runaway, now cleanly isolated: action rate is linear in
+  speed with no cap, and it multiplies damage, threat, and (pre-0028) regen. Mordrek's 100% grid
+  sweep survives the dodge cap because his authored +1 speed/level makes him a 580-DPS tank at L50
+  (11× Brom's action rate); Dace/Lyra reach speed 110. This is NOT capped here — speed is a core
+  reward-flagged stat and the fix is a design decision: authored-growth guidelines (speed growth
+  rare/fractional) vs. engine diminishing returns on action rate. Escalated to Alex; queued.
+
+**Evidence (`2026-07-10-dodge-cap` report vs `regen-cadence`, 500 seeds):**
+- 18 pre-existing cells move >15pts, ALL downward and all dodge-stacked comps at overtier edges
+  (`solo-dps` L50 T7 pack 83%→19%, T6 boss 89%→34%) — the cap bites exactly where dodge was
+  carrying fights beyond the intended band.
+- Party-wide anomalies stable: healer inversions 0, threat failure 1 marginal cell, cliffs ~82.
+- Regression test: an 80-dodge party unit avoids ~25% of a long swing series (fails uncapped).
+
+**Alternatives considered.** Diminishing-returns curve on dodge (WoW-style) — rejected for v1:
+a hard cap is transparent to players and trivially explainable in the stat sheet; DR curves can
+replace it later without schema changes. Capping enemies too — rejected (kills authored gimmicks).
+
+**Consequences.**
+- Stat-sheet UI should surface the cap (e.g. "Dodge 53% (capped 25%)") when it lands.
+- Authoring: dodge growth/gear beyond ~25 total is wasted — rebalance Mordrek/Vex/Dace dodge
+  growth in a content pass, or leave as flavor knowing the cap absorbs it.
+- `mission-claim` picks this up on next deploy (no stored replays, no migration).
+
+## ADR-0030 — Diminishing returns on speed above baseline (haste folds in pre-curve)
+**Date:** 2026-07-10 · **Status:** Accepted (tuning loop iteration 7 — engine change; decided by Alex)
+
+**Context.** Action rate was linear in speed with no ceiling — the last uncapped runaway channel.
+Authored growth reaches speed 55–110 at L50 (5.5–11× baseline actions), multiplying damage and
+threat; any future +speed/+haste gear or blessing node would stack on top linearly. Alex approved
+engine-side diminishing returns over authoring guidelines (content-proof beats convention).
+
+**Decision.** Effective speed saturates above the baseline; at or below baseline nothing changes:
+
+```
+raw = max(1, speed) × (1 + haste/100)      — haste folds in BEFORE the curve
+eff = raw                                   (raw ≤ REF_SPEED)
+eff = REF_SPEED + (raw − REF_SPEED) × K / (raw − REF_SPEED + K)   (raw > REF_SPEED)
+COMBAT.SPEED_DR_K = 30                      — action rate asymptote = 4× baseline
+```
+
+Anchoring at `REF_SPEED` (10) means every enemy (template speed 10) and every slow unit keeps
+exact v1 behavior — zero rebalance below baseline. K swept 20/30/50: grid metrics nearly identical
+(mean win rate 0.581–0.590), so K=30 is chosen as the middle. At K=30: speed 55 → eff 28 (2.8×),
+speed 110 → eff 33 (3.3×), asymptote 40 (4×). Speed stays a strong reward stat, just sublinear.
+
+**Evidence + an honest correction (`2026-07-10-speed-dr` report vs `dodge-cap`):**
+- The global effect is the intended gentle compression: grid mean win rate 0.607 → 0.585, no comp
+  breaks, anomalies stable (healer inversions 0, threat 1 marginal cell).
+- **Speed DR does NOT break Mordrek's L50 solo sweep (still ~100% all tiers)** — the earlier claim
+  that speed carried it was incomplete. Even at 2.4× actions his kill speed (~250 DPS) beats T8 in
+  ~35s while the full authored mitigation stack (53% armor DR + 25% capped dodge + 62% block +
+  17 HP/s regen + 670 HP) drains only ~13 HP/s. No single engine knob is responsible anymore: the
+  cause is AUTHORED STAT BREADTH — Mordrek uniquely has every defensive growth at once (9 growth
+  entries vs the roster's 4–5). The remaining fix is a content rebalance of Mordrek's def in
+  Sanity, not another engine cap. The engine-side guards (regen, dodge, speed, threat) are now all
+  principled and closed.
+
+**Alternatives considered.** Authoring guideline only — rejected by decision (any future author or
+gear system re-opens the channel). Sqrt curve — rejected: silently buffs every sub-baseline unit.
+Hard speed cap — rejected: kills speed as a growth stat instead of bending it.
+
+**Consequences.**
+- Speed/haste blessing nodes and gear affixes are now safely priceable — the curve bounds their
+  worst case (4× actions) no matter how much content stacks.
+- Stat sheet should eventually display effective action rate (the curve makes raw speed unreadable).
+- `mission-claim` picks this up on next deploy (no stored replays, no migration).
+- Queued content work: Mordrek authored-stat rebalance (drafts) — narrow his defensive growth
+  spread; re-run the sweep to confirm the solo sweep breaks.
+
+## ADR-0031 — Character point-buy budget + character rarity
+**Date:** 2026-07-10 · **Status:** Accepted (decided by Alex)
+
+**Context.** The roster was authored before any budget rules existed. A priced audit showed growth
+spend ranging 4.6–16.5 points/level (Mordrek 16.5, roster median 7.3) — characters were incomparable
+by construction, and the probe confirmed it (L50 solo ceilings: Mordrek T8 vs a healthy T3–T5 band
+for 17 of 19). Alex wants: easy future authoring, clear stronger/weaker-at-different-things
+identity, more interesting level-ups, and character rarity.
+
+**Decision: a priced point-buy budget, set by rarity, enforced at authoring time.**
+1. **Prices** (`STAT_PRICE`, `src/lib/characterBudget.ts`): each stat costs budget points per +1 —
+   health 0.15, reference scalars 1, speed/haste/critDamage 1.5, block/regen/healingCrit 2,
+   critChance 2.5, dodge 3, non-combat economy stats 0.5. First-pass values; the harness calibrates.
+2. **Rarity** (new `characterDef.rarity`): Common/Uncommon/Rare/Epic/Legendary → base budget
+   80/85/90/95/100 (level-1 spread) and growth budget 8/8.5/9/9.5/10 (per level). Tight band on
+   purpose: ~25% growth spread, meaningful but never dominant. Budgets anchored to the authored
+   roster's median under the price table so re-costing was nudges, not rewrites.
+3. **Milestones** cost `bonus × price` amortized over the 49 level-ups — pre-paid spikes, not
+   free stats. Tolerance ±0.5 on each budget.
+4. **Enforcement where the mistake happens:** Sanity studio validation on `characterDef` sums the
+   priced spend against the rarity budgets; `auditCharacter()` is the code-side mirror.
+5. **Fractional `perLevel` is encouraged** (2.5 strength/level legal). The "10 points distributed
+   each level-up" display Alex described is achieved later in UI: per-level integer gains derived
+   from the fractional weights via deterministic largest-remainder rounding — a presentation
+   layer over compute-on-read, no engine change now (deferred with the level-up UI).
+6. **Whole roster re-costed** (all 19 drafts patched in Sanity) to their assigned rarities:
+   Common ×6 (Gort, Nira, Rowan, Elia, Torvin, Fenn), Uncommon ×7 (Callum, Mira, Yenna, Dara, Oku,
+   Lyra, Aldric), Rare ×5 (Brom, Vex, Sera, Tyla, Dace), Epic ×1 (Mordrek), Legendary ×0
+   (headroom). Assignments provisional — content call, freely reshuffled.
+
+**Alternatives considered.** Flat unpriced 10 points/level — rejected: HP-heavy characters starve
+while percent-stat characters break (1 dodge/level was this week's degeneracy). Per-level authored
+tables (49 rows/char) — rejected: brutal authoring for what deterministic rounding gives free.
+Budget by role instead of rarity — rejected: rarity was wanted anyway and role already shapes the
+SPEND; two overlapping budget dimensions would fight.
+
+**Consequences.**
+- New characters = fill a shopping cart; recruit #20 cannot accidentally be the next Mordrek.
+- The roster probe band (docs/BALANCE.md) becomes the acceptance test for content changes.
+- `roster.ts` harness fixture re-snapshotted; sweep re-run as evidence.
+- Blessing trees and gear will add power ON TOP of budgeted baselines — re-audit prices when those
+  layers exist (a +5 agility node is priced against these budgets).
+- Character rarity surfaces to players (roster UI + /game-stats guide); acquisition design
+  (which rarities cost what to recruit) remains open ([[project-undecided]]).
+
+## ADR-0032 — Item rarity multiplier flattened (×16 → ×2.25 Legendary) + party size law
+**Date:** 2026-07-10 · **Status:** Accepted (decided by Alex)
+
+**Context.** ADR-0017's provisional gear multiplier doubled per rarity step (Common 1 → Legendary
+16). Against the ADR-0031 character budgets that is upside-down: one Legendary item would out-value
+a character's entire 49-level growth ladder, and gear would drown character identity. Alex's
+direction: every tier should matter, Legendary should feel best *by some margin* — not ×16.
+
+**Decision.** `RARITY_MULT` (src/lib/stats.ts) becomes **1 / 1.2 / 1.45 / 1.75 / 2.25** — steady
+steps with the largest jump into Legendary (+0.5 vs +0.2–0.3 for earlier steps). Item stacking
+(5 → next tier, ADR upgrading) keeps its meaning at every tier without any tier being a whole new
+game. Values provisional like all constants: once itemDefs exist, geared probe comps enter the
+sweep and calibrate.
+
+**Also recorded — party size is the law:** missions take a party of **at most 3**; sending 1–2 is
+allowed and simply forgoes the party bonus (+10%/member beyond the first, ADR-0017). The balance
+harness, encounter shapes, and dispatch UI all assume 3 as the hard ceiling. If a future mode ever
+wants more (e.g. ADR-0020 expeditions), that mode gets its own balance pass first.
+
+**Consequences.**
+- `mission-claim` picks up the new multipliers on next deploy; the 4 draft items' effective power
+  drops at high rarities (no player owns any above Common today — no live impact).
+- `itemStats.ts` display helper shows fractional bonuses (e.g. +17.5) — round in UI when item
+  authoring starts.
+- Player guide gear entry updated ("twice as strong per step" → flattened wording).
+
+## ADR-0033 — Elemental damage schools + per-school enemy resistances
+**Date:** 2026-07-11 · **Status:** Accepted (design: docs/ELEMENTS.md; decided by Alex)
+
+**Context.** Enemy resistance was a single generic stat authored at 0 everywhere — magic ignored
+mitigation entirely, and dispatch had no "who should I send against WHAT" decision. Alex wants
+squad composition against an enemy's element to be a real choice, surfacing mid/late game.
+
+**Decision.**
+- **Schools registry** (`src/lib/schools.ts`, registry-driven per ADR-0004): `physical`, `magic`
+  (the NEUTRAL school — deliberately plain-named, not "arcane"), `fire`, `ice`, `earth`, `wind`,
+  `holy`, `shadow`. Healing is schoolless.
+- **Resolution (v1 asymmetry):** party attacks carry a school — physical routing is always
+  `physical` (vs enemy Defense); magic routing uses the character's authored `damageSchool`
+  (neutral `magic` when blank). Against enemies, named schools check the enemy's per-school
+  `resistances` (same DR curve as armor, K=100) and FALL BACK to generic Resistance when unlisted.
+  Enemy attacks on the party are unchanged (physical→Defense, else→Resistance); character-side
+  school resists arrive later as gear affixes, not base stats (keeps the sheet readable and the
+  ADR-0031 budgets intact).
+- **A school costs no budget points** — matchup axis, not raw power.
+- **Tier-gated appearance** (Alex: mid/late game): template gives tiers 1–2 nothing; tiers 3–5
+  put an own-school resist (100) on caster/boss archetypes; tiers 6+ broaden (own 120 + adjacent
+  40; bosses also `magic` 40; tanks/basics small). Resist DR is level-independent, so flat values
+  hold at every tier. Guideline: strong 100–150, weakness = unlisted (generic 0 → full damage),
+  immunity ≥1000 for gimmicks. Target: right-vs-wrong school ≈ 30–50% damage swing.
+- **Content:** schools authored on the six casters (Callum fire, Mira shadow, Aldric holy, Tyla
+  wind, Yenna earth, Fenn earth; Lyra/Elia/Torvin neutral); Bone Colossus (T5 boss) gets
+  shadow 120 / earth 60 / ice 40 with holy as its weakness; Rotting Ghoul (T1) stays clean.
+- **Engine details:** `CombatEvent` gains an optional `school` (replay tinting later); enemy
+  `damageType` widened to the school union ('magic' remains valid — no content migration needed).
+
+**Evidence (`2026-07-11-schools` report vs `budget-recost`, 500 seeds).** Discriminating tests:
+fire caster deals 100 vs no resist, 50 vs fire-100, 100 vs ice-100; neutral magic mitigated by
+generic Resistance. Grid: only 4 cells move >15pts — matchup texture, not upheaval. All explained,
+one worth recording: **resists couple into damage-based threat** — trio-casters L50 T7 pack
+flipped 0%→100% because the fire resist LOWERED Callum's damage → lowered his threat → enemies
+spread hits instead of executing him. In tankless comps, an enemy's resist profile changes who
+gets focused. Emergent, legitimate, and exactly the kind of texture the system wants.
+
+**Alternatives considered.** Rock-paper-scissors advantage table — rejected: authored matchups
+give content freedom without system dogma. Character base resist stats now — rejected (v2 as gear
+affixes). "Arcane" as the neutral school's name — rejected by Alex: it's just "magic".
+
+**Consequences.**
+- `mission-claim` GROQ + combatant mapping updated; **deploy AFTER the PR chain merges** (the CLI
+  bundles src/lib from the working tree — deploying early would ship unmerged engine changes).
+- UI surfaces are the required follow-up (mission resist pips + weakness icon, roster school
+  badges) — without them the system is invisible to players.
+- Enemy authoring: set a school + resistances from tier 3 up; leave early-game enemies clean.
+- Blessing/gear layers can later add school-specific power ("+15% fire damage") — price when built.
+
+## ADR-0034 — World maps: stage progression + boss gating
+
+**Date:** 2026-07-13 · **Status:** Accepted (Alex) · **PRs:** #51 (schema/backend), #52 (UI), Wave-1 content in Sanity drafts
+
+**Context.** Missions were a flat, ungated list. Alex wants a world structure: 6–9 maps with
+different focuses and loot, each 6 stages of rising difficulty plus a stage-7 BOSS that is harder
+but pays better, a map toggle on the Missions page, and clear per-mission reward/resistance
+indication (the ADR-0033 resist line already provides the latter).
+
+**Decision.**
+- **Content model:** new `mapDef` (name / mapKey / **order** / description); `missionDef` gains a
+  required `map` reference + `stage` (1–7, 7 = boss by convention). `order` drives both the toggle
+  order and the unlock chain.
+- **Progression state:** `profiles.map_progress` JSONB `{ mapKey: highestStageCleared }`
+  (registry-JSONB, ADR-0004 — adding a map needs no migration). No client write path.
+- **Unlock rules, enforced server-side (ADR-0003), mirrored client-side for display only:**
+  stage playable iff `stage ≤ cleared + 1`; map playable iff first in order OR previous map's
+  stage 7 cleared. Cleared stages stay replayable (farming). `start_mission` gates atomically
+  in-transaction; `claim_mission` advances progress on a win via `greatest()` (replays never
+  regress). Legacy missions without a map skip gating entirely (nullable params).
+- **Trust boundary:** the Edge Functions resolve map/stage/previous-map from Sanity — the client
+  is never trusted for placement. `mission-start` finds the previous map with an order-based GROQ
+  subquery.
+- **Map identity (authoring law, Alex 2026-07-13):** each map has a DOMINANT damage school, not a
+  monoculture — ~4 of 7 stages carry the dominant resist, ~2 carry an off-school resist or
+  physical-with-Defense, 1 early stage is resist-free. The boss leads with the dominant school +
+  a secondary resist + one clear weakness (the Bone Colossus pattern). One counter-school clears
+  ~70% of a map comfortably; full-clearing rewards adapting the squad per stage. Full authoring
+  guideline in `docs/MAPS.md`.
+- **Boss = stage 7:** encounter uses the `boss` archetype at +1 tier over stage 6, with bigger
+  baseXp/gold and extra/better-weighted loot lines. UI gives boss cards a red treatment.
+
+**Alternatives considered.** Dedicated `map_progress` table — rejected (JSONB on profiles matches
+the wallet pattern and the claim RPC already writes profiles). All-maps-open — rejected by Alex
+(boss kills as milestones). Level-based map unlocks — rejected (adds a second gating currency).
+
+**Consequences.**
+- Deploy after #51 merges: apply the migration, then CLI-deploy `mission-start` + `mission-claim`.
+- `database.types.ts` was hand-updated for `map_progress`; regenerate after the migration applies.
+- Wave-1 content = 3 maps (Gravemarch absorbs existing undead content with Bone Colossus as boss;
+  fire + ice maps new); remaining maps follow once itemDefs give each map real loot identity.
+- Loot "focus" per map is resources/gold/XP bands until itemDefs are authored — revisit then.
+
+## ADR-0035 — Character traits: conditional identity modifiers, rarity-scaled
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex; docs/TRAITS.md as amended) · **PRs:** #55 (design), #56 (core), #57 (wiring), UI branch pending
+
+**Context.** Alex's design: characters carry innate traits that raise/lower mission success odds;
+count scales with rarity (Common 1 → Legendary 5) so rare characters are valuable beyond their
+stat budget. Constraint discovered at design time: success chance is the *output* of the
+deterministic sim (ADR-0012/0013) — a literal "+5% win chance" dial would flip losses post-hoc,
+breaking margin/replay/estimator honesty.
+
+**Decision.**
+- **A trait is a conditional stat bonus on the sim's INPUTS** — `condition {always | map |
+  enemyArchetype | enemySchool | resource} + effects [{stat, kind flat|pct, value}]` targeting
+  the ordinary registry. The "+5% success" experience emerges visibly through the dispatch
+  estimator (PR #54), which runs the real engine.
+- **Rarity buys COUNT, never size** (1/2/3/4/5); traits sit **outside** the ADR-0031 point-buy
+  budget because conditional effects don't raise the always-on floor. Guardrail: max one
+  always-on combat trait per character (review rule; studio validates the count exactly).
+- **Registry additions:** `goldFind`, `xpGain`, `recoverySpeed` (priced 0.5). The five dormant
+  economy stats (`missionSpeedDecrease, gatherSpeed, gatherYield, magicFind, luck`) become
+  CONSUMED for the first time — traits are their first source; gear/blessings can grant the
+  same stats later through the identical pipe (`effectiveStats` gained `extraBonuses`).
+- **Stacking rules:** mission duration = party SUM of missionSpeedDecrease capped 30%;
+  goldFind/magicFind/luck = party AVERAGE; xpGain self-only (Alex); recoverySpeed/gather self.
+  Loot: magicFind scales per-drop chance (cap 100%), luck = chance of +1 quantity.
+- **Consumption sites:** mission-claim (combat context = map + enemy archetypes/schools, economy
+  hooks), mission-start (duration), gather-collect (accrue speed/yield params), infirmary
+  (healState recoverySpeedPct — heal rate only, stabilize untouched), client roster (always-on
+  bonuses) + estimator (context-matched, follow-up branch).
+- **v1 exclusions (docs/TRAITS.md §9 defaults):** no party auras, no negative traits, no
+  in-fight dynamic conditions, recruit-screen reveal deferred.
+- **Content:** 19 traitDefs authored (Mapborn/Slayer/Warded/Stoneguard/Pathfinder/Goldtouched/
+  Fortunate/Scholar/Prospector-family/Quickhand/Ironblood) + all 19 characters assigned per the
+  rarity table, themed to kit (drafts).
+
+**Alternatives considered.** Post-sim win-chance modifier — rejected (breaks the resolution
+model). Trait effects as bespoke code hooks — rejected (registry-JSONB, ADR-0004). Rarity
+scaling magnitude (Slayer I/II/III) — deferred, count-only for now.
+
+**Consequences.**
+- Deploy after #56/#57 merge: mission-claim, mission-start, gather-collect, infirmary-discharge,
+  infirmary-upgrade.
+- Stats-tab per-source breakdown (ADR-0022) does not yet show a "traits" source — follow-up.
+- Balance: sweep regression run with the trait-free harness fixture (engine change must be
+  inert); trait-aware probes land when the harness fixture gains traits.
+- The estimator makes trait value visible as success-% movement — roster/dispatch UI chips are
+  the remaining surface (branch 3).
+
+## ADR-0036 — Enemy tier template v3: growth rate ×1.4 → ×1.25 per tier
+
+**Date:** 2026-07-14 · **Status:** Superseded by ADR-0037 (same day — Alex reversed direction:
+wants missions harder, not smoother; the cliff-smoothing goal here was the wrong fix)
+
+**Context.** Alex hit a live-account case in the dispatch estimator: a 1-character party showed
+0% estimated success on a mission; adding one more character jumped it straight to 100%, no
+middle ground. Confirmed via the sweep (`scripts/balance/reports/2026-07-13-traits-regression.md`)
+this is the same "difficulty cliff" anomaly ADR-0024 identified and left open (~78 cells at the
+time, drifted to 117 in the current grid) — the enemy tier template's ×1.4^(tier−1) HP/attack/
+defense growth (ADR-0024) is the documented real-content authoring target (`docs/MAPS.md`
+§"Difficulty ramp"), not just a synthetic harness abstraction: the one real enemy with checkable
+numbers, the seeded Rotting Ghoul, matches the template's T1 base exactly. Root cause: the sim's
+only RNG is per-hit crit/dodge/block, which averages out over a full fight (law of large
+numbers), so outcome is close to deterministic per party+encounter — whatever nudges the
+DPS-race threshold (a tier step, a party-size step) flips the whole 200-seed sample from
+all-loss to all-win.
+
+**Decision.** Reduce the tier template's per-tier growth rate from ×1.4 to **×1.25**
+(`scripts/balance/enemies.ts` `TIER_GROWTH`). HP/attack/defense still compound per tier; speed
+stays flat (ADR-0024, unchanged). Archetype mods and tier-gated resistances (ADR-0033) are
+unaffected — the cliff reproduces on the plain `basic` archetype at zero-mod tiers, so the
+per-tier exponent alone is the responsible constant.
+
+**Evidence (before → after, `2026-07-14-pre-tier-curve` → `2026-07-14-tier-1.25`, same
+633,600-fight grid; candidate ×1.3 also swept and rejected — see Alternatives):**
+- Difficulty cliffs: 117 → 64 flagged cells.
+- Healer inversions: 0 → 0 (the ×1.3 candidate introduced 2 marginal inversions at the edge of
+  viability; ×1.25 stays clean).
+- Threat failure / timeout-heavy / clock-bound: 1 / 1 / 1 in both — no new regressions.
+- Frontier example (solo-tank, L1): T1 100% → T2 **0%** (baseline) vs. T1 100% → T2 **31%**
+  (×1.25) — a real chance instead of a wall. Frontier example (solo-crit, L50): T7 100% → T8
+  **4%** (baseline, near-impossible) vs. T7 100% → T8 **75%** (×1.25, a genuine risk/reward
+  fight instead of a coin-flip-adjacent wipe).
+- Off-frontier combos (a party far below a tier's intended level) get easier too — e.g. a level-10
+  trio now clears tier 8 at ×1.25 where it couldn't at ×1.4. Not a regression in practice: the
+  world-map system (ADR-0034) gates tier access by sequential stage/map unlock, so a level-10
+  party can never actually stand in front of tier-8 content; an over-leveled party trivializing
+  old content it has since outgrown is the intended "go back and farm an easier fight" behavior
+  (`src/pages/gameStatsContent.ts`), not new. Full trio comps were already ~100% across every
+  tier at L50 under the OLD ×1.4 template too (pre-existing "trio endgame dominance," a separate,
+  out-of-scope anomaly from this cliff fix).
+
+**Alternatives considered.**
+- **×1.3** — swept: cliffs 117 → 83 (worse than ×1.25) and introduced 2 healer inversions.
+  Rejected: strictly dominated by ×1.25 on both measured anomaly axes.
+- **Add real combat variance** (wider crit/dodge dispersion, HP variance) to break the
+  near-deterministic-outcome root cause directly — rejected for this pass: touches ADR-0013's
+  sim shape, invalidates every prior tuning ADR's sweep evidence, needs a full re-sweep of
+  everything. Bigger, riskier change; deferred.
+- **Leave the sim alone, fix the UI signal instead** — rejected: doesn't address that a
+  legitimately-geared solo character gets zero real chance at content one tier above them; the
+  UI already shows the true number faithfully (WinChanceEstimate), the number itself was wrong.
+
+**Consequences.**
+- `scripts/balance/enemies.ts` `TIER_GROWTH = 1.25`; `docs/MAPS.md` §"Difficulty ramp" updated
+  to match. ADR-0015 §G / ADR-0024 are superseded on the growth-rate value only (speed-flat and
+  archetype mods stand).
+- **Scope boundary (deliberate):** this changes the code-side template — the *authoring
+  guideline* and the harness that validates it — not the already-authored `enemyDef` documents
+  for the three live maps (Gravemarch/Embercrag/Frosthollow, 21 missions) in hosted Sanity.
+  Those were hand-authored against the old ×1.4 guideline and are not retroactively edited here.
+  Retuning them to ×1.25 is an explicit follow-up task.
+- `src/lib/combat.ts` (the real combat engine mission-claim executes) is untouched — this is an
+  enemy-content-curve change, not a combat-math change.
+
+## ADR-0037 — Enemy tier template v4: growth rate ×1.25 → ×1.8 per tier (reverses ADR-0036)
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Same day as ADR-0036: after seeing the smoothed curve, Alex reversed direction —
+wants missions **harder**, not smoother. The cliff Alex originally reported was a real bug
+(0% for a solo party, no risk/reward gradient), but the fix Alex actually wants is a difficulty
+increase, with one hard constraint: the first mission must always be clearable by any level-1
+character, solo.
+
+**Decision.** Raise `TIER_GROWTH` (`scripts/balance/enemies.ts`) from 1.25 to **1.8** — steeper
+than the original ADR-0024 value (1.4), a deliberate net difficulty increase over both prior
+templates. Cliffs above tier 1 are back and larger than the original baseline; that is the
+intended tradeoff, not a defect (contrast with ADR-0036, where cliffs were the problem being
+solved).
+
+**The tier-1 guarantee.** The template's scale factor is `TIER_GROWTH ** (tier − 1)`, so **tier 1
+is always exactly the base stats (120 HP / 12 atk / 5 def) regardless of the growth rate** —
+this constraint holds automatically for any `TIER_GROWTH` value, including 1.8. Verified beyond
+the algebra: ran all 19 roster characters solo (`scripts/balance/roster.ts`, level 1, 200 seeds
+each) against a tier-1 `basic` enemy. 16 of 19 win 100%. **Three do not, and never did — this is
+pre-existing and unrelated to tier growth**: Yenna Stonecall, Aldric Faithward, and Tyla
+Windcarrier (0% each) — all three are pure-healer specs (high healingPower, minimal attack) whose
+solo damage output is too low to kill a tier-1 enemy before it kills them, a healer-role gap in
+`src/lib/combat.ts`'s solo damage math, not a tier-content problem. **Flagged for Alex, not fixed
+here** — out of scope for a tier-curve change; if these three are reachable as a player's only
+level-1 character (e.g. a future starter pick), this needs its own fix (healer base attack,
+solo AI behavior, or excluding them from starter eligibility).
+
+**Evidence (`2026-07-14-tier-1.25` → `2026-07-14-tier-1.8`, same 633,600-fight grid):**
+- Difficulty cliffs: 64 → 156 flagged cells (higher than the original ADR-0024 baseline of 117 —
+  expected and intended, since 1.8 > 1.4 > 1.25).
+- Healer inversions: 0 → 1 (mild, one marginal cell).
+- Threat failure / timeout-heavy / clock-bound: 1 / 1 / 1, unchanged.
+- Endgame note: at L50, tier 8 drops to ~0% win rate for nearly every comp including full trios
+  (naked baseline — no gear/blessings, which aren't modeled in this sweep). Under the old 1.4
+  template, L50 trios cleared tier 8 at ~100% (ADR-0024's own "content headroom" note). At 1.8,
+  tier 8 is no longer cleared by anyone in the naked-stat sweep — real players will have gear and
+  blessings closing some of that gap, but this is a meaningfully harder ceiling than either prior
+  template and worth watching once itemization is authored.
+
+**Consequences.**
+- `scripts/balance/enemies.ts` `TIER_GROWTH = 1.8`; `docs/MAPS.md` §"Difficulty ramp" updated to
+  match, plus an explicit note that tier 1 is invariant to this constant by construction.
+  ADR-0036 is superseded (same day, never shipped past this branch).
+- Same scope boundary as ADR-0036: this is the code-side template/guideline only. The 21 live
+  missions' already-authored Sanity `enemyDef` content (against the old ×1.4 guideline) is not
+  retroactively edited — still an explicit follow-up.
+- **Follow-up completed same day:** queried all 15 `enemyDef`s the 21 live missions reference
+  (`production` dataset, drafts perspective) — 14 of 15 matched the old ×1.4 formula almost
+  exactly (confirming `docs/MAPS.md`'s authoring checklist was actually followed), so recomputing
+  health/attack/defense from each enemy's existing `tier` + `archetype` under ×1.8 was mechanical.
+  Patched via `patch_documents` (drafts only, nothing published) — Rotting Ghoul and Bone Swarm
+  (tier 1) untouched by construction; the other 13 updated. One judgment call: Bone Colossus's
+  defense was hand-tuned to 10 against the old formula's 7 — reset to the new formula's clean
+  value (9) rather than preserving the old +3 offset (Alex's call, easily bumped back up in
+  Sanity if the boss should stay tankier than template). Speed/damageType/resistances/block/etc.
+  on every enemy are untouched — only the three tier-driven fields moved.
+- **New follow-up surfaced:** the 3 pure-healer characters that can't solo-clear tier 1 at all.
+  Needs a decision from Alex on whether/how to fix (see above) before onboarding depends on it.
+- `src/lib/combat.ts` untouched — still a content-curve change, not a combat-math change.
+
+## ADR-0038 — Per-fight stat rolls: combat outcomes become probabilistic in the contested band
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Alex wants real 60/40 moments — fights where the player weighs pushing a risky
+stage against farming the previous one — and "some competition… so that the user needs to make
+some tactical changes". The sim couldn't produce them: its only randomness is per-HIT crit/
+dodge/block, which averages out over a fight's hundreds of hits, so a given party vs a given
+encounter resolves to ~0% or ~100% with a razor-thin transition. The tier-curve work
+(ADR-0036/0037) moved WHERE the cliff sits but structurally could not turn a cliff into a
+slope — that needs fight-level variance, which no curve constant provides.
+
+**Decision.** Each fight draws per-unit rolls from the existing seeded rng before the timeline
+starts (`src/lib/combat.ts` `simulateCombat`): every party member's attack power rolls uniformly
+within ±`PARTY_POWER_ROLL` (10%), every enemy's max HP and attack roll independently within
+±`ENEMY_STAT_ROLL` (12%). Alex explicitly wanted the player side rolled too ("the attack value
+is a span instead of a set value") — and chose to SHOW it: attack-type stats (attack,
+spellPower) render as their per-fight range (e.g. "45–55") via `src/lib/powerSpan.ts` in the
+stat sheet (`CharacterStats`), with the roll noted in the breakdown tooltip. Healing power does
+not roll; party HP never rolls (it's persistent, carried between missions); enemy HP re-rolls
+freshly each run (enemies are ephemeral).
+
+Determinism is preserved: rolls come from the run-seed rng in fixed unit order, so the same
+seed still replays identically, and the dispatch estimator — which runs this same function over
+200 seeds — surfaces the resulting distribution automatically, with zero estimator changes.
+
+**Evidence** (`2026-07-14-tier-1.8` → `2026-07-14-variance-rolls`, 633,600-fight grid, new
+"middle band" metric = cells with 10–90% win at 180s):
+- Middle band: 29 → 51 cells; difficulty cliffs 156 → 134. Grid granularity (6 level samples)
+  understates the effect — per continuous level the transition now spans several levels, e.g.
+  trio-core T4 solo reads L1 0% / L5 52% / L10 100% instead of snapping 0→100.
+- Discriminating regression test: a marginal fight (kill time ≈ time limit) over 100 seeds must
+  produce BOTH outcomes; verified 22/100 wins with rolls, 0/100 with rolls zeroed.
+- Three engine tests that pinned exact hit damage were converted to ratio/band assertions
+  (mitigation ratios are roll-invariant under a shared seed); the traits Mapborn pair became a
+  win-rate comparison (on-map must beat off-map by >25pts over 200 seeds).
+
+**Alternatives considered.** Widening per-hit variance (bigger/rarer crits): converges anyway
+over long fights, weaker effect per point of swing, and reshapes the crit stat's value — kept
+as a possible later knob. Per-run rolls on ALL stats: defense/speed feed DR curves and interval
+math, adding noise without widening the band much; attack+HP are the two levers that decide
+races. Estimator-side fuzzing only (fake a band in the UI): dishonest — the shown probability
+must be the real one.
+
+**Consequences.** `mission-claim` must be redeployed for the hosted sim to roll (until then,
+client estimates include rolls the server doesn't make — deploy immediately after merge). The
+±12% enemy roll means authored enemy stats are now bands in practice; MAPS.md authoring numbers
+stay the roll midpoints. Player guide ("How Combat Works") updated. Constants are sweep-tunable
+(`COMBAT.PARTY_POWER_ROLL` / `COMBAT.ENEMY_STAT_ROLL`) — future span changes are re-sweep +
+constant bumps, and the UI span display follows automatically.
+
+## ADR-0039 — Boss spike attacks: periodic threat-ignoring heavy hits
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Same session as ADR-0038. With threat working (ADR-0027), a tank + sustain party
+reduces most boss fights to a DPS race against the clock — the boss's damage all lands on the
+tank, so party composition barely matters once the tank holds. Bosses need a mechanic that asks
+a comp question the tank alone can't answer, and turtle comps that stall fights out (flagged
+timeout-heavy in every sweep since the baseline) need pressure that scales with fight length.
+
+**Decision.** New authored enemy capability: `spikeEverySeconds` + `spikeMultiplier` (both
+required to arm). Every `spikeEverySeconds` of combat time, the enemy's next action becomes a
+spike — `attack × spikeMultiplier` aimed at a **uniformly random living party member**,
+ignoring threat entirely. Dodge, crit, armor DR, and block all still apply (defensive stats are
+the counterplay), the first spike lands one full period in (no opening one-shots before threat
+exists), and a slow actor can't bank multiple missed spikes. Logged as a distinct `'spike'`
+event type so replay UIs and the sweep's tank-absorption metric (which counts only
+'attack'/'dodge') tell them apart — absorption correctly measures threat-respecting hits only.
+
+Boss standard: **every 20s, ×2.5** — set in the harness template (`scripts/balance/enemies.ts`
+boss archetype) and patched onto the 3 live boss drafts (Bone Colossus, The Ember Tyrant, The
+Frost Monarch). Plumbed end-to-end: enemyDef schema (studio) → mission-claim GROQ/mapping →
+services/missions.ts → winChance estimator, so the dispatch estimate prices spikes in.
+
+**Evidence** (`2026-07-14-variance-rolls` → `2026-07-14-variance-full`):
+- Timeout-heavy cells 20 → 4: spikes end turtle stalls — sustained fights now accumulate real
+  damage pressure instead of stabilizing forever. The survivors are duo-tank-heal boss grinds,
+  much reduced.
+- Middle band 51 → 54 (boss shape 23 → 26); cliffs 134 → 130.
+- One new healer inversion (L50 T5 boss: trio-core 84% vs trio-double-dps 100%): overleveled
+  double-dps kills the boss before enough spikes land — "kill it fast" is a legitimate spike
+  answer, accepted as exactly the comp-choice texture this mechanic exists to create. Watch it
+  doesn't spread to on-level cells in future sweeps.
+- Engine tests: spikes outdamage the same boss's normal hits, land on non-tank members, respect
+  the period count, and never fire when unauthored.
+
+**Consequences.** Boss fights now have failure variance even for tank comps — margins (and
+infirmary load) on boss stages are spikier by design, which feeds the 60/40 push-or-farm
+decision on stage 7. Authored bosses should carry the standard 20s/×2.5 unless deliberately
+tuned (MAPS.md law follows in the rhythm-law branch). The estimator needs no changes; hosted
+parity again requires the mission-claim redeploy. Swarm/caster archetypes stay spike-free —
+spikes are the BOSS comp-counter (swarm = race, caster = armor bypass).
+
+## ADR-0040 — Harness power tiers + the per-map power budget
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex)
+
+**Context.** Every sweep to date ran the roster NAKED — level-derived stats only, no gear, no
+traits, no blessings — so every endgame conclusion (e.g. "T8 at L50 is ~0% for all comps") was
+measured against a party no real player will field. With 7+ maps planned (ADR-0034 says 6–9) and
+Alex's explicit direction that the last map SHOULD demand a full farm and good blessings, the
+harness needed to answer: does the ×1.8 tier curve (ADR-0037) actually hold once the player has
+the bonus layers — and if not, what multiplier must those layers deliver?
+
+**Decision.** The sweep grid gains a **power-tier axis**: party stats × naked 1.0 / geared 1.35 /
+full-build 1.9, every stat except speed (a speed multiplier would compound with the attack
+multiplier through the action-rate channel and overstate the tier). The multipliers are declared
+PROXIES for unauthored content, to be re-derived from real itemDefs/blessing trees when those
+exist. Comparability is protected: matrices, anomaly rules, and the middle-band metric read the
+naked slice only, and the seed formula excludes the power key, so the naked numbers are
+byte-comparable with every prior report (verified: 54 middle-band / 130 cliffs, identical to
+`variance-full`). The report gains a "Power tiers" section (trio-core × boss shape, the gating
+fight) + a one-line verdict; `docs/BALANCE.md` gains the **power budget per map** table.
+
+**Evidence** (`2026-07-14-power-tiers`, 1.9M fights). Highest boss tier at ≥70% win by L50:
+naked T5, geared T5, full-build **T6**. Full-build L50 vs T7 boss = 11%, vs T8 = 0%. Each tier
+step costs ×1.8 of party stats, so ×1.35 buys about half a step and ×1.9 almost exactly one.
+Read against the map chain (map m's boss = tier m+1): maps 1–5 work on levels + the proxy
+multipliers; **map 6's boss needs ~×3.4 combined gear+blessings over naked, map 7's needs ~×6.**
+
+**Consequences.** The authoring budget is now a recorded requirement, not a guess: itemDef stat
+budgets + blessing trees should be authored toward a combined ~×5–6 at the level cap (Alex's
+stated intent — the last map demands everything), with the fallbacks named in BALANCE.md if that
+proves too steep in play (taper tier growth above T6, or gate maps 6–7 behind transcendence).
+No engine or constant changes in this branch — instrument + reference table only. Grid is 3×
+bigger (~16s at 200 seeds); doc runtime figures updated. Re-run the reality-check column after
+real gear/blessing content exists.
+
+## ADR-0041 — First-clear bonus: ×1.5 XP/gold/resources the first time a stage is beaten
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex — multiplier chosen ×1.5 over ×2/×3)
+
+**Context.** The tension loop (ADR-0038/0039 + the MAPS.md rhythm law) asks the player to choose
+between pushing a risky new stage and farming cleared ones. Farming already has clear payoffs
+(loot, XP, safe margins); pushing needed its own — otherwise the rational move at a 60% boss is
+always "farm until it's 95%", which flattens the decision the whole package exists to create.
+
+**Decision.** The first time a player clears a map stage, the win's XP, gold, and resource
+payouts are multiplied ×1.5 (`FIRST_CLEAR_MULT`, mission-claim). Loot drop chances/quantities
+are untouched — item farming stays a repeat-clear activity by design. Detection is a pre-claim
+read of `profiles.map_progress` in the Edge Function (`stage > best cleared` on a win); the
+`claim_mission` RPC is unchanged — its `greatest()` write stays the atomic authority and the
+double-claim guard already blocks re-claiming the same run. (Two concurrent claims of two
+DIFFERENT runs of the same not-yet-cleared stage could in principle both price as first clears —
+a benign, vanishingly rare double-bonus, consciously accepted over widening the RPC.) The claim
+response gains `firstClear: boolean`; the ClaimReward "how it was calculated" trail shows it as
+a +50% line, and the /game-stats Rewards section documents it.
+
+**Consequences.** Pushing new content is rewarded once per stage per player; walls become "get
+better items or levels" moments rather than pure stat checks (the farm loop and the push loop
+pay differently, matching Alex's framing). Legacy missions without map/stage are unaffected
+(flag is always false). `mission-claim` redeploy required. If transcendence later resets
+`map_progress`, first-clear bonuses come back with it — price that into the transcendence design
+when it lands.
+
+## ADR-0042 — Combat trait wave 2: archetype counters + future-school wards (content only)
+
+**Date:** 2026-07-14 · **Status:** Accepted (Alex — part of the combat-tension queue)
+
+**Context.** The trait system (ADR-0035) already ships `enemySchool`/`enemyArchetype` conditions
+fully wired through the engine, mission-claim, the estimator, and the dispatch chips — no code
+was needed for combat traits, only content. Wave 1 leaned economy; the combat-conditional set
+had gaps that the new mechanics made visible: Flamewalker (fire resist) existed but was assigned
+to NOBODY (dead content on the live fire map), no trait countered the tank archetype (the
+MAPS.md clock-check), nothing answered boss spikes defensively (ADR-0039), healers had no
+boss-fight identity, and the three future map schools (earth/wind/holy, waves 2+) had no wards.
+
+**Decision.** Six new traitDefs (drafts only), priced to the wave-1 scale (±12–15% pct / flat 40
+resist / flat 25 armorPen ≈ the flat-40-resist power band):
+- **Wallbreaker** — vs tank archetype: +25 armorPen (the clock-check counter).
+- **Bulwark** — vs boss: +12% defense & +12% resistance (the spike counter, tank identity).
+- **Vigilkeeper** — vs boss: +15% healingPower (healer boss identity).
+- **Earthward / Galeward / Lightward** — flat 40 resistance vs earth/wind/holy (inert until
+  wave-2+ maps; authored now so map authoring won't need a trait session).
+
+Seven assignment swaps, keeping every character exactly at their ADR-0035 rarity cap (C1/U2/R3/
+E4) and every wave-1 trait with at least one holder: Dara swarmbane→flamewalker · Tyla
+ironblood+scholar→flamewalker+vigilkeeper (full combat-healer identity) · Aldric
+ironblood→vigilkeeper · Vex goldtouched→wallbreaker · Sera pathfinder→wallbreaker · Brom
+giantslayer→bulwark (defensive tank, giantslayer stays on Mordrek/Vex) · Mordrek
+spellbreaker→bulwark (spellbreaker stays on Callum).
+
+**Coverage after the wave (per live map, "active trait chips on dispatch"):** Gravemarch —
+shadowward ×4, gravehand ×3, stoneguard ×2, bulwark ×2, giantslayer ×2, vigilkeeper ×2.
+Embercrag — flamewalker ×2 (was 0), cragborn ×2, spellbreaker ×1, plus the boss set. Frosthollow
+— frostblood ×2, rimeborn ×2, plus the boss set. Tank-archetype stages (Grave Warden, Magma
+Brute, Glacier Golem) — wallbreaker ×2, a counter that didn't exist.
+
+**Consequences.** Pure Sanity-drafts content — no code, no deploys (mission-claim and the
+estimator resolve traits per claim/estimate from the drafts). Dispatch chips light up per
+mission automatically. Economy traits lost in the swaps (scholar/ironblood/goldtouched/
+pathfinder instances) were deliberate: combat-role characters trade utility for combat identity;
+each of those traits still exists on economy-leaning characters. Rebalance freely in Studio —
+these are drafts, and trait swaps carry no schema or budget migration.
+
+## ADR-0043 — Item level-requirement gate: rarity-scaled equip gating
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex — added while scoping the itemDef content wave)
+
+**Context.** Gear equip (ADR-0022) enforces ownership/busy/stack/slot-compatibility but nothing
+about the character's level — a level-1 character could equip a Legendary the moment one entered
+inventory. With the itemDef wave about to introduce Epic/Legendary drops for the first time
+(previously dead tiers — nothing had ever rolled above Rare), this stopped being theoretical:
+Alex asked for a level floor "so that really low level characters cant just equip legendaries."
+
+**Decision.** Each itemDef authors an optional `minLevel` — the level required to equip it at
+**Common** rarity (absent/0 = no restriction, keeping pre-wave items backward compatible). A
+rarer roll of the same item adds a flat step on top, via a new shared, framework-agnostic helper
+(`src/lib/equipment.ts`, imported by both the client picker and the gear-equip Edge Function —
+same "one function, both sides" precedent as `effectiveStats`):
+
+```
+LEVEL_REQ_STEP_BY_RARITY = { Common: 0, Uncommon: 2, Rare: 5, Epic: 9, Legendary: 14 }
+requiredLevelForRarity(minLevel, rarity) = minLevel + LEVEL_REQ_STEP_BY_RARITY[rarity]
+```
+
+Flat, not proportional to `RARITY_MULT` (1/1.2/1.45/1.75/2.25) — a proportional ladder would let
+an early map's Legendary roll gate *higher* than a later map's Common item once `minLevel` grows
+across maps; the flat step keeps the ladder well-behaved (worked check across the 3 live maps'
+`minLevel` anchors ≈1/6/12: Gravemarch Legendary → 15, Embercrag → 20, Frosthollow → 26, strictly
+increasing).
+
+The check is split exactly like the existing slot-compatibility check (ADR-0022): the
+Sanity-dependent half (reading `minLevel`, computing `requiredLevel`) lives in the `gear-equip`
+Edge Function; the structural half (comparing against the character's actual `level`) is
+enforced **inside** the `equip_item` RPC's existing row-locked transaction (migration
+`20260715120000_item_level_requirement.sql` — the RPC gained a `p_required_level` parameter and
+now selects `level` alongside `equipped`, raising `'equip_item: character level too low'` if it's
+short). Doing the numeric comparison inside the same lock the ownership check already takes
+closes any TOCTOU gap between "check" and "equip." The client (`SlotPickerModal`) computes the
+same number to greet the player with a disabled tile + "Req. Lvl X" instead of a round-trip 409,
+but the server check is the actual authority (ADR-0003).
+
+**Consequences.** Epic/Legendary drops are no longer usable the instant they drop for an
+under-leveled character — they become a "grow into it" reward instead of an instant power spike.
+`unequip_item` is untouched (removing gear never needs a level check). One accepted edge case,
+not solved now: transcendence resets a character's level to 1 but keeps the character (and its
+`equipped` JSONB) — a freshly-transcended character keeps whatever was equipped pre-reset, since
+the gate only fires at equip time, not retroactively. This matches how prestige systems usually
+work (you keep gear, you regrind levels) and transcendence itself isn't built yet; revisit if it
+proves wrong once it is. Migration drops and recreates `equip_item` (adding a parameter changes
+the signature) — `gear-equip` Edge Function redeploy required alongside it.
+
+## ADR-0044 — ItemDef content wave 1: 23 items closing the slot gap on the 3 live maps
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex — requested level-gating, map flavor, and a
+replicable methodology doc alongside the content ask)
+
+**Context.** Only 4 itemDefs existed (PR #21 test fixtures), covering 4 of 10 slot types — head,
+shoulders, hands, legs, feet, and offhand had zero items, so those equip slots were dead on every
+character sheet. All 21 live missions looted only those same 4 items, and rarity never rolled
+above Rare anywhere, leaving `RARITY_MULT`'s Epic/Legendary tiers wired but unused. ADR-0040
+named map 3 (Frosthollow, T4 boss) "the first real gear check," expecting the harness's `geared
+×1.35` proxy — a number this wave needed to actually deliver via real content, not a guess.
+
+**Decision.** 19 new itemDefs (+ the 4 existing, backfilled with `minLevel: 1` = 23 total):
+- **Universal fill (6 items, Gravemarch-tagged):** one item per empty slot type (head/shoulders/
+  hands/legs/feet/offhand), health-primary, `minLevel` 1–4.
+- **Per-map build-defining sets:** Gravemarch +3 (weapon/ring/trinket), Embercrag +5 (adds
+  offhand + chest), Frosthollow +5 — each map's weapon/offhand/chest/ring/trinket sized to that
+  map's expected level band (docs/BALANCE.md), with a consistent slot-to-stat lane (weapon =
+  attack, offhand = defense, chest = health + small defense, the other 5 armor slots = health
+  only, ring = light offense/defense utility, trinket = spellPower/healingPower `pct`) so the
+  same stat doesn't get re-stacked across many slots.
+- **Rarity ceiling extended:** Gravemarch's boss (Bone Colossus) now reaches Epic (low weight),
+  Embercrag's (Ember Tyrant) reaches Epic (moderate weight), and Frosthollow's (Frost Monarch)
+  introduces the game's **first Legendary drops** (frostplate-hauberk, glacial-greatsword) —
+  matching its framing as the current endgame's reward.
+- **Verified, not guessed:** a throwaway calc script (`effectiveStats`/`collectGearBonuses` from
+  `src/lib/stats.ts` directly — the real engine, not a reimplementation) checked a full 14-slot
+  Rare-average loadout against real L20 characters. Result: physical DPS (Vex) +32.2% attack,
+  tank (Brom) +42.6% defense, caster (Mira) +23.2% spellPower, healer (Tyla) +23.2%
+  healingPower — landing near the +30–40% target for physical/tank; casters/healers land lower
+  because wave 1's `weapon` lane is attack-only (no dedicated magic-implement slot yet) and their
+  only itemization is the trinket lane. Accepted as a scoped v1 limitation, not silently missed —
+  logged as a TODO ("caster/healer weapon-equivalent itemization").
+- An early draft put a small `defense` bonus on nearly every armor slot; because a character
+  wears 14 slots at once, this compounded to +105% defense for the tank before the calc script
+  caught it. Fixed by concentrating defense into two lanes (offhand primary, chest secondary)
+  instead of spreading it thin across six. Documented in docs/ITEMS.md as the wave's main lesson.
+- **Level-cap ceiling identified (not yet binding):** with the ADR-0043 flat +14 Legendary step
+  and a level cap of 50, any future itemDef's `minLevel` must stay ≤36 or its Legendary roll
+  becomes permanently unequippable. Wave 1's anchors (1–15) are safely clear of this; recorded in
+  docs/ITEMS.md so map 5+ authoring doesn't walk into it blind.
+- **`docs/ITEMS.md`** (new) captures the full methodology — slot system, the level-requirement
+  formula, the universal-fill/per-map pattern, the stat-lane table, the sizing/verification
+  method, the loot-wiring weak-reference gotcha, and a checklist for the next map's item wave —
+  so this is replicable without re-deriving it from scratch.
+
+**Consequences.** Every one of the 14 equip slots now has at least one real item; the 21 live
+missions' loot tables were rewired to introduce them (existing `dropChance`/`rarityWeights`
+pacing preserved, only `itemKey` targets and rarity ceilings changed). Two follow-up TODOs
+recorded rather than solved here: an `itemBudget.ts` power-budget validator (analogous to
+`characterBudget.ts` — items are still authored free-form, no cap) and item flavor text (every
+`description` field ships blank this wave). Maps 4–7 extend the same pattern per docs/ITEMS.md,
+not from scratch.
+
+## ADR-0045 — Blessing tree redesign: 4-row/2-choice + earned capstone
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex — replaces the earlier WoW-Classic-style design)
+
+**Context.** The blessing system was scaffolded (Sanity `blessingNode`/`nodeEffect`, DB
+`player_characters.blessings jsonb`, `stats.ts`'s `collectBlessingBonuses`) for a 7-row WoW-Classic
+tree: variable nodes per row, ranks 1–5, tier-unlock via 5-points-spent-above, prerequisite arrows.
+`BlessingsPage.tsx` was a full interactive mock of that shape with no backend — like Team/Crafting/
+Mines before they were wired up. No Edge Function ever wrote to `blessings`; the read/compute side
+(`effectiveStats`, the Team page's stat-breakdown tooltip) was live but always saw zero allocations.
+
+Alex redesigned the mechanic before wiring it up: **4 rows, 2 mutually-exclusive choices per row,
+one capstone at the end** — simpler than the 7-row/ranked/prereq-web original, and a better fit
+for "trees must change how a character plays" (the still-open TODO item this closes): a strict
+either/or fork per row is a real playstyle decision in a way a multi-rank point-spend isn't.
+
+**Decision.**
+- **Structure.** Exactly 4 rows per character, exactly 2 choices per row, pick one, **permanent**
+  (no respec in v1 — logged as a TODO, not built now). Row *N* unlocks at character level *N*×10
+  (10/20/30/40) **and** only after row *N*-1 is already picked — enforced server-side (not just a
+  UI convention) by a new `choose_blessing` RPC that mirrors `equip_item`'s row-lock/busy-check/
+  raise pattern (`supabase/migrations/20260715130000_blessing_choose.sql`,
+  `supabase/functions/blessing-choose/`): lock the character row, check level, check the previous
+  row is already set, check this row ISN'T already set (the immutability guard — permanence must
+  be a server rule, ADR-0003, not a client-only nicety), check busy state (mission/gather/
+  infirmary — the same exploit gear-locking already prevents: picking mid-mission could otherwise
+  buff an in-flight claim), write, return. **Unlike gear, this RPC needs no Sanity fetch at all** —
+  row/choice validity and the level ladder are fixed engine constants (`src/lib/blessings.ts`
+  `BLESSING_ROW_LEVELS`), not authored content, so they're hardcoded in SQL exactly like gear's own
+  slot-key enum already is.
+- **Capstone is computed, never written.** Earning it needs no player choice and no RPC call: it's
+  fully determined by `level >= 50 AND row4 already picked` (`capstoneEarned`,
+  `src/lib/blessings.ts`) — both already-durable facts. Per ADR-0002 (compute-on-read), this
+  removes an entire write path, the "how do we stop double-granting it" question, and the "one RPC
+  or two" ambiguity that a naive "5th pickable row" design would have introduced.
+- **Three capstone flavors, all schema-supported now:** flat stat bonus, conditional stat bonus
+  (reuses `traits.ts`'s `TraitCondition`/`traitActive` verbatim — a capstone is evaluated as a
+  one-element trait list, `resolveCapstoneBonuses`), and a scripted combat ability. The first two
+  resolve entirely in `stats.ts`/`traits.ts` before `combat.ts` ever runs — a real architectural
+  seam, not a scoping convenience — so they ship in this branch. The **ability** flavor needs new
+  `combat.ts` engine surface (a small fixed vocabulary — `surviveFatal`, `partyBuffOnStart` — same
+  hardcoded-mechanic precedent as the boss spike attack, not a generic event system) and ships in
+  a follow-up branch; a character authored with `kind: 'ability'` grants no stat bonus until then
+  (`resolveCapstoneBonuses` returns `{}` for that kind on purpose).
+- **Pricing stays flat across rarity.** Both choices in a row must cost the same under
+  `characterBudget.ts`'s `STAT_PRICE` (a new `flatEffectsCost` helper + a studio-time validator on
+  `blessingRow` enforce this for `flat`-kind effects; a `pct` effect can't be priced the same way —
+  it scales with the character's own baseline — so a row using one relies on the Phase C
+  calc-script check instead, same as the itemDef wave's verification method). This closes the
+  standing TODO question ("decide tree budget size when authoring the first tree"): unlike traits
+  (rarity scales *count*, 1→5) or base stats (rarity scales *budget size*, 80→100), blessing row
+  *count* is fixed at 4 for every character — the only remaining lever would be per-row magnitude,
+  and keeping that flat matches ADR-0040's single flat "~×5–6 combined gear+blessings at the level
+  cap" target rather than a rarity-keyed one.
+- **Schema rework**, all inline objects nested on `characterDef` (no shared registry — a blessing
+  tree stays bespoke per character, ADR-0001, unlike traits which reference a shared `traitDef`
+  document): `blessingChoice` (`choiceId`, `title`, `description` — authored now, unlike items'
+  deferred flavor text, since bespoke identity is the whole point here), `blessingRow` (`row`,
+  exactly 2 `choices`), `capstoneBlessing` (`kind` + `effects`/`condition` per flavor). `nodeEffect`
+  loses its rank concept (`perRank` → `value` — a pick is always rank 0 or 1, never stacked) but
+  keeps its `{stat, kind, value}` shape unchanged, so `collectBlessingBonuses` needed no logic
+  change, only the rename. `traitDef`'s inline `condition` field was extracted into a shared
+  `conditionTrigger` object type so the capstone's conditional flavor reuses the exact same
+  cross-field validation instead of duplicating it.
+- **Content cleanup.** Querying live content turned up 19 of 19 characters carrying old-shape
+  `blessingTree` data (not just Mordrek Graveborn's documented 5-node example) — cleared to `[]`
+  across the board as part of this branch. Safe: with no write path ever having existed, every
+  character's blessing allocation has always been `{}`, so this content was inert (zero bonus
+  regardless of its shape) from the day it was authored.
+
+**Consequences.** `player_characters.blessings`'s shape changes from `{ nodeId: ranks }` to
+`{ row1..row4: 'a'|'b' }` (column comment updated; no migration needed, jsonb is schemaless) — every
+reader (`useRoster`, `TeamPage`, `WinChanceEstimate`, `mission-claim`, `charMaxHp`) now runs picks
+through `resolveBlessingAllocations` before calling `effectiveStats`, and both Sanity-querying Edge
+Functions (`mission-claim`, `charMaxHp`) flatten their own independently-fetched `blessingTree` via
+the shared `flattenBlessingTree` so the `row<N>-<choice>` nodeId format can't drift between the
+client and either server path. `CharacterCard`'s Talents tab now shows a real read-only summary of
+a character's picks (extracted to its own `TalentsTab.tsx` organism, replacing a second, unrelated
+mock — a 6×3 Death-Knight-flavored grid — that would otherwise have sat next to now-real numbers on
+the same character sheet) and links out to the real `/blessings` page for the actual picker; no
+respec control exists anywhere yet. Phase B (the ability capstone flavor) and Phase C (authoring
+real 4-row+capstone trees for all 19 characters, `docs/BLESSINGS.md`, the sizing calc-script) are
+follow-up branches, not this one.
+
+**Phase B addendum (2026-07-15) — the ability capstone flavor ships.** `src/lib/combat.ts` gains
+`Combatant.ability`, a small fixed union (same hardcoded-mechanic precedent as the ADR-0039 boss
+spike, not a generic scripting system):
+- **`surviveFatal`** — a hit that would take the unit to ≤0 HP instead clamps it to 1 HP, once per
+  fight (`Unit.fatalSaveUsed`). Implemented as a branch right at the existing damage-application
+  line; logs a new `'fatal-save'` `CombatEvent` so replay UIs can show it.
+- **`partyBuffOnStart`** — a flat/pct stat buff applied to every party `Unit` once, in a new pass
+  run right after the ADR-0038 per-fight power roll and before the main loop. Restricted to a fixed
+  `AbilityStat` allowlist (`defense`, `resistance`, `critChance`, `critDamage`, `dodge`, `block`,
+  `healthRegen`) — the same fields `Unit` exposes directly; `attack`/`spellPower`/`healingPower`
+  are pre-routed into a single `power`/`healPower` field by `partyUnit()` and aren't separately
+  addressable after construction, so they're not offered. **A dodge buff is re-clamped to
+  `COMBAT.DODGE_CAP` immediately after applying** — the buff pass runs after `partyUnit()`'s own
+  dodge-cap clamp, so an unclamped add would silently reopen the exact dodge runaway ADR-0029
+  fixed once already.
+
+`src/lib/blessings.ts` gains `resolveCapstoneAbility(capstone, earned)`, mirroring
+`resolveCapstoneBonuses`'s shape but returning a `CombatAbility | undefined` instead of a stat-bonus
+map — the two are mutually exclusive per capstone (an `ability`-kind capstone grants zero stat
+bonus; a `stat`/`conditional` one grants zero `CombatAbility`). Every place that already resolves a
+character's earned capstone into stats now also resolves it into an ability, threaded through
+unchanged: `mission-claim` attaches it per combatant before calling `simulateCombat`; `useRoster`
+resolves it once (it isn't trait-context-dependent like the conditional stat flavor, so — unlike
+`statInputs.capstone` — it needs no per-mission recompute) and carries it on `RosterMember.ability`
+through `DispatchChar` into `WinChanceEstimate`'s 200-run estimate, so a dispatched party's success
+% already reflects an earned ability the same way it already reflected traits. `capstoneBlessing.ts`
+gains `abilityKind` (radio: `surviveFatal` | `partyBuffOnStart`) and `abilityParams` (`stat`
+restricted to the `AbilityStat` allowlist, `kind`, `value`), both hidden/validated conditionally on
+`kind`/`abilityKind` so authoring a flat or conditional capstone never shows them. No player-facing
+UI changes: `CapstoneCard`/`TalentsTab` already rendered `title`/`kind`/`effects` generically and
+degrade gracefully for a kind with no `effects` (ability capstones still show title + "Ability").
+
+## ADR-0046 — Blessing tree content wave 1: per-role fork templates for all 19 characters
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex)
+
+**Context.** ADR-0045 (+ Phase B) shipped the full blessing mechanism, but every one of the 19
+characterDefs still carries `blessingTree: []` and no `capstone` — blessings are wired up end to
+end but grant nothing yet (`project_pitfalls.md`'s "blessings are live but do nothing" risk). This
+ADR is the content wave that closes it, per docs/BLESSINGS.md's methodology.
+
+**Decision.**
+- **Per-role fork templates**, each a genuine build-defining choice, not just a bigger number:
+  Damage (7 chars) forks offense vs bulk on 3 rows + an armorPen-vs-crit "finishing move" row;
+  Tank (2) forks pure-wall vs off-tank on all 4 rows; Healer (3) forks burst-vs-sustain healing on
+  2 rows + a NEW tankiness (health/defense vs more healPower) fork on the other 2 — Alex's explicit
+  ask, so a healer can be built survivable, not just a healbot; Utility (4) forks throughput
+  (missionSpeedDecrease) vs economy (goldFind/magicFind/luck); Gatherer (3) forks resource-flavored
+  gatherSpeed/Yield on 2 rows + a NEW hybrid-combat (keep-gathering vs attack/damage) fork on the
+  other 2 — also Alex's explicit ask, so a gatherer can meaningfully dps if specced that way.
+- **Auras are capstone-only, confirmed explicitly** (no row-level party buffs) — but Alex wants
+  them to actually exist this wave, not just be theoretically supported by the Phase B engine: 4
+  characters (Brom, Aldric, Lyra, Gort) get `partyBuffOnStart` capstones, 2 (Mordrek, Vex) get
+  `surviveFatal` — a real spread across roles, not clustered on one. Remaining 13 split
+  stat/conditional (roughly 6 ability / 6 conditional / 7 stat overall across all 19).
+- **Row-conditional schema gap, resolved.** `blessingChoice` has no `condition` field (only
+  `capstoneBlessing` does) — a literal "+yield only while gathering Wood" row pick isn't buildable
+  without new engine work. Chose the zero-engine-work path: gatherer rows are unconditional,
+  flavored toward the signature resource (mirrors the existing `Quickhand` trait's `always`-
+  condition pattern). True row-level conditions are a possible future engine PR, not this wave.
+- **Budget: 20 `STAT_PRICE` points per row, 30 for a stat/conditional capstone, flat across
+  rarity** (matches ADR-0045's existing flat-pricing decision — blessing magnitude is the one
+  lever that isn't rarity-scaled). `ability` capstones aren't priced; a `partyBuffOnStart` is
+  discounted to ~40% of an equivalent solo `stat` grant since it hits the whole party at once. This
+  is a single adjustable constant translating ADR-0040's "~×3.4–6 combined gear+blessings at L50"
+  target into blessings' smaller, secondary share (gear does the larger climb) — nothing else
+  depends on its exact value.
+- **Studio validators don't run for MCP-authored content** (they're Sanity Studio client-side rules
+  only) — `patch_documents` skips the equal-cost/shape checks entirely, so a scratchpad calc-script
+  must manually replicate them before writing, and content gets read back and re-verified after.
+- **Piloted first**: Mordrek Graveborn (tank, `surviveFatal` — first real content to exercise the
+  Phase B ability engine, and closes the loop ADR-0045's content-cleanup opened when it wiped his
+  old 5-node data), Tyla Windcarrier (healer, both NEW sub-axes at once, conditional capstone
+  extending her existing `Vigilkeeper` precedent), Gort Deepvein (gatherer, both NEW sub-axes at
+  once, `partyBuffOnStart` capstone, forces the pct/calc-script workflow). Damage/Utility deferred
+  to the full wave as the lowest-risk, plain-flat-fork shapes.
+
+**Consequences.** The "blessings live but do nothing" pitfall closes for every authored character.
+Still open, not this ADR: a dedicated `blessingBudget.ts` validator script (mirrors the still-open
+`itemBudget.ts` TODO from ADR-0044), re-deriving the balance harness's power-tier proxy from real
+blessing content (ADR-0040's own ask), gather `BonusTag` UI wiring for blessing-sourced gather
+bonuses, the Option-B row-level-conditions engine work if ever wanted, and respec (unchanged,
+still permanent-in-v1 per ADR-0045).
+
+## ADR-0047 — Blessing respec: gold-cost, all-or-nothing tree wipe via a dedicated page
+
+**Date:** 2026-07-15 · **Status:** Accepted (Alex)
+
+**Context.** ADR-0045 made blessing picks permanent by explicit design and deferred respec as an
+open TODO ("cost/mechanism TBD" — `TODO.md`, `docs/BLESSINGS.md`). ADR-0046's consequences section
+still listed it as "unchanged, still permanent-in-v1." Alex asked for it to be built: a new
+dedicated page where you pick a character from the roster and press a button (enabled once
+selected) to respec them.
+
+**Decision.**
+- **Costs gold** — a flat `RESPEC_COST` constant (`src/lib/blessings.ts`), not free or
+  cooldown-gated. Chosen specifically because it doubles as an intentional resource sink
+  (`project_pitfalls.md`'s "no resource sink" risk) — a second sink alongside infirmary upgrades.
+  Resolved **server-side only**: the `blessing-respec` Edge Function imports `RESPEC_COST` directly
+  and passes it to the RPC; the client's request body only ever carries `characterId`, mirroring
+  how `infirmary-upgrade` resolves `UPGRADE_COSTS` itself rather than trusting a client-supplied
+  price (ADR-0003).
+- **All-or-nothing wipe, not per-row.** Rows 2–4 structurally require the previous row already
+  picked (`choose_blessing` enforces this server-side) — a partial respec (e.g. clearing only row3)
+  would leave the tree in an invalid state unless it also cascaded. `respec_blessings` resets
+  `blessings` to `'{}'::jsonb` in a single transaction instead.
+- **New `respec_blessings` RPC** (`20260715140000_blessing_respec.sql`), mirroring
+  `choose_blessing`'s lock/ownership/busy-check idiom (blocked while on a mission/gathering/in the
+  infirmary — respeccing mid-activity is nonsensical) plus `upgrade_infirmary`'s lock-profile/
+  verify-balance/deduct idiom, collapsed to a single scalar gold check (no currencies-map — the
+  project has exactly one currency today). Also rejects a no-op respec (`blessings = '{}'`) so
+  gold isn't charged for nothing.
+- **New dedicated `/respec` page**, not folded into `/blessings` — reuses `BlessingsPage`'s
+  roster-rail + detail-panel visual idiom (a small local `CharacterRow`, not the mismatched
+  `PartyRoster` organism or a cross-feature import of `BlessingsPage`'s internals, per ADR-0010).
+  No confirmation modal — pressing the button is the whole interaction, by explicit request.
+
+**Consequences.** Supersedes ADR-0046's closing note ("respec... still permanent-in-v1"); the
+`TODO.md` "Blessing respec" line is now done. `RESPEC_COST = 500` is a first-pass, adjustable
+constant (same provisional status as `UPGRADE_COSTS`) — revisit once playtesting shows real gold
+income rates. No change to the blessing schema, content, or combat engine.

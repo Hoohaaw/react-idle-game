@@ -35,3 +35,22 @@ export function slotKeyLabel(slotKey: GearSlotKey): string {
   const word = base.charAt(0).toUpperCase() + base.slice(1)
   return index ? `${word} ${index}` : word
 }
+
+// ---- Level requirement (ADR-0043) ---------------------------------------------------------
+// A character must be at least this level to equip an item. Authored `minLevel` is the Common
+// requirement; a rarer roll of the SAME item adds a flat per-rarity step on top. Flat (not
+// proportional to stats.ts's RARITY_MULT) so an early map's BiS Legendary can't out-level-gate a
+// later map's Common item — each map's own `minLevel` anchor already does the real gating.
+
+export const LEVEL_REQ_STEP_BY_RARITY: Record<string, number> = {
+  Common: 0,
+  Uncommon: 2,
+  Rare: 5,
+  Epic: 9,
+  Legendary: 14,
+}
+
+/** The level required to equip an item authored with `minLevel` at the given rolled rarity. */
+export function requiredLevelForRarity(minLevel: number, rarity: string): number {
+  return minLevel + (LEVEL_REQ_STEP_BY_RARITY[rarity] ?? 0)
+}

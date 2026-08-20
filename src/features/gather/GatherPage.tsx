@@ -4,6 +4,7 @@ import { ActiveGatherCard } from '@/components/molecules/ActiveGatherCard'
 import { Modal } from '@/components/organisms/Modal'
 import { PartyRoster, type RosterCharacter } from '@/components/organisms/PartyRoster'
 import { PrimaryButton, SecondaryButton } from '@/components/atoms/Button'
+import { IconSlot } from '@/components/atoms/IconSlot'
 import { resourceHeaderStyle } from '@/lib/resources'
 import { MINE_DEFS, MINE_BY_RESOURCE } from '@/lib/gather'
 import { useRoster } from '@/hooks/useRoster'
@@ -54,17 +55,26 @@ export default function GatherPage() {
   }
 
   // Every character + what they're doing (busy ones show in the picker but aren't selectable).
-  const rosterChars: RosterCharacter[] = roster.map((m) => ({
-    id: m.id,
-    name: m.name,
-    charClass: m.charClass,
-    level: m.level,
-    role: m.role,
-    activity: m.busy === 'gathering' ? 'gather' : m.busy === 'mission' ? 'mission' : m.busy === 'infirmary' ? 'infirmary' : 'idle',
-    detail: m.busy === 'gathering'
-      ? assignments.find((a) => a.player_character_id === m.id)?.resource_id
-      : undefined,
-  }))
+  const rosterChars: RosterCharacter[] = roster.map((m) => {
+    const downed = m.currentHp === 0
+    const activity = downed ? 'downed'
+      : m.busy === 'gathering' ? 'gather'
+      : m.busy === 'mission' ? 'mission'
+      : m.busy === 'infirmary' ? 'infirmary'
+      : 'idle'
+    return {
+      id: m.id,
+      name: m.name,
+      charClass: m.charClass,
+      level: m.level,
+      role: m.role,
+      damageSchool: m.damageSchool,
+      activity,
+      detail: m.busy === 'gathering'
+        ? assignments.find((a) => a.player_character_id === m.id)?.resource_id
+        : undefined,
+    }
+  })
 
   return (
     <div>
@@ -129,7 +139,9 @@ export default function GatherPage() {
         }}>
           <div style={{ padding: '14px 16px', borderBottom: '2px solid var(--color-gold-dark)', ...resourceHeaderStyle(assigningResource ?? '') }}>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase' }}>Assign Gatherer</p>
-            <p style={{ color: 'var(--color-gold-light)', fontSize: 16, fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.4)' }}>⛏ {assigningResource}</p>
+            <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--color-gold-light)', fontSize: 16, fontWeight: 'bold', textShadow: '0 0 10px rgba(240,208,96,0.4)' }}>
+              <IconSlot size={14} />{assigningResource}
+            </p>
           </div>
 
           <div style={{ padding: 16, maxHeight: '52vh', overflowY: 'auto' }}>

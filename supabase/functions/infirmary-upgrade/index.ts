@@ -1,6 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
-import { maxHpByCharacter, type CharRowForHp } from '../_shared/charMaxHp.ts'
+import { statsByCharacter, type CharRowForHp } from '../_shared/charMaxHp.ts'
 import { INFIRMARY, UPGRADE_COSTS, settleForUpgrade } from '../../../src/lib/infirmary.ts'
 
 // infirmary-upgrade: raise the infirmary one level (ADR-0003/0021) — more beds, faster regen,
@@ -72,9 +72,9 @@ Deno.serve(async (req) => {
       return json({ error: 'Could not load admitted characters' }, 500)
     }
     const chars = charsData as CharRowForHp[]
-    let maxHp: Record<string, number>
+    let statsById: Record<string, Record<string, number>>
     try {
-      maxHp = await maxHpByCharacter(chars)
+      statsById = await statsByCharacter(chars, {})
     } catch (e) {
       console.error('Sanity fetch failed', e)
       return json({ error: 'Could not load character content' }, 502)
@@ -83,18 +83,20 @@ Deno.serve(async (req) => {
     const nowMs = Date.now()
     for (const a of admissions) {
       const c = charById.get(a.player_character_id)!
+      const maxHp = Math.max(1, Math.round(statsById[c.id].health ?? 0))
       const settled = settleForUpgrade({
         hpAtAdmission: a.hp_at_admission,
         admittedAtMs: new Date(a.admitted_at).getTime(),
         nowMs,
         charLevel: c.level,
         infirmaryLevel: currentLevel,
-        maxHp: maxHp[c.id],
+        maxHp,
+        recoverySpeedPct: statsById[c.id].recoverySpeed ?? 0,
         newInfirmaryLevel: newLevel,
       })
       settlements.push({
         character_id: c.id,
-        current_hp: settled.currentHp >= maxHp[c.id] ? null : settled.currentHp,
+        current_hp: settled.currentHp >= maxHp ? null : settled.currentHp,
         admitted_at: new Date(settled.admittedAtMs).toISOString(),
         hp_at_admission: settled.hpAtAdmission,
       })

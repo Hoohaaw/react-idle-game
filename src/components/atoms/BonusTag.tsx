@@ -9,6 +9,6 @@ export function BonusTag({ label }: { label: string }) {
       background: 'linear-gradient(180deg, rgba(76,175,110,0.20) 0%, rgba(76,175,110,0.05) 100%)',
       color: '#8ee59c', fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', whiteSpace: 'nowrap',
       boxShadow: '0 0 6px rgba(76,175,110,0.2)',
-    }}>⚡ {label}</span>
+    }}>{label}</span>
   )
 }

@@ -1,5 +1,11 @@
 import type { DropItem } from '@/types/loot'
 import type { CharacterRole } from '@/lib/roles'
+import type { School } from '@/lib/schools'
+import type { TraitDef } from '@/lib/traits'
+import type { StatValue, StatGrowth, BlessingNodeDef, EquippedItem } from '@/lib/stats'
+import type { BlessingPicks, CapstoneDef } from '@/lib/blessings'
+import type { CombatAbility } from '@/lib/combat'
+import type { MissionEnemyView } from '@/services/missions'
 
 // Prop shapes for MissionDispatch + the sample data that drives the /design showcase (replaced by
 // real mission + roster data when wired). Data-only module so the component file stays HMR-clean.
@@ -11,6 +17,11 @@ export type DispatchMission = {
   duration: string // display label, e.g. "3:00"
   baseXp: number
   loot: DropItem[]
+  enemies: MissionEnemyView[]
+  /** In-fight clock — with enemy stat blocks, enables the win-chance estimate. */
+  timeLimitSeconds?: number | null
+  /** World map key (ADR-0034/0035) — the trait context for Mapborn matching. */
+  mapKey?: string | null
 }
 
 export type DispatchChar = {
@@ -19,6 +30,24 @@ export type DispatchChar = {
   charClass: string
   level: number
   role?: CharacterRole
+  damageSchool?: School
+  /** Effective stat map + carried HP — inputs to the win-chance estimate (omitted in fixtures). */
+  stats?: Record<string, number>
+  currentHp?: number | null
+  /** Traits + authored stat inputs (ADR-0035) — the estimator recomputes stats with the mission's
+   *  trait context; the tile highlights traits active for this mission. Omitted in fixtures. */
+  traits?: TraitDef[]
+  statInputs?: {
+    baseStats: StatValue[]
+    growth: StatGrowth[]
+    blessingNodes: BlessingNodeDef[]
+    capstone?: CapstoneDef
+  }
+  blessings?: BlessingPicks
+  /** Earned capstone ability (ADR-0045 Phase B) — passed straight into the win-chance estimate's
+   *  Combatant construction; omitted in fixtures. */
+  ability?: CombatAbility
+  equipped?: Record<string, EquippedItem>
   busy?: string // a label (e.g. "On mission") — present means the character can't be selected
   downed?: boolean
 }
@@ -34,6 +63,18 @@ export const SAMPLE_DISPATCH_MISSION: DispatchMission = {
     { name: 'Tattered Cloak', slot: 'Chest', chances: [{ rarity: 'Common', chance: 80 }, { rarity: 'Uncommon', chance: 10 }] },
     { name: 'Bent Dagger', slot: 'Weapon', chances: [{ rarity: 'Common', chance: 70 }, { rarity: 'Uncommon', chance: 6 }] },
   ],
+  enemies: [
+    { name: 'Goblin Raider', count: 3, damageType: 'physical', resistances: [] },
+    {
+      name: 'Goblin Pyromancer',
+      count: 1,
+      damageType: 'fire',
+      resistances: [
+        { school: 'fire', value: 100 },
+        { school: 'ice', value: 0 },
+      ],
+    },
+  ],
 }
 
 export const SAMPLE_DISPATCH_ROSTER: DispatchChar[] = [
@@ -41,5 +82,5 @@ export const SAMPLE_DISPATCH_ROSTER: DispatchChar[] = [
   // ADR-0008 demo: a Death Knight (tank by class) authored as a Damage dealer.
   { id: 'r2', name: 'Alexandros Mograine', charClass: 'Death Knight', level: 24, role: 'damage' },
   { id: 'r3', name: 'Fandral Staghelm', charClass: 'Druid', level: 9, busy: 'Gathering' },
-  { id: 'r4', name: 'Sally Whitemane', charClass: 'Priest', level: 15 },
+  { id: 'r4', name: 'Sally Whitemane', charClass: 'Priest', level: 15, damageSchool: 'holy' },
 ]

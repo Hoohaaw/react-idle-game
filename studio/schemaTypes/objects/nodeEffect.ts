@@ -3,9 +3,9 @@ import { STAT_DEFS } from '../../../src/lib/statDefinitions'
 
 const STAT_OPTIONS = STAT_DEFS.map((s) => ({ title: s.label, value: s.key }))
 
-// What a single blessing node grants, per rank. The engine multiplies perRank by the
-// ranks the player has spent and folds it into the stat-stacking formula
-// (flat adds directly; pct applies to the baseline only).
+// What a single blessing choice or capstone grants (ADR-0045). No ranks — a blessing pick is
+// always on/off, never stacked — so this is a flat stat grant (flat adds directly to the
+// baseline; pct applies to the baseline only), the same shape as an item or trait effect.
 export const nodeEffect = defineType({
   name: 'nodeEffect',
   title: 'Effect',
@@ -33,17 +33,17 @@ export const nodeEffect = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
-      name: 'perRank',
-      title: 'Per rank',
-      description: 'Amount granted per rank (total = perRank × ranks spent).',
+      name: 'value',
+      title: 'Value',
+      description: 'Amount granted once this blessing is picked.',
       type: 'number',
       validation: (rule) => rule.required(),
     }),
   ],
   preview: {
-    select: { stat: 'stat', kind: 'kind', perRank: 'perRank' },
-    prepare: ({ stat, kind, perRank }) => ({
-      title: `${stat ?? '?'} ${kind === 'pct' ? `+${perRank}%` : `+${perRank}`} / rank`,
+    select: { stat: 'stat', kind: 'kind', value: 'value' },
+    prepare: ({ stat, kind, value }) => ({
+      title: `${stat ?? '?'} ${kind === 'pct' ? `+${value}%` : `+${value}`}`,
     }),
   },
 })

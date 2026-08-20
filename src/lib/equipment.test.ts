@@ -4,6 +4,8 @@ import {
   isGearSlotKey,
   itemSlotForSlotKey,
   slotKeyLabel,
+  requiredLevelForRarity,
+  LEVEL_REQ_STEP_BY_RARITY,
   type GearSlotKey,
 } from './equipment'
 
@@ -165,5 +167,43 @@ describe('slotKeyLabel', () => {
       expect(label[0]).toBe(label[0].toUpperCase())
       expect(label[0]).not.toBe(label[0].toLowerCase())
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// requiredLevelForRarity (ADR-0043)
+// ---------------------------------------------------------------------------
+
+describe('requiredLevelForRarity', () => {
+  it('equals minLevel unchanged at Common (step 0)', () => {
+    expect(requiredLevelForRarity(12, 'Common')).toBe(12)
+  })
+
+  it('adds the documented flat step per rarity', () => {
+    expect(requiredLevelForRarity(10, 'Uncommon')).toBe(12)
+    expect(requiredLevelForRarity(10, 'Rare')).toBe(15)
+    expect(requiredLevelForRarity(10, 'Epic')).toBe(19)
+    expect(requiredLevelForRarity(10, 'Legendary')).toBe(24)
+  })
+
+  it('falls back to step 0 for an unknown rarity string', () => {
+    expect(requiredLevelForRarity(10, 'Mythic')).toBe(10)
+  })
+
+  it('the rarity ladder is strictly increasing', () => {
+    const order = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
+    const steps = order.map((r) => LEVEL_REQ_STEP_BY_RARITY[r])
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i]).toBeGreaterThan(steps[i - 1])
+    }
+  })
+
+  it('a later map\'s Common item still out-gates an earlier map\'s Legendary (worked check)', () => {
+    // Gravemarch ≈1, Embercrag ≈6, Frosthollow ≈12 (the 3 live maps' minLevel anchors).
+    const gravemarchLegendary = requiredLevelForRarity(1, 'Legendary')
+    const embercragLegendary = requiredLevelForRarity(6, 'Legendary')
+    const frosthollowLegendary = requiredLevelForRarity(12, 'Legendary')
+    expect(gravemarchLegendary).toBeLessThan(embercragLegendary)
+    expect(embercragLegendary).toBeLessThan(frosthollowLegendary)
   })
 })

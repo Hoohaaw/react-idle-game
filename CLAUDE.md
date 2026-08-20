@@ -105,4 +105,22 @@ main context what an agent can do in its own.
   JSONB — adding one is a one-line change, no migration.
 - **Record notable decisions** as a new numbered ADR in `docs/DECISIONS.md`; mark superseded
   entries rather than deleting them.
+- **Combat/balance changes follow the agent playbook** in [`docs/BALANCE.md`](./docs/BALANCE.md):
+  one change per branch, before/after sweep evidence, a discriminating regression test, an ADR,
+  and a player-guide update (`src/pages/gameStatsContent.ts`) when player-visible.
+- **Characters are authored on the point-buy budget** (ADR-0031): prices + rarity budgets in
+  `src/lib/characterBudget.ts`, guideline in [`docs/CHARACTERS.md`](./docs/CHARACTERS.md),
+  enforced by the studio schema validation.
+- **Items are authored per [`docs/ITEMS.md`](./docs/ITEMS.md)** (ADR-0043/0044): slot/rarity
+  system, the rarity-scaled level-requirement gate, and the per-map universal-fill + build-defining
+  identity pattern new maps extend.
+- **Blessing trees are bespoke per character, never a shared registry** (ADR-0045): 4 rows × 2
+  permanent choices, level-gated 10/20/30/40 in strict sequence, plus a capstone that's *earned*
+  (`level >= 50 && row4 picked`), never chosen or written. Both choices in a row must cost the same
+  (`characterBudget.ts` `STAT_PRICE`) — a real playstyle fork, not a bigger number.
 - Components target ~200 lines; presentation and logic stay separate.
+- **No emoji as UI icons** (design rule, 2026-07-12): real icon assets arrive later — until then,
+  anywhere an icon belongs renders the `IconSlot` placeholder (`src/components/atoms/IconSlot`);
+  purely decorative emoji are removed. Registry `icon` fields (e.g. `SCHOOL_DEFS`, `ROLE_STYLES`)
+  may keep emoji as *data* for the future mapping, but components never render them as glyphs.
+  Typographic marks (✓ ✕ + ★ → ▲▼) are fine.

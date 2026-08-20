@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { BlessingPicks } from '@/lib/blessings'
 
 // Reads the signed-in player's recruited characters. RLS scopes the rows to the caller (owner-read),
 // and the client has a SELECT-only grant — writes still go through the recruit Edge Function. We only
@@ -19,7 +20,7 @@ export type OwnedCharacter = {
   characterDefId: string
   level: number
   xp: number
-  blessings: Record<string, number>
+  blessings: BlessingPicks
   equipped: Record<string, EquippedItem>
   currentHp: number | null
 }
@@ -34,7 +35,7 @@ export async function fetchOwnedCharacters(): Promise<OwnedCharacter[]> {
     characterDefId: row.character_def_id,
     level: row.level,
     xp: row.xp,
-    blessings: (row.blessings ?? {}) as Record<string, number>,
+    blessings: (row.blessings ?? {}) as BlessingPicks,
     equipped: (row.equipped ?? {}) as Record<string, EquippedItem>,
     currentHp: row.current_hp,
   }))

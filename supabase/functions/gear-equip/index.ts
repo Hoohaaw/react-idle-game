@@ -1,12 +1,13 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
-import { fetchItemDefSlot } from '../_shared/itemDefs.ts'
-import { isGearSlotKey, itemSlotForSlotKey } from '../../../src/lib/equipment.ts'
+import { fetchItemDef } from '../_shared/itemDefs.ts'
+import { isGearSlotKey, itemSlotForSlotKey, requiredLevelForRarity } from '../../../src/lib/equipment.ts'
 
 // gear-equip: equip an inventory item into a character slot (ADR-0003/0022). Validates the
 // caller + that the item's authored slot matches the target slot key (Sanity-dependent, so it
-// lives here), then hands off to the atomic `equip_item` RPC which owns ownership / not-busy /
-// stack checks and the swap (old item returns to inventory) under row locks.
+// lives here), computes the rarity-scaled level requirement (ADR-0043) from the same Sanity
+// read, then hands off to the atomic `equip_item` RPC which owns ownership / not-busy / stack /
+// level checks and the swap (old item returns to inventory) under row locks.
 
 const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
 
@@ -49,17 +50,18 @@ Deno.serve(async (req) => {
     return json({ error: 'slotKey is not a valid gear slot' }, 400)
   }
 
-  let defSlot: string | null
+  let def: { slot: string; minLevel: number } | null
   try {
-    defSlot = await fetchItemDefSlot(itemDefId)
+    def = await fetchItemDef(itemDefId)
   } catch (e) {
     console.error('Sanity fetch failed', e)
     return json({ error: 'Could not load item content' }, 502)
   }
-  if (defSlot === null) return json({ error: 'Unknown item' }, 404)
-  if (itemSlotForSlotKey(slotKey) !== defSlot) {
+  if (def === null) return json({ error: 'Unknown item' }, 404)
+  if (itemSlotForSlotKey(slotKey) !== def.slot) {
     return json({ error: 'That item cannot go in that slot' }, 409)
   }
+  const requiredLevel = requiredLevelForRarity(def.minLevel, rarity)
 
   const { data, error: rpcErr } = await admin.rpc('equip_item', {
     p_player: playerId,
@@ -67,6 +69,7 @@ Deno.serve(async (req) => {
     p_slot_key: slotKey,
     p_item_def_id: itemDefId,
     p_rarity: rarity,
+    p_required_level: requiredLevel,
   })
   if (rpcErr) {
     // The RPC raises 'equip_item: <reason>' for every validation failure (owned/busy/stack).
