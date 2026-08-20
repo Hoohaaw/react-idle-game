@@ -40,7 +40,8 @@ begin
 
   select coalesce((currencies->>'gold')::numeric, 0) into v_gold
     from public.profiles
-   where player_id = p_player;
+   where player_id = p_player
+   for update;
   if coalesce(v_gold, 0) < p_gold_cost then
     raise exception 'recruit_character: insufficient gold';
   end if;
