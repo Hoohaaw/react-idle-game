@@ -90,6 +90,7 @@ type MissionForClaim = {
     rarityWeights?: { rarity: string; weight: number }[]
   }[]
   encounter?: { timeLimitSeconds: number; enemies: { count?: number; enemy: EnemyRow }[] } | null
+  characterLootDrop?: { charKey: string | null; dropChance?: number }[]
 }
 type CharDefRow = {
   charKey: string
@@ -120,6 +121,7 @@ const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
   "map": map->{ mapKey },
   rewards[]{ kind, code, amount },
   loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
+  characterLootDrop[]{ dropChance, "charKey": character->charKey },
   encounter->{
     timeLimitSeconds,
     enemies[]{ count, "enemy": enemy->{ enemyKey, archetype, health, attack, damageType, speed, defense, resistance, resistances[]{ school, value }, block, critChance, critDamage, armorPen, dodge, healthRegen, spikeEverySeconds, spikeMultiplier } }
@@ -382,6 +384,27 @@ Deno.serve(async (req) => {
       let quantity = qMin + Math.floor(lootRng() * (qMax - qMin + 1))
       if (lootRng() * 100 < luck) quantity += 1
       loot.push({ item_def_id: drop.itemKey, rarity, quantity })
+    }
+    for (const drop of mission.characterLootDrop ?? []) {
+      if (!drop.charKey) continue
+      if (unlockedCharacters[drop.charKey]) continue // already unlocked — don't waste the roll
+      if (newlyUnlockedCharKeys.includes(drop.charKey)) continue // already unlocked earlier this same claim
+      const chance = Math.min(100, drop.dropChance ?? 0)
+      if (lootRng() * 100 >= chance) continue
+      newlyUnlockedCharKeys.push(drop.charKey)
+      if (!candidateByKey.has(drop.charKey)) {
+        // Not already in candidateByKey (it only holds CONDITION-gated characters) — fetch its
+        // name/role for the reveal. A single extra Sanity call, only on an actual drop (rare).
+        try {
+          const row = await sanityQuery<{ name?: string; role?: string | null } | null>(
+            `*[_type == "characterDef" && charKey == $key][0]{ name, role }`,
+            { key: drop.charKey },
+          )
+          if (row) candidateByKey.set(drop.charKey, { name: row.name ?? drop.charKey, role: row.role ?? null })
+        } catch (e) {
+          console.error('character loot-drop name lookup failed', e)
+        }
+      }
     }
   }
 
