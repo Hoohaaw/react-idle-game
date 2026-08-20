@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git rev-parse *)",
+      "Bash(git log *)",
+      "Bash(git diff *)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
