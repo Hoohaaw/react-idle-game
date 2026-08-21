@@ -74,6 +74,7 @@ A detailed tour is in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md#4-reposito
 
 | Doc | What it's for |
 |---|---|
+| [`docs/GAME.md`](./docs/GAME.md) | The game itself — pitch, vision, and current state |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | How the project is built — the developer guide |
 | [`docs/DECISIONS.md`](./docs/DECISIONS.md) | Why it's built that way — the ADR decision log |
 | [`TODO.md`](./TODO.md) | Roadmap / what's left to build |
