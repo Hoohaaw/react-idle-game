@@ -15,6 +15,7 @@ const PRIMARY_CURRENCY = CURRENCY_KEYS[0] // 'gold'
 const NAV = [
   { label: 'Missions', to: '/missions' },
   { label: 'Team', to: '/team' },
+  { label: 'Recruits', to: '/recruits' },
   { label: 'Infirmary', to: '/infirmary' },
   { label: 'Mines', to: '/mines' },
   { label: 'Upgrading', to: '/upgrading' },

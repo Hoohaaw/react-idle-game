@@ -26,7 +26,12 @@ export async function startGather(characterId: string, resourceId: string): Prom
   return data.assignment as GatherAssignment
 }
 
-export type CollectResult = { gained: number; resource: string; stopped: boolean }
+export type CollectResult = {
+  gained: number
+  resource: string
+  stopped: boolean
+  newlyUnlocked: { charKey: string; name: string; role: string | null }[]
+}
 
 export async function collectGather(assignmentId: string, stop = false): Promise<CollectResult> {
   const { data, error } = await supabase.functions.invoke('gather-collect', {

@@ -1,12 +1,12 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
-import { characterDefExists } from '../_shared/sanity.ts'
+import { sanityQuery } from '../_shared/sanity.ts'
 
-// recruit: the first server-authoritative write. Adds one player_characters row for the signed-in
-// player from a chosen characterDefId. The client has no INSERT grant on the table — every write
-// goes through here (ADR-0003). Validates the def exists in Sanity first (anti-tamper: you can only
-// recruit a real authored character), and relies on the UNIQUE(player_id, character_def_id)
-// constraint to enforce "one of each character, ever" (no dupes).
+// recruit: the atomic acquisition write (ADR-0003, docs/superpowers/specs/2026-08-20-character-
+// acquisition-design.md §7). Fetches the character's acquisition (goldCost + whether it has an
+// unlock condition) from Sanity, then hands off to the recruit_character RPC, which re-validates
+// eligibility + gold server-side and does the atomic deduct+insert. Replaces the old zero-gate bare
+// insert.
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -15,11 +15,19 @@ function json(body: unknown, status: number) {
   })
 }
 
+type AcquisitionRow = {
+  charKey: string
+  acquisition?: { goldCost?: number; condition?: { type?: string } } | null
+}
+
+const ACQUISITION_GROQ = `*[_type == "characterDef" && charKey == $key][0]{
+  charKey, acquisition{ goldCost, condition{ type } }
+}`
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
-  // 1. Authenticate the caller from the bearer token.
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return json({ error: 'Missing authorization' }, 401)
 
@@ -28,40 +36,48 @@ Deno.serve(async (req) => {
   if (userErr || !userData.user) return json({ error: 'Invalid or expired session' }, 401)
   const playerId = userData.user.id
 
-  // 2. Parse + validate the request body.
   let body: { characterDefId?: unknown }
   try {
     body = await req.json()
   } catch {
     return json({ error: 'Invalid JSON body' }, 400)
   }
+  // NOTE: despite the field name, this is the character's charKey — the client/service layer names
+  // it characterDefId for historical reasons (see src/services/recruit.ts), unchanged by this task.
   const characterDefId = body.characterDefId
   if (typeof characterDefId !== 'string' || characterDefId.length === 0) {
     return json({ error: 'characterDefId is required' }, 400)
   }
 
-  // 3. The character must be a real authored definition.
-  let exists: boolean
+  let row: AcquisitionRow | null
   try {
-    exists = await characterDefExists(characterDefId)
+    row = await sanityQuery<AcquisitionRow | null>(ACQUISITION_GROQ, { key: characterDefId })
   } catch (e) {
-    console.error('Sanity validation failed', e)
+    console.error('Sanity acquisition lookup failed', e)
     return json({ error: 'Could not validate character' }, 502)
   }
-  if (!exists) return json({ error: 'Unknown character' }, 404)
+  if (!row?.acquisition || typeof row.acquisition.goldCost !== 'number') {
+    return json({ error: 'Unknown character' }, 404)
+  }
+  const goldCost = row.acquisition.goldCost
+  const conditionExists = row.acquisition.condition != null
 
-  // 4. Insert the owned-character row (service role bypasses RLS).
-  const { data: row, error: insertErr } = await admin
-    .from('player_characters')
-    .insert({ player_id: playerId, character_def_id: characterDefId })
-    .select()
-    .single()
+  const { data: charRow, error: rpcErr } = await admin.rpc('recruit_character', {
+    p_player: playerId,
+    p_character_def_id: characterDefId,
+    p_char_key: characterDefId,
+    p_gold_cost: goldCost,
+    p_condition_exists: conditionExists,
+  })
 
-  if (insertErr) {
-    if (insertErr.code === '23505') return json({ error: 'Character already recruited' }, 409)
-    console.error('Insert failed', insertErr)
-    return json({ error: 'Could not recruit character' }, 500)
+  if (rpcErr) {
+    if (rpcErr.code === '23505') return json({ error: 'Character already recruited' }, 409)
+    const reason = rpcErr.message.replace(/^.*recruit_character:\s*/, '')
+    if (reason.includes('not unlocked')) return json({ error: reason }, 403)
+    if (reason.includes('insufficient gold')) return json({ error: reason }, 402)
+    console.error('recruit_character failed', rpcErr)
+    return json({ error: reason || 'Could not recruit character' }, 500)
   }
 
-  return json({ character: row }, 201)
+  return json({ character: charRow }, 201)
 })

@@ -32,6 +32,8 @@ import {
   type CapstoneDef,
   type BlessingPicks,
 } from '../../../src/lib/blessings.ts'
+import { evaluateCondition, type PlayerAcquisitionState } from '../../../src/lib/acquisition.ts'
+import { fetchAcquisitionCandidates } from '../_shared/characterAcquisition.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -88,6 +90,7 @@ type MissionForClaim = {
     rarityWeights?: { rarity: string; weight: number }[]
   }[]
   encounter?: { timeLimitSeconds: number; enemies: { count?: number; enemy: EnemyRow }[] } | null
+  characterLootDrop?: { charKey: string | null; dropChance?: number }[]
 }
 type CharDefRow = {
   charKey: string
@@ -118,6 +121,7 @@ const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
   "map": map->{ mapKey },
   rewards[]{ kind, code, amount },
   loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
+  characterLootDrop[]{ dropChance, "charKey": character->charKey },
   encounter->{
     timeLimitSeconds,
     enemies[]{ count, "enemy": enemy->{ enemyKey, archetype, health, attack, damageType, speed, defense, resistance, resistances[]{ school, value }, block, critChance, critDamage, armorPen, dodge, healthRegen, spikeEverySeconds, spikeMultiplier } }
@@ -172,7 +176,7 @@ Deno.serve(async (req) => {
   // 1. Load the run (owner-scoped) — the RPC re-guards atomically, this is a friendly early-out.
   const { data: run, error: runErr } = await admin
     .from('mission_runs')
-    .select('id, mission_def_id, party, ends_at')
+    .select('id, mission_def_id, party, started_at, ends_at')
     .eq('id', runId)
     .eq('player_id', playerId)
     .maybeSingle()
@@ -201,11 +205,13 @@ Deno.serve(async (req) => {
   // 3. Player profile: transcendence multiplier + map progress (for the first-clear check).
   const { data: profile } = await admin
     .from('profiles')
-    .select('transcendence_count, map_progress')
+    .select('transcendence_count, map_progress, lifetime_stats, unlocked_characters')
     .eq('player_id', playerId)
     .maybeSingle()
   const transcendenceCount = profile?.transcendence_count ?? 0
   const mapProgress = (profile?.map_progress ?? {}) as Record<string, number>
+  const lifetimeStats = (profile?.lifetime_stats ?? {}) as Record<string, number>
+  const unlockedCharacters = (profile?.unlocked_characters ?? {}) as Record<string, string>
 
   // 4. Fetch authored defs from Sanity: the mission (rewards/loot/encounter), the character defs, and
   //    every equipped item's bonuses.
@@ -342,6 +348,13 @@ Deno.serve(async (req) => {
     return { id: c.id, level, xp, current_hp: endHp }
   })
 
+  // Acquisition: filled in two places below — Task 12's character-loot-drop roll (inside step 10,
+  // right after the item-loot loop) pushes here directly; the condition-evaluation block (after
+  // step 10, once `currencies` is known) pushes here too. Both read/write the SAME two collections
+  // so either source can unlock a character exactly once each.
+  const newlyUnlockedCharKeys: string[] = []
+  const candidateByKey = new Map<string, { name: string; role: string | null }>()
+
   // 10. Wallet + loot (win only). Economy stats stack as the party AVERAGE (ADR-0035):
   //     goldFind scales the gold payout, magicFind scales each drop's chance (capped at 100%),
   //     luck gives each drop a chance at +1 quantity.
@@ -372,11 +385,77 @@ Deno.serve(async (req) => {
       if (lootRng() * 100 < luck) quantity += 1
       loot.push({ item_def_id: drop.itemKey, rarity, quantity })
     }
+    for (const drop of mission.characterLootDrop ?? []) {
+      if (!drop.charKey) continue
+      if (unlockedCharacters[drop.charKey]) continue // already unlocked — don't waste the roll
+      if (newlyUnlockedCharKeys.includes(drop.charKey)) continue // already unlocked earlier this same claim
+      const chance = Math.min(100, drop.dropChance ?? 0)
+      if (lootRng() * 100 >= chance) continue
+      newlyUnlockedCharKeys.push(drop.charKey)
+      if (!candidateByKey.has(drop.charKey)) {
+        // Not already in candidateByKey (it only holds CONDITION-gated characters) — fetch its
+        // name/role for the reveal. A single extra Sanity call, only on an actual drop (rare).
+        try {
+          const row = await sanityQuery<{ name?: string; role?: string | null } | null>(
+            `*[_type == "characterDef" && charKey == $key][0]{ name, role }`,
+            { key: drop.charKey },
+          )
+          if (row) candidateByKey.set(drop.charKey, { name: row.name ?? drop.charKey, role: row.role ?? null })
+        } catch (e) {
+          console.error('character loot-drop name lookup failed', e)
+        }
+      }
+    }
+  }
+
+  // 10a. Acquisition: lifetime-stat deltas this claim contributes, and which not-yet-unlocked
+  // characters this claim's post-state newly satisfies (docs/superpowers/specs/2026-08-20-
+  // character-acquisition-design.md §6). Scoped to THIS party (see Task 8's scoping note in the
+  // implementation plan) — a character's level/stats only change via mission-claim, so a character
+  // outside this party has nothing new to check.
+  const lifetimeStatsDelta: Record<string, number> = {}
+  if (win) {
+    const goldGranted = currencies['gold'] ?? 0
+    if (goldGranted > 0) lifetimeStatsDelta.goldEarned = goldGranted
+  }
+  // Wall-clock mission time (ends_at − started_at), NOT result.durationSeconds — that's simulateCombat's
+  // in-fight virtual time (scripts/balance/enemies.ts:29-31), which runs 60-170s per mission regardless
+  // of the mission's real wait. Task 16 calibrated Brom Ironwall's missionTimeTotal threshold against
+  // missionDef.durationSeconds (real-world pacing), so this delta has to use the same clock.
+  lifetimeStatsDelta.missionSecondsSent =
+    (new Date(run.ends_at).getTime() - new Date(run.started_at).getTime()) / 1000
+
+  const postClaimLifetimeStats: Record<string, number> = { ...lifetimeStats }
+  for (const [key, delta] of Object.entries(lifetimeStatsDelta)) {
+    postClaimLifetimeStats[key] = (postClaimLifetimeStats[key] ?? 0) + delta
+  }
+  const postClaimMapProgress =
+    win && firstClear && mission.map?.mapKey && typeof mission.stage === 'number'
+      ? { ...mapProgress, [mission.map.mapKey]: Math.max(mapProgress[mission.map.mapKey] ?? 0, mission.stage) }
+      : mapProgress
+
+  const acquisitionState: PlayerAcquisitionState = {
+    characters: charUpdates.map((c) => ({ level: c.level, stats: statsById[c.id] ?? {} })),
+    lifetimeStats: postClaimLifetimeStats,
+    mapProgress: postClaimMapProgress,
+  }
+
+  try {
+    const candidates = await fetchAcquisitionCandidates(Object.keys(unlockedCharacters))
+    for (const c of candidates) {
+      if (!candidateByKey.has(c.charKey)) candidateByKey.set(c.charKey, { name: c.name, role: c.role })
+      if (!newlyUnlockedCharKeys.includes(c.charKey) && evaluateCondition(c.condition, acquisitionState)) {
+        newlyUnlockedCharKeys.push(c.charKey)
+      }
+    }
+  } catch (e) {
+    // Acquisition evaluation must never block a claim from completing — log and continue with none.
+    console.error('acquisition candidate fetch failed — skipping unlock checks this claim', e)
   }
 
   // 11. Apply everything atomically (the RPC owns the double-claim guard). Map progression
   //     (ADR-0034) advances inside the RPC on a win; null map/stage = legacy mission, no-op.
-  const { error: claimErr } = await admin.rpc('claim_mission', {
+  const { data: claimData, error: claimErr } = await admin.rpc('claim_mission', {
     p_player: playerId,
     p_run_id: run.id,
     p_char_updates: charUpdates,
@@ -386,6 +465,8 @@ Deno.serve(async (req) => {
     p_map_key: mission.map?.mapKey ?? null,
     p_stage: mission.stage ?? null,
     p_won: result.outcome === 'win',
+    p_lifetime_stats: lifetimeStatsDelta,
+    p_newly_unlocked: newlyUnlockedCharKeys,
   })
   if (claimErr) {
     // Most likely the double-claim guard: the row was already claimed or isn't finished.
@@ -393,6 +474,13 @@ Deno.serve(async (req) => {
     const reason = claimErr.message.replace(/^.*claim_mission:\s*/, '')
     return json({ error: reason || 'Could not claim mission' }, 409)
   }
+
+  const actuallyUnlocked = ((claimData as { actually_unlocked?: string[] } | null)?.actually_unlocked ?? [])
+  const newlyUnlocked = actuallyUnlocked.map((charKey) => ({
+    charKey,
+    name: candidateByKey.get(charKey)?.name ?? charKey,
+    role: candidateByKey.get(charKey)?.role ?? null,
+  }))
 
   return json(
     {
@@ -403,6 +491,7 @@ Deno.serve(async (req) => {
       firstClear,
       rewards: { currencies, resources, loot },
       characters: charUpdates,
+      newlyUnlocked,
     },
     200,
   )

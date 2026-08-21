@@ -103,6 +103,15 @@ export const missionDef = defineType({
       of: [defineArrayMember({ type: 'lootDrop' })],
       fieldset: 'rewards',
     }),
+    defineField({
+      name: 'characterLootDrop',
+      title: 'Character loot table',
+      description:
+        'Rare "recruitment token" drops — a character named here can unlock on a win, independent of item loot.',
+      type: 'array',
+      of: [defineArrayMember({ type: 'characterLootDrop' })],
+      fieldset: 'rewards',
+    }),
   ],
   preview: {
     select: { title: 'name', encounter: 'encounter.name', duration: 'durationSeconds', map: 'map.name', stage: 'stage' },

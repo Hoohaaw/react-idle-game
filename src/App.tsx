@@ -6,6 +6,7 @@ import { MissionsPage } from '@/features/missions'
 import { InfirmaryPage } from '@/features/infirmary'
 import { GatherPage } from '@/features/gather'
 import { TeamPage } from '@/features/team'
+import { RecruitsPage } from '@/features/recruits'
 import { BlessingsPage } from '@/features/blessings'
 import { RespecPage } from '@/features/respec'
 import UpgradingPage from './pages/UpgradingPage'
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/missions" element={<MissionsPage />} />
           <Route path="/infirmary" element={<InfirmaryPage />} />
           <Route path="/team" element={<TeamPage />} />
+          <Route path="/recruits" element={<RecruitsPage />} />
           <Route path="/mines" element={<GatherPage />} />
           <Route path="/upgrading" element={<UpgradingPage />} />
           <Route path="/shop" element={<ShopPage />} />

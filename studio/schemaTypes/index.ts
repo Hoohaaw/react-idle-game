@@ -16,6 +16,9 @@ import { encounterEnemy } from './objects/encounterEnemy'
 import { itemStat } from './objects/itemStat'
 import { lootDrop } from './objects/lootDrop'
 import { missionReward } from './objects/missionReward'
+import { acquisitionCondition } from './objects/acquisitionCondition'
+import { acquisition } from './objects/acquisition'
+import { characterLootDrop } from './objects/characterLootDrop'
 
 export const schemaTypes = [
   characterDef,
@@ -36,4 +39,7 @@ export const schemaTypes = [
   itemStat,
   lootDrop,
   missionReward,
+  acquisitionCondition,
+  acquisition,
+  characterLootDrop,
 ]

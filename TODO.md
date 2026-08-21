@@ -96,9 +96,16 @@ character sprite art. Older open items below may be stale — trust the mileston
   happened: missions run (win/loss, loot, XP), characters recruited/leveled/downed, gathers
   collected, upgrades made. Needs an events table (or derive from existing rows) + a page.
   `↳ context: project-next-steps · supabase/ (new events table?), src/features/`
-- [ ] **Character acquisition economy** — recruit costs/sources per rarity (rarity now exists,
-  ADR-0031); is the empty Legendary tier a launch character or long-term carrot?
-  `↳ context: project-character-budget, project-undecided · docs/CHARACTERS.md`
+- [x] **Character acquisition economy** (2026-08-20) — full engine + wave-1 content shipped: 6
+  condition types (`evaluateCondition`), Sanity `acquisition`/`characterLootDrop` schema, recruit
+  RPC/Edge Function, `/recruits` UI with blind-surprise reveal. All 19 characters authored: 7 named
+  unlocks (Nira/Rowan resourceTotal-Wood, Gort resourceTotal-Copper, Brom missionTimeTotal, Vex
+  statThreshold-attack, Aldric characterLevel, Lyra goldTotal) + Mordrek Graveborn mapCompletion
+  (Gravemarch stage 7) + Callum Emberveil as a 3% characterLootDrop on the Ember Tyrant (Embercrag
+  boss); the other 11 are gold-only. goldCost scales Common 200 → Uncommon 500 → Rare 1000 → Epic
+  2500 (empty Legendary tier still undecided). Thresholds computed from real roster/mission/mine
+  data, not guessed.
+  `↳ context: project-character-budget · ADR-0048, docs/superpowers/specs/2026-08-20-character-acquisition-design.md, docs/superpowers/plans/2026-08-20-character-acquisition.md`
 - Party size: **3 is the law** (max 3, sending 1–2 allowed) — recorded in ADR-0032 consequences.
 
 ## Backend (Supabase)
