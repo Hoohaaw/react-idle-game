@@ -109,46 +109,49 @@ character sprite art. Older open items below may be stale — trust the mileston
 - Party size: **3 is the law** (max 3, sending 1–2 allowed) — recorded in ADR-0032 consequences.
 
 ## Backend (Supabase)
-- [ ] First Edge Function (recruit / level-up) — the server-authoritative write path
-  `↳ context: project-data-architecture, project-tech-stack · supabase/functions/, src/lib/supabase.ts`
-- [ ] Transcendence-reset logic (keep characters, reset level → 1 + blessings)
-  `↳ context: project-design-decisions (transcendence), project-undecided (reset scope) · supabase/functions/`
-- [ ] Generate DB types (`createClient<Database>`) — after `npx supabase login`
-  `↳ context: project-data-architecture (types deferred) · src/lib/supabase.ts, src/types/`
-- [ ] Auth wiring: connect the login/register forms to Supabase Auth
-  `↳ context: project-tech-stack (auth) · src/components/ (login/register), src/lib/supabase.ts`
-- [ ] Hosted Supabase project + push migrations (deploy time)
-  `↳ context: project-data-architecture (no cloud yet) · supabase/`
+- [x] First Edge Function — `recruit/` shipped; leveling is XP-driven via `mission-claim`
+  (compute-on-read, ADR-0002), never needed a separate level-up endpoint.
+- [ ] **Transcendence-reset logic** (keep characters, reset level → 1 + blessings) — the counter
+  (`transcendence_count`) exists in `stats.ts`/`currencies.ts`/`mission-claim`, but
+  `src/pages/TranscendencePage.tsx` is a 5-line stub. No reset RPC built at all.
+  `↳ context: project-design-decisions (transcendence), project-undecided (reset scope) · supabase/functions/, src/pages/TranscendencePage.tsx`
+- [x] Generate DB types — `src/types/database.types.ts` (465 lines, real generated types).
+- [x] Auth wiring — `src/features/auth/AuthPage.tsx` + `RequireAuth.tsx`, wired into `App.tsx`.
+- [x] Hosted Supabase project + migrations — 15 migrations live, `config.toml` has a real
+  `project_id` (not the scaffold default).
 
 ## Combat (sim v1 — ADR-0013)
 - [x] Enemy / encounter stat schema — `enemyDef` + `encounterDef` + `encounterEnemy` built, deployed, types regenerated; first fight seeded as drafts (Rotting Ghoul / Graveyard Awakening)
   `↳ context: project-combat (ADR-0013 fork 3) · studio/schemaTypes/`
 - [x] Combat math v1 — formulas + first-pass constants pinned (ADR-0015): power routing, hit pipeline (K=100), timeline, healing, threat, margin/level-bonus curves, enemy tier template
   `↳ context: project-combat (ADR-0015) · docs/DECISIONS.md`
-- [ ] Combat sim module — pure, seeded (mission_run id), action-timeline auto-battle → win/lose + per-char ending HP; ADR-0015 constants as a header block; unit-tested
-  `↳ context: project-combat (ADR-0013 + ADR-0015) · src/lib/combat.ts`
-- [ ] `player_characters.current_hp` migration (nullable = full; 0 = downed) + persistence on claim
-  `↳ context: project-combat (persistence), project-data-architecture · supabase/migrations/`
-- [ ] Utility role passive expression — OPEN (fork 6, digging deeper before deciding)
+- [x] Combat sim module — `src/lib/combat.ts` (576 lines) + `combat.test.ts` (418 lines), pure/seeded.
+- [x] `player_characters.current_hp` migration — `20260705120000_player_characters_current_hp.sql`,
+  referenced across mission/gather/infirmary/map migrations.
+- [ ] **Utility role passive expression** — OPEN (ADR-0013 fork 6). Re-checked 2026-08-20: still
+  unresolved, no evidence the design question was ever closed. Needs a decision, not just code.
   `↳ context: project-combat (ADR-0013 fork 6), project-undecided, project-roles`
 
 ## Content (Sanity)
-- [ ] Mission / item / loot-table / recipe schemas
-  `↳ context: project-design-decisions (loot/items), project-crafting · studio/schemaTypes/`
-- [ ] Author the remaining roster + content
-  `↳ context: project-character-development, project-existing-assets · studio/`
+- [x] Mission / item / loot-table schemas — `missionDef`/`itemDef`/`lootDrop` real and deployed.
+- [ ] **Recipe schema** — never built. Crafting still runs on `src/lib/mockRecipes.ts`; no
+  `recipeDef` in `studio/schemaTypes/`. Split out from the old combined TODO line 2026-08-20.
+  `↳ context: project-design-decisions (loot/items), project-crafting · studio/schemaTypes/, src/lib/mockRecipes.ts`
+- [ ] **Roster size target** — 19 `characterDef` docs live (matches ADR-0046's "all 19
+  characters"). Unclear whether that's the full intended roster or more are planned — no target
+  number found in docs/CHARACTERS.md or elsewhere. Needs a decision before "author the rest" is
+  actionable.
+  `↳ context: project-character-development, project-existing-assets · docs/CHARACTERS.md`
 
 ## App wiring
-- [ ] Install `@sanity/client` + first GROQ query into a page
-  `↳ context: project-data-architecture (option a fetch), project-tech-stack · src/lib/, src/services/`
-- [ ] Replace mock data in pages with real Supabase / Sanity reads
-  `↳ context: project-next-steps (UI pages), project-data-architecture · src/pages/, src/hooks/`
+- [x] `@sanity/client` installed (`^7.22.1`) and in use.
+- [x] Mock data replaced with real Supabase/Sanity reads in `src/pages/*.tsx` — one exception:
+  crafting still reads `mockRecipes.ts` (tied to the recipe-schema gap above).
 
 ## Housekeeping / polish
-- [ ] Rename the project in `package.json` (`name` is still `vite-scaffold`, `version` `0.0.0`)
-  `↳ context: cosmetic scaffold leftover · package.json`
-- [ ] Code-split the app bundle (build warns: chunk > 500 kB)
-  `↳ context: whole-app bundle; route-level dynamic import() or manualChunks · vite.config.ts, src/`
+- [x] Rename the project in `package.json` — `"name": "The-Idle-Game"`.
+- [x] Code-split the app bundle — route-level `React.lazy` shipped, 921 kB → 488 kB entry chunk.
+  Lives on `chore/housekeeping` (PR #25); merge to land on master.
 
 ## Done
 - [x] First real character authored in Sanity: **Mordrek Graveborn** (Death Knight / tank) — base stats + per-level growth (str +8@10, hp +30@25 milestones) + a 5-node blessing tree (prereq chain + row-7 ultimate). Seeded via Sanity **CLI** (`sanity documents create`, the MCP is read-only here). Currently a **draft** — review/publish in the Studio.
