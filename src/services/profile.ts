@@ -12,12 +12,15 @@ export type PlayerProfile = {
   infirmaryLevel: number
   /** Highest stage cleared per map, keyed by mapKey (ADR-0034). Absent key = nothing cleared. */
   mapProgress: Record<string, number>
+  /** charKey -> ISO timestamp first unlocked (spec §5c). Absent key = still locked — and per the
+   *  full-blind-surprise rule, the client never asks which keys are missing. */
+  unlockedCharacters: Record<string, string>
 }
 
 export async function fetchProfile(): Promise<PlayerProfile> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('currencies, resources, transcendence_count, infirmary_level, map_progress')
+    .select('currencies, resources, transcendence_count, infirmary_level, map_progress, unlocked_characters')
     .maybeSingle()
   if (error) throw error
   return {
@@ -26,5 +29,6 @@ export async function fetchProfile(): Promise<PlayerProfile> {
     transcendenceCount: data?.transcendence_count ?? 0,
     infirmaryLevel: data?.infirmary_level ?? 1,
     mapProgress: (data?.map_progress ?? {}) as Record<string, number>,
+    unlockedCharacters: (data?.unlocked_characters ?? {}) as Record<string, string>,
   }
 }

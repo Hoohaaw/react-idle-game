@@ -1,4 +1,6 @@
 import type { CSSProperties } from 'react'
+import { Link } from 'react-router-dom'
+import { Alert } from '@/components/atoms/Alert'
 import { IconSlot } from '@/components/atoms/IconSlot'
 import { ResourceChip } from '@/components/atoms/ResourceChip'
 import { RarityBadge } from '@/components/atoms/RarityBadge'
@@ -98,6 +100,19 @@ export function ClaimReward({ result = SAMPLE_CLAIM_WIN, onDone }: { result?: Cl
           {REASON_TEXT[result.reason]} · {fmtTime(result.durationSeconds)} · {Math.round(result.survivingHpPct * 100)}% party HP
         </p>
       </div>
+
+      {result.newlyUnlocked.length > 0 && (
+        <div style={{ padding: '12px 16px 0' }}>
+          {result.newlyUnlocked.map((r) => (
+            <div key={r.charKey} style={{ marginBottom: '8px' }}>
+              <Alert variant="success">
+                New recruit available: <strong>{r.name}</strong>{r.role ? ` (${r.role})` : ''} — visit{' '}
+                <Link to="/recruits" style={{ color: 'var(--color-gold-mid)', textDecoration: 'underline' }}>Recruits</Link> to hire them.
+              </Alert>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ padding: '16px' }}>
         {/* Party — ending HP always shown (persistent damage); XP only where earned */}

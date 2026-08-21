@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Alert } from '@/components/atoms/Alert'
 import { MineCard } from '@/components/molecules/MineCard'
 import { ActiveGatherCard } from '@/components/molecules/ActiveGatherCard'
 import { Modal } from '@/components/organisms/Modal'
@@ -34,6 +36,7 @@ export default function GatherPage() {
 
   const [assigningResource, setAssigningResource] = useState<string | null>(null)
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null)
+  const [newlyUnlocked, setNewlyUnlocked] = useState<{ charKey: string; name: string; role: string | null }[]>([])
 
   const assignments = assignmentsQ.data ?? []
   const byResource = new Map<string, GatherAssignment>(assignments.map((a) => [a.resource_id, a]))
@@ -78,6 +81,17 @@ export default function GatherPage() {
 
   return (
     <div>
+      {newlyUnlocked.length > 0 && (
+        <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {newlyUnlocked.map((r) => (
+            <Alert key={r.charKey} variant="success">
+              New recruit available: <strong>{r.name}</strong>{r.role ? ` (${r.role})` : ''} — visit{' '}
+              <Link to="/recruits" style={{ color: 'var(--color-gold-mid)', textDecoration: 'underline' }}>Recruits</Link> to hire them.
+            </Alert>
+          ))}
+        </div>
+      )}
+
       {/* Active gathering collector */}
       {active.length > 0 && (
         <section style={{ marginBottom: '36px' }}>
@@ -91,7 +105,9 @@ export default function GatherPage() {
                 intervalSec={mine.intervalSec}
                 yieldPerTick={mine.yieldPerTick}
                 assignedSecAgo={secSince(assignment.last_collected_at)}
-                onStop={() => collectG.mutate({ assignmentId: assignment.id, stop: true })}
+                onStop={() => collectG.mutate({ assignmentId: assignment.id, stop: true }, {
+                  onSuccess: (data) => setNewlyUnlocked(data.newlyUnlocked ?? []),
+                })}
               />
             ))}
           </div>
@@ -120,8 +136,12 @@ export default function GatherPage() {
                   gatherer={a ? nameOf(a.player_character_id) : undefined}
                   assignedSecAgo={a ? secSince(a.last_collected_at) : undefined}
                   onAssign={() => setAssigningResource(mine.resourceKey)}
-                  onCollect={a ? () => collectG.mutate({ assignmentId: a.id }) : undefined}
-                  onStop={a ? () => collectG.mutate({ assignmentId: a.id, stop: true }) : undefined}
+                  onCollect={a ? () => collectG.mutate({ assignmentId: a.id }, {
+                    onSuccess: (data) => setNewlyUnlocked(data.newlyUnlocked ?? []),
+                  }) : undefined}
+                  onStop={a ? () => collectG.mutate({ assignmentId: a.id, stop: true }, {
+                    onSuccess: (data) => setNewlyUnlocked(data.newlyUnlocked ?? []),
+                  }) : undefined}
                 />
               )
             })}

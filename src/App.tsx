@@ -12,6 +12,7 @@ const MissionsPage = lazy(() => import('@/features/missions').then((m) => ({ def
 const InfirmaryPage = lazy(() => import('@/features/infirmary').then((m) => ({ default: m.InfirmaryPage })))
 const GatherPage = lazy(() => import('@/features/gather').then((m) => ({ default: m.GatherPage })))
 const TeamPage = lazy(() => import('@/features/team').then((m) => ({ default: m.TeamPage })))
+const RecruitsPage = lazy(() => import('@/features/recruits').then((m) => ({ default: m.RecruitsPage })))
 const BlessingsPage = lazy(() => import('@/features/blessings').then((m) => ({ default: m.BlessingsPage })))
 const RespecPage = lazy(() => import('@/features/respec').then((m) => ({ default: m.RespecPage })))
 const UpgradingPage = lazy(() => import('./pages/UpgradingPage'))
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/missions" element={<MissionsPage />} />
             <Route path="/infirmary" element={<InfirmaryPage />} />
             <Route path="/team" element={<TeamPage />} />
+            <Route path="/recruits" element={<RecruitsPage />} />
             <Route path="/mines" element={<GatherPage />} />
             <Route path="/upgrading" element={<UpgradingPage />} />
             <Route path="/shop" element={<ShopPage />} />

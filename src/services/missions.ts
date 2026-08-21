@@ -180,6 +180,7 @@ export type ClaimResponse = {
     loot: { item_def_id: string; rarity: string; quantity: number }[]
   }
   characters: { id: string; level: number; xp: number; current_hp: number }[]
+  newlyUnlocked: { charKey: string; name: string; role: string | null }[]
 }
 
 export async function claimMission(runId: string): Promise<ClaimResponse> {

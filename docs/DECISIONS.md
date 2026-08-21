@@ -2256,3 +2256,68 @@ selected) to respec them.
 `TODO.md` "Blessing respec" line is now done. `RESPEC_COST = 500` is a first-pass, adjustable
 constant (same provisional status as `UPGRADE_COSTS`) — revisit once playtesting shows real gold
 income rates. No change to the blessing schema, content, or combat engine.
+
+## ADR-0048 — Character acquisition economy: varied unlock sources + blind-surprise recruit screen
+
+**Date:** 2026-08-20 · **Status:** Accepted (Alex)
+
+**Context.** `recruit` (the Edge Function) had **zero acquisition gate** — any signed-in player
+could recruit any authored character for free, once (only `UNIQUE(player_id, character_def_id)`
+stopped duplicates), and there was no recruit UI anywhere in the app (`useRecruit()` existed but
+was called from nowhere). TODO.md's "Character acquisition economy" line (`project-undecided`,
+ADR-0031) had been open since character rarity shipped. Design worked out in
+`docs/superpowers/specs/2026-08-20-character-acquisition-design.md` (PR #81); this ADR records
+the decision that spec's implementation (this branch, PR #82) actually shipped.
+
+**Decision.**
+- **Varied, thematic unlock sources, not one gold-purchase model.** Six condition types
+  (`characterLevel`, `statThreshold`, `resourceTotal`, `goldTotal`, `missionTimeTotal`,
+  `mapCompletion`), plus `lootDrop` authored on a mission's loot table rather than the character
+  (symmetric with how items work). Every character always carries a `goldCost` regardless of
+  type — a condition gates *eligibility*, it never replaces the price.
+- **Full blind surprise, not silhouette-and-count.** The client never queries "which characters
+  exist that I haven't unlocked" — `fetchRecruitCandidates` (`src/services/recruits.ts`) only ever
+  fetches `characterDef`s already named in the player's own `unlocked_characters`. A locked
+  character's name, condition, or progress is never sent to the client before it unlocks.
+- **Unlocking is permanent and non-blocking.** Once a condition fires, the character sits in
+  `unlocked_characters` (new `profiles` JSONB column, ADR-0004 registry pattern) forever — not
+  time-limited, not lost if the player can't afford it yet. Declining to buy right now costs
+  nothing; the Hire button just stays disabled, never hidden.
+- **All discovery is a byproduct of `mission-claim`/`gather-collect`, never a background job or
+  client poll** (ADR-0003 consistency): both Edge Functions evaluate not-yet-unlocked conditions
+  against the player's just-updated state in the same transaction as the reward, write newly-met
+  keys into `unlocked_characters`, and return them as `newlyUnlocked` so the claim/collect UI can
+  fire the reveal moment in context. A new `profiles.lifetime_stats` JSONB column (same registry
+  pattern, `src/lib/lifetimeStats.ts`) backs the three condition types with no prior tracking
+  (`goldEarned`, `missionSecondsSent`, `resourceGathered.<key>`), incremented in the same RPCs
+  that already grant those rewards.
+- **New atomic `recruit_character` RPC**, shaped like `start_mission`/`claim_mission`: re-validates
+  `unlocked_characters` contains the charKey (or the character is gold-only with no condition) and
+  `currencies.gold >= goldCost` server-side — never trusts the client — deducts gold and inserts
+  the `player_characters` row in one transaction. Row-locked on the gold check
+  (`03cdc0f`) to close a concurrent-double-recruit race; `unlocked_characters` writes are
+  idempotent so two near-simultaneous claims can't both fire the same reveal twice.
+- **New `/recruits` route**, first-ever recruit screen: lists only what's unlocked, Hire button
+  disabled+tooltipped (never hidden) when gold is short. Nothing about locked characters renders —
+  an empty list just encourages more play, no count or hint.
+- **Wave-1 content**: all 19 characters authored — 7 named-condition unlocks (Nira/Rowan
+  `resourceTotal` wood, Gort `resourceTotal` copper, Brom `missionTimeTotal`, Vex `statThreshold`
+  attack, Aldric `characterLevel`, Lyra `goldTotal`), Mordrek Graveborn via `mapCompletion`
+  (Gravemarch stage 7), Callum Emberveil via `characterLootDrop` (3% off the Embercrag boss), the
+  remaining 11 gold-only. `goldCost` scales by rarity (Common 200 → Uncommon 500 → Rare 1000 →
+  Epic 2500); the empty Legendary tier stays an open question (ADR-0031), not resolved here.
+
+**Consequences.** Closes the TODO.md "Character acquisition economy" line (`project-undecided`
+dropped). Deferred to follow-up, tracked as open gaps rather than silently skipped:
+- **No test coverage for the `recruit_character` RPC/Edge Function path itself** — this repo has
+  no pgTAP/Deno test infra for SQL or Edge Functions at all, so RPC-level coverage needs that infra
+  built first, not invented ad hoc for this feature. (The client-side wrapper `recruitCharacter`
+  and the blind-surprise-critical `fetchRecruitCandidates` filter, `src/services/recruit.ts` and
+  `recruits.ts`, are now covered — `recruit.test.ts`, `recruits.test.ts`.)
+- **`database.types.ts` needs a full `supabase gen types` regen** once a DB connection is
+  available — it was hand-patched for the two new `profiles` columns only; `recruit_character`'s
+  signature and the extended `claim_mission`/`collect_gather` signatures aren't reflected.
+- **Wave 2** (`elementalMastery`, `comebackMoment` conditions) needs new signal capture inside
+  `combat.ts`'s sim and is gated behind the combat-change playbook (`docs/BALANCE.md`) — its own
+  branch, ADR, and balance-sweep evidence, not folded into this one.
+- No change to the blessing, item, or combat systems.

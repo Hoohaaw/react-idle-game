@@ -2,6 +2,8 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { MINE_BY_RESOURCE, accrue } from '../../../src/lib/gather.ts'
 import { statsByCharacter } from '../_shared/charMaxHp.ts'
+import { evaluateCondition, type PlayerAcquisitionState } from '../../../src/lib/acquisition.ts'
+import { fetchAcquisitionCandidates } from '../_shared/characterAcquisition.ts'
 
 // gather-collect: bank a gatherer's accrued yield, optionally stopping (unassigning). ADR-0019. Computes the
 // payout in TS from elapsed ticks (src/lib/gather.ts — the same math the client displays), then applies it
@@ -53,6 +55,14 @@ Deno.serve(async (req) => {
   }
   if (!assignment) return json({ error: 'Assignment not found' }, 404)
 
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('lifetime_stats, unlocked_characters')
+    .eq('player_id', playerId)
+    .maybeSingle()
+  const lifetimeStats = (profile?.lifetime_stats ?? {}) as Record<string, number>
+  const unlockedCharacters = (profile?.unlocked_characters ?? {}) as Record<string, string>
+
   const mine = MINE_BY_RESOURCE[assignment.resource_id]
   if (!mine) return json({ error: 'Unknown mine' }, 500)
 
@@ -86,13 +96,44 @@ Deno.serve(async (req) => {
   )
   const newLastCollectedAt = new Date(lastMs + consumedSec * 1000).toISOString()
 
-  const { error: rpcErr } = await admin.rpc('collect_gather', {
+  const lifetimeStatsDelta: Record<string, number> =
+    gained > 0 ? { [`resourceGathered.${assignment.resource_id}`]: gained } : {}
+
+  let newlyUnlockedCharKeys: string[] = []
+  let candidateByKey = new Map<string, { name: string; role: string | null }>()
+  if (gained > 0) {
+    try {
+      const postCollectLifetimeStats = { ...lifetimeStats }
+      for (const [key, delta] of Object.entries(lifetimeStatsDelta)) {
+        postCollectLifetimeStats[key] = (postCollectLifetimeStats[key] ?? 0) + delta
+      }
+      const acquisitionState: PlayerAcquisitionState = {
+        characters: [],
+        lifetimeStats: postCollectLifetimeStats,
+        mapProgress: {},
+      }
+      const candidates = await fetchAcquisitionCandidates(Object.keys(unlockedCharacters))
+      const relevant = candidates.filter(
+        (c) => c.condition.type === 'resourceTotal' && c.condition.resource === assignment.resource_id,
+      )
+      candidateByKey = new Map(relevant.map((c) => [c.charKey, { name: c.name, role: c.role }]))
+      newlyUnlockedCharKeys = relevant
+        .filter((c) => evaluateCondition(c.condition, acquisitionState))
+        .map((c) => c.charKey)
+    } catch (e) {
+      console.error('acquisition candidate fetch failed — skipping unlock checks this collect', e)
+    }
+  }
+
+  const { data: rpcData, error: rpcErr } = await admin.rpc('collect_gather', {
     p_player: playerId,
     p_assignment_id: assignment.id,
     p_resource: assignment.resource_id,
     p_gained: gained,
     p_new_last_collected_at: newLastCollectedAt,
     p_stop: stop,
+    p_lifetime_stats: lifetimeStatsDelta,
+    p_newly_unlocked: newlyUnlockedCharKeys,
   })
   if (rpcErr) {
     console.error('collect_gather failed', rpcErr)
@@ -100,5 +141,12 @@ Deno.serve(async (req) => {
     return json({ error: reason || 'Could not collect' }, 409)
   }
 
-  return json({ gained, resource: assignment.resource_id, stopped: stop }, 200)
+  const actuallyUnlocked = ((rpcData as { actually_unlocked?: string[] } | null)?.actually_unlocked ?? [])
+  const newlyUnlocked = actuallyUnlocked.map((charKey) => ({
+    charKey,
+    name: candidateByKey.get(charKey)?.name ?? charKey,
+    role: candidateByKey.get(charKey)?.role ?? null,
+  }))
+
+  return json({ gained, resource: assignment.resource_id, stopped: stop, newlyUnlocked }, 200)
 })

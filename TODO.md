@@ -41,14 +41,21 @@ character sprite art. Older open items below may be stale — trust the mileston
   measuring ~23% vs. physical's ~32% in the wave-1 verification. Needs a magic-implement item
   lane (or a second weapon-slot variant per map) for role parity.
   `↳ context: project-items · docs/ITEMS.md, src/lib/stats.ts`
-- [ ] **Item flavour text** — all 23 itemDefs ship with a blank `description`. Author map-themed
-  prose once the roster/attribute list settles; not done this wave on purpose.
+- [x] **Item flavour text** (2026-08-19) — all 23 itemDefs given map-themed one-sentence
+  descriptions (Gravemarch: burial-road/shadow/bone; Embercrag: volcanic/fire; Frosthollow:
+  glacier/ice), written to Sanity drafts. No mechanical restatement — statBonuses already show
+  the numbers, description is flavor only.
   `↳ context: project-items · studio/schemaTypes/itemDef.ts`
-- [ ] **Item power-budget file** — an `itemBudget.ts` analogous to `src/lib/characterBudget.ts`,
-  validating an item's authored stat total against a per-slot/per-rarity budget at studio
-  schema-validation time. Today items are authored free-form with no cap, verified only by the
-  ad-hoc calc-script check in docs/ITEMS.md.
-  `↳ context: project-items, project-character-budget · src/lib/characterBudget.ts, docs/ITEMS.md`
+- [x] **Item power-budget file** — `src/lib/itemBudget.ts` built, wired into `itemDef.ts`'s
+  `statBonuses` validation. Budget is a per-slot cost-PER-LEVEL rate (not per-rarity — items only
+  author a Common baseline), with a wider tolerance for minLevel≤3 "universal fill" items. New
+  `PCT_STAT_PRICE` table prices pct effects (first-pass approximation, not modeled equivalence).
+  `↳ context: project-items, project-character-budget · src/lib/itemBudget.ts, docs/ITEMS.md`
+- [ ] **5 wave-1 items fail the new item budget** — `rusted-blade`, `battered-cuirass`,
+  `iron-band` (all minLevel-1 starter placeholders, overcosted), `deadfen-treads` (carries a
+  `dodge` bonus that also violates docs/ITEMS.md's "armor slots = health only" rule), `grave-sigil`
+  (healingPower pct priced ~3.6x richer than `hoarfrost-talisman`'s). Retune values in Sanity drafts.
+  `↳ context: project-items · src/lib/itemBudget.ts (auditItem), docs/ITEMS.md`
 
 ## Decisions queue — 2026-07-10 (post balance-tuning + character-budget session)
 - [x] **Elemental damage schools + enemy resistances** — BUILT: engine + schema + content
@@ -96,50 +103,61 @@ character sprite art. Older open items below may be stale — trust the mileston
   happened: missions run (win/loss, loot, XP), characters recruited/leveled/downed, gathers
   collected, upgrades made. Needs an events table (or derive from existing rows) + a page.
   `↳ context: project-next-steps · supabase/ (new events table?), src/features/`
-- [ ] **Character acquisition economy** — recruit costs/sources per rarity (rarity now exists,
-  ADR-0031); is the empty Legendary tier a launch character or long-term carrot?
-  `↳ context: project-character-budget, project-undecided · docs/CHARACTERS.md`
+- [x] **Character acquisition economy** (2026-08-20) — full engine + wave-1 content shipped: 6
+  condition types (`evaluateCondition`), Sanity `acquisition`/`characterLootDrop` schema, recruit
+  RPC/Edge Function, `/recruits` UI with blind-surprise reveal. All 19 characters authored: 7 named
+  unlocks (Nira/Rowan resourceTotal-Wood, Gort resourceTotal-Copper, Brom missionTimeTotal, Vex
+  statThreshold-attack, Aldric characterLevel, Lyra goldTotal) + Mordrek Graveborn mapCompletion
+  (Gravemarch stage 7) + Callum Emberveil as a 3% characterLootDrop on the Ember Tyrant (Embercrag
+  boss); the other 11 are gold-only. goldCost scales Common 200 → Uncommon 500 → Rare 1000 → Epic
+  2500 (empty Legendary tier still undecided). Thresholds computed from real roster/mission/mine
+  data, not guessed.
+  `↳ context: project-character-budget · ADR-0048, docs/superpowers/specs/2026-08-20-character-acquisition-design.md, docs/superpowers/plans/2026-08-20-character-acquisition.md`
 - Party size: **3 is the law** (max 3, sending 1–2 allowed) — recorded in ADR-0032 consequences.
 
 ## Backend (Supabase)
-- [ ] First Edge Function (recruit / level-up) — the server-authoritative write path
-  `↳ context: project-data-architecture, project-tech-stack · supabase/functions/, src/lib/supabase.ts`
-- [ ] Transcendence-reset logic (keep characters, reset level → 1 + blessings)
-  `↳ context: project-design-decisions (transcendence), project-undecided (reset scope) · supabase/functions/`
-- [ ] Generate DB types (`createClient<Database>`) — after `npx supabase login`
-  `↳ context: project-data-architecture (types deferred) · src/lib/supabase.ts, src/types/`
-- [ ] Auth wiring: connect the login/register forms to Supabase Auth
-  `↳ context: project-tech-stack (auth) · src/components/ (login/register), src/lib/supabase.ts`
-- [ ] Hosted Supabase project + push migrations (deploy time)
-  `↳ context: project-data-architecture (no cloud yet) · supabase/`
+- [x] First Edge Function — `recruit/` shipped; leveling is XP-driven via `mission-claim`
+  (compute-on-read, ADR-0002), never needed a separate level-up endpoint.
+- [ ] **Transcendence-reset logic** (keep characters, reset level → 1 + blessings) — the counter
+  (`transcendence_count`) exists in `stats.ts`/`currencies.ts`/`mission-claim`, but
+  `src/pages/TranscendencePage.tsx` is a 5-line stub. No reset RPC built at all.
+  `↳ context: project-design-decisions (transcendence), project-undecided (reset scope) · supabase/functions/, src/pages/TranscendencePage.tsx`
+- [x] Generate DB types — `src/types/database.types.ts` (465 lines, real generated types).
+- [x] Auth wiring — `src/features/auth/AuthPage.tsx` + `RequireAuth.tsx`, wired into `App.tsx`.
+- [x] Hosted Supabase project + migrations — 15 migrations live, `config.toml` has a real
+  `project_id` (not the scaffold default).
 
 ## Combat (sim v1 — ADR-0013)
 - [x] Enemy / encounter stat schema — `enemyDef` + `encounterDef` + `encounterEnemy` built, deployed, types regenerated; first fight seeded as drafts (Rotting Ghoul / Graveyard Awakening)
   `↳ context: project-combat (ADR-0013 fork 3) · studio/schemaTypes/`
 - [x] Combat math v1 — formulas + first-pass constants pinned (ADR-0015): power routing, hit pipeline (K=100), timeline, healing, threat, margin/level-bonus curves, enemy tier template
   `↳ context: project-combat (ADR-0015) · docs/DECISIONS.md`
-- [ ] Combat sim module — pure, seeded (mission_run id), action-timeline auto-battle → win/lose + per-char ending HP; ADR-0015 constants as a header block; unit-tested
-  `↳ context: project-combat (ADR-0013 + ADR-0015) · src/lib/combat.ts`
-- [ ] `player_characters.current_hp` migration (nullable = full; 0 = downed) + persistence on claim
-  `↳ context: project-combat (persistence), project-data-architecture · supabase/migrations/`
-- [ ] Utility role passive expression — OPEN (fork 6, digging deeper before deciding)
+- [x] Combat sim module — `src/lib/combat.ts` (576 lines) + `combat.test.ts` (418 lines), pure/seeded.
+- [x] `player_characters.current_hp` migration — `20260705120000_player_characters_current_hp.sql`,
+  referenced across mission/gather/infirmary/map migrations.
+- [ ] **Utility role passive expression** — OPEN (ADR-0013 fork 6). Re-checked 2026-08-20: still
+  unresolved, no evidence the design question was ever closed. Needs a decision, not just code.
   `↳ context: project-combat (ADR-0013 fork 6), project-undecided, project-roles`
 
 ## Content (Sanity)
-- [ ] Mission / item / loot-table / recipe schemas
-  `↳ context: project-design-decisions (loot/items), project-crafting · studio/schemaTypes/`
-- [ ] Author the remaining roster + content
-  `↳ context: project-character-development, project-existing-assets · studio/`
+- [x] Mission / item / loot-table schemas — `missionDef`/`itemDef`/`lootDrop` real and deployed.
+- [ ] **Recipe schema** — never built. Crafting still runs on `src/lib/mockRecipes.ts`; no
+  `recipeDef` in `studio/schemaTypes/`. Split out from the old combined TODO line 2026-08-20.
+  `↳ context: project-design-decisions (loot/items), project-crafting · studio/schemaTypes/, src/lib/mockRecipes.ts`
+- [ ] **Roster size target** — 19 `characterDef` docs live (matches ADR-0046's "all 19
+  characters"). Unclear whether that's the full intended roster or more are planned — no target
+  number found in docs/CHARACTERS.md or elsewhere. Needs a decision before "author the rest" is
+  actionable.
+  `↳ context: project-character-development, project-existing-assets · docs/CHARACTERS.md`
 
 ## App wiring
-- [ ] Install `@sanity/client` + first GROQ query into a page
-  `↳ context: project-data-architecture (option a fetch), project-tech-stack · src/lib/, src/services/`
-- [ ] Replace mock data in pages with real Supabase / Sanity reads
-  `↳ context: project-next-steps (UI pages), project-data-architecture · src/pages/, src/hooks/`
+- [x] `@sanity/client` installed (`^7.22.1`) and in use.
+- [x] Mock data replaced with real Supabase/Sanity reads in `src/pages/*.tsx` — one exception:
+  crafting still reads `mockRecipes.ts` (tied to the recipe-schema gap above).
 
 ## Housekeeping / polish
-- [x] Rename the project in `package.json` — now `the-idle-game` (working title; final game name still open)
-- [x] Code-split the app bundle — route-level `React.lazy` in `App.tsx`; entry chunk 862 kB → 488 kB, warning gone
+- [x] Rename the project in `package.json` — now `The-Idle-Game` (working title; final game name still open)
+- [x] Code-split the app bundle — route-level `React.lazy` in `App.tsx`; entry chunk 921 kB → 488 kB, warning gone
 
 ## Done
 - [x] First real character authored in Sanity: **Mordrek Graveborn** (Death Knight / tank) — base stats + per-level growth (str +8@10, hp +30@25 milestones) + a 5-node blessing tree (prereq chain + row-7 ultimate). Seeded via Sanity **CLI** (`sanity documents create`, the MCP is read-only here). Currently a **draft** — review/publish in the Studio.

@@ -176,28 +176,34 @@ export type Database = {
           created_at: string
           currencies: Json
           infirmary_level: number
+          lifetime_stats: Json
           map_progress: Json
           player_id: string
           resources: Json
           transcendence_count: number
+          unlocked_characters: Json
         }
         Insert: {
           created_at?: string
           currencies?: Json
           infirmary_level?: number
+          lifetime_stats?: Json
           map_progress?: Json
           player_id: string
           resources?: Json
           transcendence_count?: number
+          unlocked_characters?: Json
         }
         Update: {
           created_at?: string
           currencies?: Json
           infirmary_level?: number
+          lifetime_stats?: Json
           map_progress?: Json
           player_id?: string
           resources?: Json
           transcendence_count?: number
+          unlocked_characters?: Json
         }
         Relationships: []
       }

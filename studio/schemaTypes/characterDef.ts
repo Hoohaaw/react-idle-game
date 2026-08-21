@@ -167,6 +167,13 @@ export const characterDef = defineType({
         'Earned at level 50 once all 4 rows are picked — not authored as a choice (ADR-0045).',
       type: 'capstoneBlessing',
     }),
+    defineField({
+      name: 'acquisition',
+      title: 'Acquisition',
+      description:
+        'How this character is recruited: always a gold cost, optionally gated by a condition (level/stat/resource/gold/mission-time total, or map completion). Leave blank while unauthored — the recruit flow treats a missing acquisition as "not yet purchasable."',
+      type: 'acquisition',
+    }),
   ],
   preview: {
     select: { title: 'name', subtitle: 'charClass' },
