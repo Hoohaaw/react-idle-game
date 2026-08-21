@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git rev-parse *)",
+      "Bash(git log *)",
+      "Bash(git diff *)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -30,6 +37,19 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/guard-sanity-publish.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "agent",
+            "if": "Bash(git push*)",
+            "model": "claude-sonnet-5",
+            "timeout": 300,
+            "statusMessage": "Running code review before push...",
+            "prompt": "A `git push` is about to run: $ARGUMENTS\n\nFirst, check whether there is anything new to push: current branch (`git rev-parse --abbrev-ref HEAD`), its upstream if any, and `git log @{u}.. --oneline` (or compare against the target the push command names, e.g. `origin/<branch>`, if there is no upstream yet). If there are zero new commits (a branch delete, an already-pushed branch, a tag push, etc.), allow immediately without further review.\n\nOtherwise, review the commits that are about to be pushed but are not yet on the remote: read the diff (`git diff @{u}...HEAD` or equivalent) and check it against this repo's CLAUDE.md files (root `CLAUDE.md` and `.claude/CLAUDE.md`) for real correctness bugs and violations of the project's core engineering rules (server-authoritative writes, compute-on-read stats, definition/instance split, registry-driven extensibility, the point-buy/item-budget rules, etc.). Do not nitpick style, formatting, or raise speculative/low-confidence concerns — only flag issues you are confident are real problems.\n\nRespond with ONLY one JSON object and nothing else (no other text):\n\nIf you found a real, fixable problem:\n{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"<concise, specific description of what's wrong and where, enough to fix from>\"}}\n\nIf there is nothing to push, or the review found no real blocking issues:\n{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"allow\", \"permissionDecisionReason\": \"Reviewed, no blocking issues.\"}}"
           }
         ]
       }
