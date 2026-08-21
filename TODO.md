@@ -105,7 +105,7 @@ character sprite art. Older open items below may be stale — trust the mileston
   boss); the other 11 are gold-only. goldCost scales Common 200 → Uncommon 500 → Rare 1000 → Epic
   2500 (empty Legendary tier still undecided). Thresholds computed from real roster/mission/mine
   data, not guessed.
-  `↳ context: project-character-budget · docs/superpowers/specs/2026-08-20-character-acquisition-design.md, docs/superpowers/plans/2026-08-20-character-acquisition.md`
+  `↳ context: project-character-budget · ADR-0048, docs/superpowers/specs/2026-08-20-character-acquisition-design.md, docs/superpowers/plans/2026-08-20-character-acquisition.md`
 - Party size: **3 is the law** (max 3, sending 1–2 allowed) — recorded in ADR-0032 consequences.
 
 ## Backend (Supabase)
