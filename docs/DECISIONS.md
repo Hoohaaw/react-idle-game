@@ -2309,10 +2309,11 @@ the decision that spec's implementation (this branch, PR #82) actually shipped.
 
 **Consequences.** Closes the TODO.md "Character acquisition economy" line (`project-undecided`
 dropped). Deferred to follow-up, tracked as open gaps rather than silently skipped:
-- **No test coverage yet** for the `recruit_character` RPC/Edge Function path, or for the
-  blind-surprise-critical `fetchRecruitCandidates`/`fetchRecruit` filter logic in
-  `src/services/recruits.ts` — this repo has no pgTAP/Deno test infra for SQL or Edge Functions at
-  all, so RPC-level coverage needs that infra built first, not invented ad hoc for this feature.
+- **No test coverage for the `recruit_character` RPC/Edge Function path itself** — this repo has
+  no pgTAP/Deno test infra for SQL or Edge Functions at all, so RPC-level coverage needs that infra
+  built first, not invented ad hoc for this feature. (The client-side wrapper `recruitCharacter`
+  and the blind-surprise-critical `fetchRecruitCandidates` filter, `src/services/recruit.ts` and
+  `recruits.ts`, are now covered — `recruit.test.ts`, `recruits.test.ts`.)
 - **`database.types.ts` needs a full `supabase gen types` regen** once a DB connection is
   available — it was hand-patched for the two new `profiles` columns only; `recruit_character`'s
   signature and the extended `claim_mission`/`collect_gather` signatures aren't reflected.
