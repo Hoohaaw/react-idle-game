@@ -1,5 +1,6 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 import { PackageIcon } from '@sanity/icons'
+import { auditItem, type BudgetItemStat, type ItemSlot } from '../../src/lib/itemBudget'
 
 // An equippable item DEFINITION — the first item schema. A player owns INSTANCES of these in
 // player_inventory (item_def_id = itemKey) at a rolled RARITY; equipped gear is referenced from
@@ -23,6 +24,19 @@ const SLOT_OPTIONS = [
   { title: 'Ring', value: 'ring' },
   { title: 'Trinket', value: 'trinket' },
 ]
+
+// The item power-budget check (src/lib/itemBudget.ts): statBonuses' total cost-per-level must
+// land in the item's slot's rate band. Skipped while slot/minLevel isn't authored yet.
+type ItemDoc = { slot?: ItemSlot; minLevel?: number; statBonuses?: BudgetItemStat[] }
+
+function itemBudgetError(doc: ItemDoc): string | true {
+  if (!doc.slot || !doc.statBonuses?.length) return true
+  const audit = auditItem(doc.slot, doc.minLevel, doc.statBonuses)
+  if (!audit.ok) {
+    return `Stat bonuses cost ${audit.cost.toFixed(2)} budget points (${audit.rate.toFixed(2)}/level) — ${doc.slot} allows ${audit.minRate.toFixed(2)}–${audit.maxRate.toFixed(2)}/level at minLevel ${doc.minLevel ?? 1}. See docs/ITEMS.md.`
+  }
+  return true
+}
 
 export const itemDef = defineType({
   name: 'itemDef',
@@ -76,6 +90,8 @@ export const itemDef = defineType({
       description: 'Base (Common) bonuses granted when equipped. Stack via the same {flat, pct} rule as blessings.',
       type: 'array',
       of: [defineArrayMember({ type: 'itemStat' })],
+      validation: (rule) =>
+        rule.custom((_value, context) => itemBudgetError(context.document as ItemDoc)),
     }),
   ],
   preview: {
