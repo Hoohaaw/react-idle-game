@@ -1,52 +1,68 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { GameLayout } from './components/templates/GameLayout'
 import { RequireAuth } from '@/features/auth'
-import DesignPage from './pages/DesignPage'
-import { MissionsPage } from '@/features/missions'
-import { InfirmaryPage } from '@/features/infirmary'
-import { GatherPage } from '@/features/gather'
-import { TeamPage } from '@/features/team'
-import { RecruitsPage } from '@/features/recruits'
-import { BlessingsPage } from '@/features/blessings'
-import { RespecPage } from '@/features/respec'
-import UpgradingPage from './pages/UpgradingPage'
-import ShopPage from './pages/ShopPage'
-import InventoryPage from './pages/InventoryPage'
-import CraftingPage from './pages/CraftingPage'
-import UpgradesPage from './pages/UpgradesPage'
-import TranscendencePage from './pages/TranscendencePage'
-import StatisticsPage from './pages/StatisticsPage'
-import GameStatsPage from './pages/GameStatsPage'
+
+// Route-level code splitting: every page loads as its own chunk on first visit, keeping the
+// entry bundle small (it was one ~860 kB chunk). Feature pages are pulled through their barrel
+// (import rules: outsiders import only @/features/<x>) and re-shaped to lazy's default-export
+// contract; unmigrated pages already default-export.
+const DesignPage = lazy(() => import('./pages/DesignPage'))
+const MissionsPage = lazy(() => import('@/features/missions').then((m) => ({ default: m.MissionsPage })))
+const InfirmaryPage = lazy(() => import('@/features/infirmary').then((m) => ({ default: m.InfirmaryPage })))
+const GatherPage = lazy(() => import('@/features/gather').then((m) => ({ default: m.GatherPage })))
+const TeamPage = lazy(() => import('@/features/team').then((m) => ({ default: m.TeamPage })))
+const RecruitsPage = lazy(() => import('@/features/recruits').then((m) => ({ default: m.RecruitsPage })))
+const BlessingsPage = lazy(() => import('@/features/blessings').then((m) => ({ default: m.BlessingsPage })))
+const RespecPage = lazy(() => import('@/features/respec').then((m) => ({ default: m.RespecPage })))
+const UpgradingPage = lazy(() => import('./pages/UpgradingPage'))
+const ShopPage = lazy(() => import('./pages/ShopPage'))
+const InventoryPage = lazy(() => import('./pages/InventoryPage'))
+const CraftingPage = lazy(() => import('./pages/CraftingPage'))
+const UpgradesPage = lazy(() => import('./pages/UpgradesPage'))
+const TranscendencePage = lazy(() => import('./pages/TranscendencePage'))
+const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
+const GameStatsPage = lazy(() => import('./pages/GameStatsPage'))
+
+function PageLoading() {
+  return (
+    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', fontStyle: 'italic', padding: '24px' }}>
+      Loading…
+    </p>
+  )
+}
 
 export default function App() {
   return (
-    <Routes>
-      {/* Design system showcase (dev only) — intentionally outside the auth guard */}
-      <Route path="/design" element={<DesignPage />} />
+    <Suspense fallback={<PageLoading />}>
+      <Routes>
+        {/* Design system showcase (dev only) — intentionally outside the auth guard */}
+        <Route path="/design" element={<DesignPage />} />
 
-      {/* Everything below requires a signed-in player (RequireAuth renders the AuthPage otherwise) */}
-      <Route element={<RequireAuth />}>
-        {/* Game pages — share the global header via GameLayout */}
-        <Route element={<GameLayout />}>
-          <Route path="/missions" element={<MissionsPage />} />
-          <Route path="/infirmary" element={<InfirmaryPage />} />
-          <Route path="/team" element={<TeamPage />} />
-          <Route path="/recruits" element={<RecruitsPage />} />
-          <Route path="/mines" element={<GatherPage />} />
-          <Route path="/upgrading" element={<UpgradingPage />} />
-          <Route path="/shop" element={<ShopPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/crafting" element={<CraftingPage />} />
-          <Route path="/upgrades" element={<UpgradesPage />} />
-          <Route path="/blessings" element={<BlessingsPage />} />
-          <Route path="/respec" element={<RespecPage />} />
-          <Route path="/transcendence" element={<TranscendencePage />} />
-          <Route path="/statistics" element={<StatisticsPage />} />
-          <Route path="/game-stats" element={<GameStatsPage />} />
+        {/* Everything below requires a signed-in player (RequireAuth renders the AuthPage otherwise) */}
+        <Route element={<RequireAuth />}>
+          {/* Game pages — share the global header via GameLayout */}
+          <Route element={<GameLayout />}>
+            <Route path="/missions" element={<MissionsPage />} />
+            <Route path="/infirmary" element={<InfirmaryPage />} />
+            <Route path="/team" element={<TeamPage />} />
+            <Route path="/recruits" element={<RecruitsPage />} />
+            <Route path="/mines" element={<GatherPage />} />
+            <Route path="/upgrading" element={<UpgradingPage />} />
+            <Route path="/shop" element={<ShopPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/crafting" element={<CraftingPage />} />
+            <Route path="/upgrades" element={<UpgradesPage />} />
+            <Route path="/blessings" element={<BlessingsPage />} />
+            <Route path="/respec" element={<RespecPage />} />
+            <Route path="/transcendence" element={<TranscendencePage />} />
+            <Route path="/statistics" element={<StatisticsPage />} />
+            <Route path="/game-stats" element={<GameStatsPage />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/missions" replace />} />
         </Route>
-
-        <Route path="*" element={<Navigate to="/missions" replace />} />
-      </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   )
 }

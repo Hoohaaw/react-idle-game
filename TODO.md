@@ -156,9 +156,8 @@ character sprite art. Older open items below may be stale — trust the mileston
   crafting still reads `mockRecipes.ts` (tied to the recipe-schema gap above).
 
 ## Housekeeping / polish
-- [x] Rename the project in `package.json` — `"name": "The-Idle-Game"`.
-- [x] Code-split the app bundle — route-level `React.lazy` shipped, 921 kB → 488 kB entry chunk.
-  Lives on `chore/housekeeping` (PR #25); merge to land on master.
+- [x] Rename the project in `package.json` — now `The-Idle-Game` (working title; final game name still open)
+- [x] Code-split the app bundle — route-level `React.lazy` in `App.tsx`; entry chunk 921 kB → 488 kB, warning gone
 
 ## Done
 - [x] First real character authored in Sanity: **Mordrek Graveborn** (Death Knight / tank) — base stats + per-level growth (str +8@10, hp +30@25 milestones) + a 5-node blessing tree (prereq chain + row-7 ultimate). Seeded via Sanity **CLI** (`sanity documents create`, the MCP is read-only here). Currently a **draft** — review/publish in the Studio.
