@@ -34,6 +34,11 @@ character sprite art. Older open items below may be stale — trust the mileston
   60s→1h, Frosthollow 5min→2h); formula recorded in `docs/MAPS.md` for future maps. Decided via
   design conversation, not a live playtest (none was run this session).
   `↳ context: project-maps · docs/DECISIONS.md ADR-0049, docs/MAPS.md`
+- [ ] **Dungeon/raid content-authoring wave** — ADR-0050 shipped the engine + one reference dungeon
+  ("Emberdeep Vault") + one reference raid ("Duskmaw Reliquary"). More dungeons/raids and their
+  full themed item sets are the deferred next wave, same split as maps (ADR-0034) vs. item
+  authoring (ADR-0043/0044).
+  `↳ context: project-dungeons-raids · docs/DECISIONS.md ADR-0050, studio/schemaTypes/dungeonDef.ts`
 - [x] **itemDef authoring session** (ADR-0043/0044, 2026-07-15) — 23 itemDefs live (19 new + 4
   backfilled), all 10 slot types covered, rarity-scaled level-requirement gate shipped, 21
   mission loot tables rewired, `docs/ITEMS.md` written for replicating on future maps.

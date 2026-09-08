@@ -43,6 +43,7 @@ the history is the point.
 | [0021](#adr-0021--infirmary-v1-leveled-recovery-building-beds--hps-stabilize-phase-for-downed-characters) | Infirmary v1: leveled recovery building (beds + HP/s), stabilize phase for downed characters | 2026-07-08 | Accepted |
 | [0022](#adr-0022--gear-equip-v1-14-slot-keys-atomic-swap-rpcs-busy-lock) | Gear equip v1: 14 slot keys, atomic swap RPCs, busy-lock | 2026-07-08 | Accepted |
 | [0023](#adr-0023--two-tier-reset-system-reset-soft-prestige--transcendence-hard-wipe) | Two-tier reset system: Reset (soft prestige) + Transcendence (hard wipe) | 2026-07-09 | Accepted |
+| [0050](#adr-0050--dungeons--raids-multi-stage-party-scaled-content) | Dungeons & raids: multi-stage party-scaled content | 2026-09-08 | Accepted |
 
 ---
 
@@ -2377,3 +2378,55 @@ the 21 Sanity drafts (`durationSeconds` only — no other missionDef field touch
   `COMBAT` constant, only the real-world wait gate around an unchanged, already-resolved fight.
 - Future maps should follow the ×2-per-stage / reset-per-map formula above rather than inventing a
   new curve shape per map.
+
+## ADR-0050 — Dungeons & raids: multi-stage party-scaled content
+
+**Date:** 2026-09-08 · **Status:** Accepted (Alex)
+
+**Context.** Missions were a single shape — one missionDef = one encounterDef = one fight, 3-player
+party cap (client-side only, ADR-0016 never enforced it server-side). No content above the 3 live
+maps offered a bigger, longer, higher-stakes format, and no Legendary-weighted loot beyond whatever
+a map boss happened to author. Design worked out in
+`docs/superpowers/specs/2026-09-08-dungeons-and-raids-design.md`; this ADR records what that spec's
+implementation actually shipped.
+
+**Decision.**
+- **Two new content types, one shared engine.** `dungeonDef` (5-player cap, 3×(trash,trash,boss) =
+  9 stages, daily lockout) and `raidDef` (10-player cap, (trash,trash,trash,boss) = 4 stages,
+  weekly lockout) share a `groupStage` object and one pair of Edge Functions
+  (`group-start-stage`/`group-claim-stage`) backed by one `group_runs` table — not two parallel
+  systems.
+- **Sequential per-stage dispatch, not one big wait.** Each stage is its own real-world
+  dispatch/wait/claim, letting the party be reshuffled between stages; a loss retries the same
+  stage without losing progress already made in that run.
+- **Fixed calendar lockouts**, not rolling per-player cooldowns: dungeons reset at UTC midnight,
+  raids at Sunday UTC midnight (`src/lib/groupContent.ts`).
+- **Difficulty stays inside the gating map's own enemy tier** (`docs/BALANCE.md`'s T1–8 template,
+  unmodified) — harder feel comes from stage count, party size, and boss-add escalation, not a new
+  tier. The reference content (Task 14/15) authored zero deviation from template values, so no
+  balance sweep was needed to ship it.
+- **Loot reuses the existing `lootDrop` object as-is** — no new drop mechanism. Dungeon bosses cap
+  at Epic except the 3rd (final) boss, which carries a small Legendary weight; the raid boss
+  carries the largest Legendary weight in the game.
+- **Themed, not resist-gated.** A dungeon/raid's `theme` (damage school) sets its enemies'
+  `damageType` and its dropped gear's flavor. Per-school character resist affixes (`docs/ELEMENTS.md`
+  v2) stayed explicitly deferred — themed gear here only boosts existing stats.
+- **`rollRarity`/`rollItemLoot` extracted to `src/lib/loot.ts`** so both `mission-claim` and
+  `group-claim-stage` share one tested implementation instead of two copies.
+- **Reference content**: "Emberdeep Vault" (fire dungeon, gated on Gravemarch/T2) and "Duskmaw
+  Reliquary" (shadow raid, gated on Frosthollow/T4) — 4 new themed itemDefs total, all verified
+  against `itemBudget.ts`'s `auditItem`.
+
+**Consequences.**
+- Closes no existing TODO.md line (dungeons/raids weren't previously tracked there) — adds one for
+  the deferred content-authoring wave (see below).
+- **No automated test coverage for `group-start-stage`/`group-claim-stage`** — same accepted gap as
+  `recruit_character` (no pgTAP/Deno test infra in this repo yet).
+- **Bulk content authoring** (more dungeons, more raids, the full themed item sets each needs) is
+  explicit follow-up work, not part of this ADR — same split this repo already used for maps
+  (ADR-0034) vs. item authoring (ADR-0043/0044).
+- **Per-school character resist affixes** (ELEMENTS.md v2) remain deferred, unblocked by nothing
+  shipped here.
+- No change to the combat engine's mitigation model, the blessing/trait systems, or existing
+  mission/map mechanics beyond the new cross-busy-check additions to `start_mission`/`start_gather`/
+  `admit_infirmary`.
