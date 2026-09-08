@@ -17,6 +17,7 @@ const BUSY_REASON: Record<NonNullable<RosterMember['busy']>, string> = {
   mission: 'Locked while on a mission.',
   gathering: 'Locked while gathering.',
   infirmary: 'Locked while in the infirmary.',
+  group: 'Locked while in a dungeon or raid.',
 }
 
 const muted = { color: 'var(--color-text-muted)', fontSize: '13px', fontStyle: 'italic' as const }
