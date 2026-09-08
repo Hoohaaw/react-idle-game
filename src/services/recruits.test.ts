@@ -72,7 +72,7 @@ describe('fetchRecruitCandidates', () => {
       },
     } as never)
     vi.mocked(fetchRecruitedDefIds).mockResolvedValue(['frost_mage'])
-    vi.mocked(sanity.fetch).mockResolvedValue([])
+    vi.mocked(sanity.fetch).mockResolvedValue([] as never)
 
     await fetchRecruitCandidates()
 
