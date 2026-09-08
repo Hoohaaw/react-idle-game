@@ -267,4 +267,40 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
     ],
   },
+  {
+    title: 'Dungeons & Raids',
+    intro:
+      'Bigger fights for bigger squads. Both are gated behind clearing a specific map, and both ' +
+      'lock out for a while once you clear them — so plan around the wait, not around grinding ' +
+      'them back-to-back.',
+    entries: [
+      {
+        name: 'Dungeons',
+        body:
+          'Up to 5 characters. Three bosses, each guarded by two easy trash packs first — the ' +
+          'trash is a quick item-grab pace, the bosses are the real fight. Clearing all three ' +
+          'locks the dungeon out until the next daily reset (00:00 UTC).',
+      },
+      {
+        name: 'Raids',
+        body:
+          'Up to 10 characters. Three trash packs, then one very hard boss — the whole run is a ' +
+          'real commitment (the boss stage alone can run a full day). Clearing it locks the raid ' +
+          'out until the next weekly reset (Sunday 00:00 UTC).',
+      },
+      {
+        name: 'Losing a fight',
+        body:
+          'Costs time, not progress — you keep everything already cleared in that run and just ' +
+          'try the same stage again with whatever party you send next.',
+      },
+      {
+        name: 'Themed loot',
+        body:
+          'Each dungeon or raid has an elemental theme — its enemies deal that damage type, and ' +
+          'its boss-dropped gear carries that flavor. Raid bosses carry the best chance in the ' +
+          'game at a Legendary drop; a dungeon\'s final boss has a smaller chance at one too.',
+      },
+    ],
+  },
 ]
