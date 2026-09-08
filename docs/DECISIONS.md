@@ -2321,3 +2321,59 @@ dropped). Deferred to follow-up, tracked as open gaps rather than silently skipp
   `combat.ts`'s sim and is gated behind the combat-change playbook (`docs/BALANCE.md`) — its own
   branch, ADR, and balance-sweep evidence, not folded into this one.
 - No change to the blessing, item, or combat systems.
+
+## ADR-0049 — Mission duration curve: doubling per stage, resetting per map
+
+**Date:** 2026-09-08 · **Status:** Accepted (Alex)
+
+**Context.** All 21 `missionDef` drafts carried PLACEHOLDER `durationSeconds` (real-world dispatch
+wait, distinct from the virtual 180s in-fight `timeLimitSeconds` — ADR-0025) since the maps session
+that shipped them: Gravemarch 15s→480s, Embercrag 60s→720s, Frosthollow 120s→900s. TODO.md's
+"Mission durations / pacing" line (`project-maps`, `project-undecided`) asked to playtest
+Gravemarch→Frosthollow and decide the real curve. **No live playtest was run for this decision** —
+this repo/session has no way to run an interactive play session — so the curve below was settled
+by design conversation with Alex instead of empirical playtest data; that gap is recorded here
+rather than implied away.
+
+**Decision.** Replace the placeholder values with a clean doubling curve, authored directly into
+the 21 Sanity drafts (`durationSeconds` only — no other missionDef field touched):
+
+| Stage | Gravemarch (map 1) | Embercrag (map 2) | Frosthollow (map 3) |
+|---|---|---|---|
+| 1 | 15s | 60s | 300s (5min) |
+| 2 | 30s | 120s | 600s (10min) |
+| 3 | 60s | 240s | 1200s (20min) |
+| 4 | 120s | 480s | 2400s (40min) |
+| 5 | 240s | 900s (15min) | 3600s (1h) |
+| 6 | 480s | 1800s (30min) | 5400s (1.5h) |
+| 7 (boss) | 900s (15min) | 3600s (1h) | 7200s (2h) |
+| **Map total** | 30.75min | 2h | 5.75h |
+
+- **Roughly ×2 per stage within a map** — predictable, easy to reason about, no special-cased boss
+  jump (the placeholder curve had irregular per-stage multipliers; this one doesn't).
+- **Each map's stage 1 resets well below the previous map's stage 7** (Gravemarch boss 900s >
+  Embercrag stage 1 at 60s; Embercrag boss 3600s > Frosthollow stage 1 at 300s) — a new map still
+  opens on a fast, low-commitment mission even as the overall ceiling climbs, matching ADR-0020's
+  "low-attention, always-progressing" idle direction while keeping a real idle-scale commitment
+  (1–3h range, landing at 2h) at the current endgame boss.
+  Alex's direction (2026-09-08): also wanted the *map-to-map* pace itself to ramp — same stage
+  position must get slower every map, not just within a map. Confirmed by construction: stage 1
+  is 15s → 60s → 300s and stage 7 is 900s → 3600s → 7200s, strictly increasing map over map at
+  every stage index.
+- **Formula for future maps** (recorded in `docs/MAPS.md` checklist item 4): map N's stage 1 =
+  15 × 2^(N−1); each stage within a map ≈ ×2 the last. Extend this pattern for map 4+ rather than
+  re-deriving pacing from scratch each time.
+- Party `missionSpeedDecrease` (traits/gear/blessings, capped −30%, ADR-0035) still applies on top
+  in `mission-start` — unchanged by this ADR.
+
+**Consequences.**
+- No engine/schema change — `durationSeconds` already existed and was already server-authoritative
+  (`mission-start`, ADR-0016). This is a content-only change: 21 Sanity drafts patched.
+- Closes the TODO.md "Mission durations / pacing" line.
+- No `gameStatsContent.ts` (`/game-stats`) entry added — the page has no existing section on
+  mission pacing, and the duration is already fully legible in-UI via the mission card's own
+  countdown; nothing here needs a strategy explanation the way stat caps or reward formulas do.
+- No `docs/BALANCE.md` sweep needed — this doesn't touch the combat sim, enemy tiers, or any
+  `COMBAT` constant, only the real-world wait gate around an unchanged, already-resolved fight.
+- Future maps should follow the ×2-per-stage / reset-per-map formula above rather than inventing a
+  new curve shape per map.

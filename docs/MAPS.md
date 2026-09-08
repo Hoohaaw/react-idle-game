@@ -97,6 +97,11 @@ legible — always author `resistances` so that line tells the truth.
 4. 7 `missionDef` drafts: map ref + stage, `durationSeconds` (real-world wait), baseXp/gold ramp,
    resource rewards on-theme, loot lines (boss = extra + better weights). First clears pay a
    ×1.5 bonus automatically (ADR-0041) — no per-mission authoring needed.
+   **`durationSeconds` curve (ADR-0049):** stage 1 = ×2 the previous map's stage-1 duration (map 1
+   stage 1 = 15s, so map N stage 1 = 15 × 2^(N−1)); within a map, each stage roughly doubles the
+   last (stage 1→7 = ×2^6 ≈ 64×). Map N's stage-1 always lands well below map (N−1)'s stage-7, so
+   a new map opens fast again even as the overall ceiling climbs — extend this same doubling
+   pattern for map 4+ rather than re-deriving pacing from scratch.
 5. Everything stays a **draft** (drafts-only rule) — the client reads the drafts perspective.
 6. No sweep needed if enemies follow template values; material deviations → sweep first
    (docs/BALANCE.md).
