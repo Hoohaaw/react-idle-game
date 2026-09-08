@@ -6,7 +6,8 @@ import { RarityChancePill } from '@/components/molecules/RarityChancePill'
 import { MissionEnemies } from './MissionEnemies'
 import { WinChanceEstimate } from './WinChanceEstimate'
 import { missionTraitContext } from '../winChance'
-import { InfoStat, RewardRow, CharacterTile } from './dispatchParts'
+import { InfoStat, RewardRow } from './dispatchParts'
+import { CharacterTile } from '@/components/molecules/CharacterTile'
 import {
   SAMPLE_DISPATCH_MISSION,
   SAMPLE_DISPATCH_ROSTER,
