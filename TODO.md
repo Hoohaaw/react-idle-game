@@ -29,9 +29,11 @@ character sprite art. Older open items below may be stale — trust the mileston
   toggle, 7 stages per map (7 = boss), sequential unlock, boss-gated next map. 3 maps live in
   drafts (Gravemarch / Embercrag / Frosthollow, 21 missions). Add maps per `docs/MAPS.md`.
   `↳ context: project-maps · docs/MAPS.md, docs/DECISIONS.md ADR-0034`
-- [ ] **Mission durations / pacing** — all 21 missions carry PLACEHOLDER durations (15s stage 1 →
-  15min map-3 boss). Playtest Gravemarch→Frosthollow, then decide the real pacing curve.
-  `↳ context: project-maps (placeholders), project-undecided (mission-speed sources) · Sanity missionDef drafts`
+- [x] **Mission durations / pacing** (ADR-0049, 2026-09-08) — replaced all 21 placeholder
+  durations with a doubling-per-stage, resetting-per-map curve (Gravemarch 15s→15min, Embercrag
+  60s→1h, Frosthollow 5min→2h); formula recorded in `docs/MAPS.md` for future maps. Decided via
+  design conversation, not a live playtest (none was run this session).
+  `↳ context: project-maps · docs/DECISIONS.md ADR-0049, docs/MAPS.md`
 - [x] **itemDef authoring session** (ADR-0043/0044, 2026-07-15) — 23 itemDefs live (19 new + 4
   backfilled), all 10 slot types covered, rarity-scaled level-requirement gate shipped, 21
   mission loot tables rewired, `docs/ITEMS.md` written for replicating on future maps.
