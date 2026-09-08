@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { formatRemaining } from '@/lib/time'
 import type { GroupRun } from '@/services/groupContent'
 
-export function StageProgress({ run, stageCount, lockoutBoundary }: {
+export function StageProgress({ run, stageCount, lockoutBoundary, isLockedOut }: {
   run: GroupRun | undefined
   stageCount: number
   lockoutBoundary: Date | null
+  isLockedOut: boolean
 }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -13,7 +14,7 @@ export function StageProgress({ run, stageCount, lockoutBoundary }: {
     return () => clearInterval(id)
   }, [])
 
-  if (run?.status === 'complete' && lockoutBoundary) {
+  if (isLockedOut && lockoutBoundary) {
     return (
       <p style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>
         Cleared — available again in {formatRemaining(lockoutBoundary.getTime() - now)}.

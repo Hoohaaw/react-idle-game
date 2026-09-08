@@ -55,7 +55,7 @@ export function GroupContentPage({ kind }: { kind: GroupKind }) {
       {active && defKey && (
         <div style={{ display: 'flex', gap: 24 }}>
           <div style={{ flex: 1 }}>
-            <StageProgress run={run} stageCount={active.stageCount} lockoutBoundary={lockoutBoundary} />
+            <StageProgress run={run} stageCount={active.stageCount} lockoutBoundary={lockoutBoundary} isLockedOut={isLockedOut} />
             {canClaim && (
               <PrimaryButton onClick={() => claimStage.mutate({ kind, defKey })}>Claim</PrimaryButton>
             )}
