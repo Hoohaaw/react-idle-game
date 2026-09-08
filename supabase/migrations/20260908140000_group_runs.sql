@@ -320,13 +320,9 @@ begin
   end if;
 
   if v_run.status = 'complete' then
-    v_next_reset := case p_lockout
-      when 'daily' then date_trunc('day', v_run.last_cleared_at) + interval '1 day'
-      when 'weekly' then date_trunc('week', v_run.last_cleared_at) + interval '1 week' -- Postgres weeks start Monday; 'week 00:00 Sunday' = trunc('week') + 6 days, see below
-      else null
-    end;
+    v_next_reset := date_trunc('day', v_run.last_cleared_at) + interval '1 day';
     if p_lockout = 'weekly' then
-      v_next_reset := date_trunc('week', v_run.last_cleared_at) + interval '6 days';
+      v_next_reset := v_next_reset + (((7 - extract(dow from v_next_reset)::int) % 7) * interval '1 day');
     end if;
     if v_next_reset is null or now() < v_next_reset then
       raise exception 'start_group_stage: still locked out until %', v_next_reset;
