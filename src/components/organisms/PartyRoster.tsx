@@ -12,7 +12,7 @@ export type RosterCharacter = {
   name: string
   charClass: string
   level: number
-  activity: 'idle' | 'mission' | 'gather' | 'infirmary' | 'downed'
+  activity: 'idle' | 'mission' | 'gather' | 'infirmary' | 'downed' | 'group'
   detail?: string // mission name or resource being gathered
   role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
   damageSchool?: School // the caster's magic school, when authored (ADR-0033)
@@ -46,7 +46,9 @@ function RosterRow({ char, selected, onSelect }: { char: RosterCharacter; select
         ? 'Gathering'
         : char.activity === 'downed'
           ? 'Downed'
-          : 'In Infirmary'
+          : char.activity === 'group'
+            ? 'In dungeon/raid'
+            : 'In Infirmary'
   const statusTone = free ? 'ready' : char.activity === 'downed' ? 'danger' : char.activity === 'mission' ? 'busy' : 'locked'
   const detail = char.activity === 'gather' && char.detail ? `Gathering — ${char.detail}` : char.detail
   const borderColor = selected ? 'var(--color-gold-light)' : free ? 'var(--color-gold-mid)' : 'var(--color-gold-dark)'
