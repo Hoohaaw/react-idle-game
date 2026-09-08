@@ -18,10 +18,11 @@ export type GroupContentView = {
   theme: School
   description?: string
   stageCount: number
+  mapGate?: string
 }
 
-const DUNGEONS_QUERY = `*[_type == "dungeonDef"]{ dungeonKey, name, theme, description, "stageCount": count(stages) }`
-const RAIDS_QUERY = `*[_type == "raidDef"]{ raidKey, name, theme, description, "stageCount": count(stages) }`
+const DUNGEONS_QUERY = `*[_type == "dungeonDef"]{ dungeonKey, name, theme, description, "stageCount": count(stages), "mapGate": mapGate->mapKey }`
+const RAIDS_QUERY = `*[_type == "raidDef"]{ raidKey, name, theme, description, "stageCount": count(stages), "mapGate": mapGate->mapKey }`
 
 export async function fetchDungeons(): Promise<GroupContentView[]> {
   return sanity.fetch(DUNGEONS_QUERY)

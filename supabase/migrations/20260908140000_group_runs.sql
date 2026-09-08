@@ -1,4 +1,4 @@
-﻿-- Dungeons & raids: group_runs table + the two group-stage RPCs (docs/superpowers/specs/
+-- Dungeons & raids: group_runs table + the two group-stage RPCs (docs/superpowers/specs/
 -- 2026-09-08-dungeons-and-raids-design.md). A character may be in at most one activity — that
 -- rule already spans mission_runs/gather_assignments/infirmary_admissions; this migration adds
 -- group_runs as a fourth table in the same mutual-exclusion set.
@@ -92,12 +92,12 @@ begin
     select map_progress into v_map_prog from public.profiles where player_id = p_player;
     v_cleared := coalesce((v_map_prog->>p_map_key)::int, 0);
     if p_stage > v_cleared + 1 then
-      raise exception 'start_mission: stage not yet unlocked';
+      raise exception 'start_mission: stage locked (cleared %, requested %)', v_cleared, p_stage;
     end if;
     if p_prev_map_key is not null then
       v_prev_cleared := coalesce((v_map_prog->>p_prev_map_key)::int, 0);
       if v_prev_cleared < 7 then
-        raise exception 'start_mission: previous map not cleared';
+        raise exception 'start_mission: map locked — defeat the previous boss (% cleared % of 7)', p_prev_map_key, v_prev_cleared;
       end if;
     end if;
   end if;
@@ -231,9 +231,424 @@ revoke all on function public.admit_infirmary(uuid, uuid, int) from public, anon
 grant execute on function public.admit_infirmary(uuid, uuid, int) to service_role;
 
 -- ---------------------------------------------------------------------------------------------
+-- Four more existing mutation RPCs never got the group_runs busy check: equip_item, unequip_item,
+-- choose_blessing, respec_blessings. Each is redefined below with its full existing body (from
+-- 20260715120000_item_level_requirement.sql, 20260708120000_gear_equip.sql,
+-- 20260715130000_blessing_choose.sql, 20260715140000_blessing_respec.sql respectively) plus one
+-- new `group_runs` exists-check, inserted alongside their existing mission/gather/infirmary busy
+-- checks — a character mid-dungeon/raid-stage must not be able to swap gear, equip/unequip, pick a
+-- blessing, or respec mid-fight.
+-- ---------------------------------------------------------------------------------------------
+
+create or replace function public.equip_item(
+  p_player          uuid,
+  p_char            uuid,
+  p_slot_key        text,
+  p_item_def_id     text,
+  p_rarity          text,
+  p_required_level  integer default 0
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_equipped     jsonb;
+  v_new_equipped jsonb;
+  v_prev         jsonb;
+  v_qty          integer;
+  v_level        integer;
+begin
+  -- 1. Validate slot key.
+  if p_slot_key not in (
+    'head', 'shoulders', 'chest', 'hands', 'legs', 'feet',
+    'weapon', 'offhand',
+    'ring1', 'ring2', 'ring3', 'ring4',
+    'trinket1', 'trinket2'
+  ) then
+    raise exception 'equip_item: invalid slot key';
+  end if;
+
+  -- 2. Validate rarity.
+  if p_rarity not in ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary') then
+    raise exception 'equip_item: invalid rarity';
+  end if;
+
+  -- 3. Lock the character row and capture equipped + level; fail if not owned.
+  select equipped, level into v_equipped, v_level
+    from public.player_characters
+   where id = p_char and player_id = p_player
+   for update;
+  if not found then
+    raise exception 'equip_item: character not found or not owned';
+  end if;
+
+  -- 3b. Level-requirement gate (ADR-0043).
+  if v_level < p_required_level then
+    raise exception 'equip_item: character level too low (needs %, has %)', p_required_level, v_level;
+  end if;
+
+  -- 4. Busy checks.
+  if exists (
+    select 1 from public.mission_runs
+     where player_id = p_player and party && array[p_char]
+  ) then
+    raise exception 'equip_item: character is on a mission';
+  end if;
+  if exists (
+    select 1 from public.gather_assignments
+     where player_character_id = p_char
+  ) then
+    raise exception 'equip_item: character is gathering';
+  end if;
+  if exists (
+    select 1 from public.infirmary_admissions
+     where player_character_id = p_char
+  ) then
+    raise exception 'equip_item: character is in the infirmary';
+  end if;
+  if exists (
+    select 1 from public.group_runs
+     where player_id = p_player and party && array[p_char]
+  ) then
+    raise exception 'equip_item: character is in a dungeon or raid';
+  end if;
+
+  -- 5. Lock the incoming inventory stack; fail if not present.
+  select quantity into v_qty
+    from public.player_inventory
+   where player_id = p_player
+     and item_def_id = p_item_def_id
+     and rarity = p_rarity
+   for update;
+  if not found then
+    raise exception 'equip_item: item not in inventory';
+  end if;
+
+  -- 6. Capture the item currently in the target slot (may be null / SQL NULL).
+  v_prev := v_equipped -> p_slot_key;
+
+  -- 7. Consume the incoming stack.
+  if v_qty = 1 then
+    delete from public.player_inventory
+     where player_id = p_player
+       and item_def_id = p_item_def_id
+       and rarity = p_rarity;
+  else
+    update public.player_inventory
+       set quantity = quantity - 1
+     where player_id = p_player
+       and item_def_id = p_item_def_id
+       and rarity = p_rarity;
+  end if;
+
+  -- 8. Return displaced item to inventory (if there was one).
+  --    Equipping the same item+rarity that is already in the slot is a harmless net-zero:
+  --    step 7 decremented the stack, this upsert brings it back to the same count.
+  if v_prev is not null then
+    insert into public.player_inventory (player_id, item_def_id, rarity)
+    values (p_player, v_prev->>'itemDefId', v_prev->>'rarity')
+    on conflict (player_id, item_def_id, rarity)
+    do update set quantity = player_inventory.quantity + 1;
+  end if;
+
+  -- 9. Write the new item into the slot, capturing the resulting equipped map.
+  update public.player_characters
+     set equipped = jsonb_set(
+           coalesce(equipped, '{}'::jsonb),
+           array[p_slot_key],
+           jsonb_build_object('itemDefId', p_item_def_id, 'rarity', p_rarity)
+         )
+   where id = p_char and player_id = p_player
+  returning equipped into v_new_equipped;
+
+  return jsonb_build_object(
+    'equipped', v_new_equipped,
+    'returned', coalesce(v_prev, 'null'::jsonb)
+  );
+end;
+$$;
+
+revoke all on function public.equip_item(uuid, uuid, text, text, text, integer) from public, anon, authenticated;
+grant execute on function public.equip_item(uuid, uuid, text, text, text, integer) to service_role;
+
+create or replace function public.unequip_item(
+  p_player   uuid,
+  p_char     uuid,
+  p_slot_key text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_equipped     jsonb;
+  v_new_equipped jsonb;
+  v_item         jsonb;
+begin
+  -- 1. Validate slot key.
+  if p_slot_key not in (
+    'head', 'shoulders', 'chest', 'hands', 'legs', 'feet',
+    'weapon', 'offhand',
+    'ring1', 'ring2', 'ring3', 'ring4',
+    'trinket1', 'trinket2'
+  ) then
+    raise exception 'unequip_item: invalid slot key';
+  end if;
+
+  -- 2. Lock the character row and capture equipped; fail if not owned.
+  select equipped into v_equipped
+    from public.player_characters
+   where id = p_char and player_id = p_player
+   for update;
+  if not found then
+    raise exception 'unequip_item: character not found or not owned';
+  end if;
+
+  -- 3. Busy checks.
+  if exists (
+    select 1 from public.mission_runs
+     where player_id = p_player and party && array[p_char]
+  ) then
+    raise exception 'unequip_item: character is on a mission';
+  end if;
+  if exists (
+    select 1 from public.gather_assignments
+     where player_character_id = p_char
+  ) then
+    raise exception 'unequip_item: character is gathering';
+  end if;
+  if exists (
+    select 1 from public.infirmary_admissions
+     where player_character_id = p_char
+  ) then
+    raise exception 'unequip_item: character is in the infirmary';
+  end if;
+  if exists (
+    select 1 from public.group_runs
+     where player_id = p_player and party && array[p_char]
+  ) then
+    raise exception 'unequip_item: character is in a dungeon or raid';
+  end if;
+
+  -- 4. Verify the slot is occupied.
+  v_item := v_equipped -> p_slot_key;
+  if v_item is null then
+    raise exception 'unequip_item: slot is empty';
+  end if;
+
+  -- 5. Return the item to inventory.
+  insert into public.player_inventory (player_id, item_def_id, rarity)
+  values (p_player, v_item->>'itemDefId', v_item->>'rarity')
+  on conflict (player_id, item_def_id, rarity)
+  do update set quantity = player_inventory.quantity + 1;
+
+  -- 6. Remove the slot key from the equipped map.
+  update public.player_characters
+     set equipped = equipped - p_slot_key
+   where id = p_char and player_id = p_player
+  returning equipped into v_new_equipped;
+
+  return jsonb_build_object(
+    'equipped', v_new_equipped,
+    'returned', v_item
+  );
+end;
+$$;
+
+revoke all on function public.unequip_item(uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.unequip_item(uuid, uuid, text) to service_role;
+
+create or replace function public.choose_blessing(
+  p_player uuid,
+  p_char   uuid,
+  p_row    text,
+  p_choice text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_blessings jsonb;
+  v_level     integer;
+  v_required  integer;
+begin
+  -- 1. Validate row + choice.
+  if p_row not in ('row1', 'row2', 'row3', 'row4') then
+    raise exception 'choose_blessing: invalid row';
+  end if;
+  if p_choice not in ('a', 'b') then
+    raise exception 'choose_blessing: invalid choice';
+  end if;
+
+  -- 2. Required level per row — fixed engine constants (src/lib/blessings.ts
+  --    BLESSING_ROW_LEVELS), not Sanity content, so hardcoded here like gear's slot-key enum.
+  v_required := case p_row
+    when 'row1' then 10
+    when 'row2' then 20
+    when 'row3' then 30
+    when 'row4' then 40
+  end;
+
+  -- 3. Lock the character row and capture blessings + level; fail if not owned.
+  select blessings, level into v_blessings, v_level
+    from public.player_characters
+   where id = p_char and player_id = p_player
+   for update;
+  if not found then
+    raise exception 'choose_blessing: character not found or not owned';
+  end if;
+  v_blessings := coalesce(v_blessings, '{}'::jsonb);
+
+  -- 3b. Level gate.
+  if v_level < v_required then
+    raise exception 'choose_blessing: character level too low (needs %, has %)', v_required, v_level;
+  end if;
+
+  -- 3c. Immutability guard — permanence is enforced here, not just a UI convention (ADR-0003).
+  if v_blessings ? p_row then
+    raise exception 'choose_blessing: row already chosen';
+  end if;
+
+  -- 3d. Strict sequence — row N requires row N-1 already picked.
+  if p_row = 'row2' and not (v_blessings ? 'row1') then
+    raise exception 'choose_blessing: row1 must be chosen first';
+  end if;
+  if p_row = 'row3' and not (v_blessings ? 'row2') then
+    raise exception 'choose_blessing: row2 must be chosen first';
+  end if;
+  if p_row = 'row4' and not (v_blessings ? 'row3') then
+    raise exception 'choose_blessing: row3 must be chosen first';
+  end if;
+
+  -- 4. Busy checks (mirrors equip_item — picking mid-mission could otherwise buff an in-flight claim).
+  if exists (
+    select 1 from public.mission_runs
+     where player_id = p_player and party && array[p_char]
+  ) then
+    raise exception 'choose_blessing: character is on a mission';
+  end if;
+  if exists (
+    select 1 from public.gather_assignments
+     where player_character_id = p_char
+  ) then
+    raise exception 'choose_blessing: character is gathering';
+  end if;
+  if exists (
+    select 1 from public.infirmary_admissions
+     where player_character_id = p_char
+  ) then
+    raise exception 'choose_blessing: character is in the infirmary';
+  end if;
+  if exists (
+    select 1 from public.group_runs
+     where player_id = p_player and party && array[p_char]
+  ) then
+    raise exception 'choose_blessing: character is in a dungeon or raid';
+  end if;
+
+  -- 5. Write the pick.
+  update public.player_characters
+     set blessings = jsonb_set(v_blessings, array[p_row], to_jsonb(p_choice))
+   where id = p_char and player_id = p_player
+  returning blessings into v_blessings;
+
+  return jsonb_build_object('blessings', v_blessings);
+end;
+$$;
+
+revoke all on function public.choose_blessing(uuid, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.choose_blessing(uuid, uuid, text, text) to service_role;
+
+create or replace function public.respec_blessings(
+  p_player uuid,
+  p_char   uuid,
+  p_cost   numeric
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_blessings jsonb;
+  v_gold      numeric;
+begin
+  -- 1. Lock the character row and capture blessings; fail if not owned.
+  select blessings into v_blessings
+    from public.player_characters
+   where id = p_char and player_id = p_player
+   for update;
+  if not found then
+    raise exception 'respec_blessings: character not found or not owned';
+  end if;
+  v_blessings := coalesce(v_blessings, '{}'::jsonb);
+
+  -- 2. Nothing to respec — don't charge for a no-op.
+  if v_blessings = '{}'::jsonb then
+    raise exception 'respec_blessings: no blessings to respec';
+  end if;
+
+  -- 3. Busy checks (verbatim from choose_blessing — respeccing mid-mission is nonsensical).
+  if exists (
+    select 1 from public.mission_runs
+     where player_id = p_player and party && array[p_char]
+  ) then
+    raise exception 'respec_blessings: character is on a mission';
+  end if;
+  if exists (
+    select 1 from public.gather_assignments
+     where player_character_id = p_char
+  ) then
+    raise exception 'respec_blessings: character is gathering';
+  end if;
+  if exists (
+    select 1 from public.infirmary_admissions
+     where player_character_id = p_char
+  ) then
+    raise exception 'respec_blessings: character is in the infirmary';
+  end if;
+  if exists (
+    select 1 from public.group_runs
+     where player_id = p_player and party && array[p_char]
+  ) then
+    raise exception 'respec_blessings: character is in a dungeon or raid';
+  end if;
+
+  -- 4. Lock the profile and verify gold funds (single fixed key, unlike upgrade_infirmary's
+  --    generic currencies+resources loop — right-sized for a game with exactly one currency).
+  select coalesce((currencies->>'gold')::numeric, 0) into v_gold
+    from public.profiles
+   where player_id = p_player
+   for update;
+  if v_gold < p_cost then
+    raise exception 'respec_blessings: insufficient gold (needs %, has %)', p_cost, v_gold;
+  end if;
+
+  -- 5. Deduct gold.
+  update public.profiles
+     set currencies = jsonb_set(currencies, array['gold'], to_jsonb(v_gold - p_cost))
+   where player_id = p_player;
+
+  -- 6. Wipe the tree.
+  update public.player_characters
+     set blessings = '{}'::jsonb
+   where id = p_char and player_id = p_player
+  returning blessings into v_blessings;
+
+  return jsonb_build_object('blessings', v_blessings);
+end;
+$$;
+
+revoke all on function public.respec_blessings(uuid, uuid, numeric) from public, anon, authenticated;
+grant execute on function public.respec_blessings(uuid, uuid, numeric) to service_role;
+
+-- ---------------------------------------------------------------------------------------------
 -- start_group_stage: validate + dispatch the CURRENT stage of a dungeon/raid run. p_lockout is
 -- 'daily' or 'weekly' (src/lib/groupContent.ts's GROUP_LOCKOUT, passed in by the Edge Function —
--- this RPC does calendar math but doesn't hardcode which kind maps to which cadence).
+-- this RPC does calendar math but doesn't hardcode which kind maps to which cadence). p_map_gate
+-- is the mapKey the content is authored to gate on (dungeonDef/raidDef's mapGate reference,
+-- resolved by the Edge Function) — null means the def has no gate authored (skip the check).
 -- ---------------------------------------------------------------------------------------------
 create or replace function public.start_group_stage(
   p_player           uuid,
@@ -243,7 +658,8 @@ create or replace function public.start_group_stage(
   p_stage_index      int,
   p_total_stages     int,
   p_duration_seconds int,
-  p_lockout          text -- 'daily' | 'weekly'
+  p_lockout          text,   -- 'daily' | 'weekly'
+  p_map_gate         text    default null
 ) returns public.group_runs
 language plpgsql
 security definer
@@ -254,6 +670,7 @@ declare
   v_owned_alive int;
   v_run         public.group_runs;
   v_next_reset  timestamptz;
+  v_map_prog    jsonb;
 begin
   if p_kind not in ('dungeon', 'raid') then
     raise exception 'start_group_stage: invalid kind';
@@ -300,6 +717,13 @@ begin
     raise exception 'start_group_stage: a character is in another dungeon or raid';
   end if;
 
+  if p_map_gate is not null then
+    select map_progress into v_map_prog from public.profiles where player_id = p_player;
+    if coalesce((v_map_prog->>p_map_gate)::int, 0) < 7 then
+      raise exception 'start_group_stage: map not cleared';
+    end if;
+  end if;
+
   -- Load or create the run row, locking it against concurrent starts of the same run.
   select * into v_run from public.group_runs
    where player_id = p_player and kind = p_kind and def_key = p_def_key
@@ -320,9 +744,9 @@ begin
   end if;
 
   if v_run.status = 'complete' then
-    v_next_reset := date_trunc('day', v_run.last_cleared_at) + interval '1 day';
+    v_next_reset := date_trunc('day', v_run.last_cleared_at at time zone 'UTC') at time zone 'UTC' + interval '1 day';
     if p_lockout = 'weekly' then
-      v_next_reset := v_next_reset + (((7 - extract(dow from v_next_reset)::int) % 7) * interval '1 day');
+      v_next_reset := v_next_reset + (((7 - extract(dow from v_next_reset at time zone 'UTC')::int) % 7) * interval '1 day');
     end if;
     if v_next_reset is null or now() < v_next_reset then
       raise exception 'start_group_stage: still locked out until %', v_next_reset;
@@ -353,8 +777,8 @@ begin
 end;
 $$;
 
-revoke all on function public.start_group_stage(uuid, text, text, uuid[], int, int, int, text) from public, anon, authenticated;
-grant execute on function public.start_group_stage(uuid, text, text, uuid[], int, int, int, text) to service_role;
+revoke all on function public.start_group_stage(uuid, text, text, uuid[], int, int, int, text, text) from public, anon, authenticated;
+grant execute on function public.start_group_stage(uuid, text, text, uuid[], int, int, int, text, text) to service_role;
 
 -- ---------------------------------------------------------------------------------------------
 -- claim_group_stage: apply a resolved stage's outcome atomically. Mirrors claim_mission's shape

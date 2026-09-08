@@ -163,7 +163,7 @@ export function useRoster() {
 
   return {
     roster,
-    isLoading: owned.isLoading || defs.isLoading || items.isLoading || groupBusy.isLoading,
-    error: owned.error ?? defs.error ?? items.error ?? groupBusy.error ?? null,
+    isLoading: owned.isLoading || defs.isLoading || items.isLoading,
+    error: owned.error ?? defs.error ?? items.error ?? null,
   }
 }

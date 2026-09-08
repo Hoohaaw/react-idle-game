@@ -12,7 +12,7 @@ function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 }
 
-type GroupDef = { stages?: { durationSeconds?: number }[] } | null
+type GroupDef = { stages?: { durationSeconds?: number }[]; gateKey?: string | null } | null
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
   let def: GroupDef
   try {
     def = await sanityQuery<GroupDef>(
-      `*[_type == "${sanityType}" && ${keyField} == $key][0]{ stages[]{ durationSeconds } }`,
+      `*[_type == "${sanityType}" && ${keyField} == $key][0]{ stages[]{ durationSeconds }, "gateKey": mapGate->mapKey }`,
       { key: defKey },
     )
   } catch (e) {
@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
     p_total_stages: def.stages.length,
     p_duration_seconds: stage.durationSeconds,
     p_lockout: GROUP_LOCKOUT[kind as GroupKind],
+    p_map_gate: def.gateKey ?? null,
   })
 
   if (rpcErr) {

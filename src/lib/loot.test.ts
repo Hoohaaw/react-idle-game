@@ -56,4 +56,23 @@ describe('rollItemLoot', () => {
     )
     expect(result[0].quantity).toBe(2)
   })
+
+  it('magicFind scales the drop chance, capped at 100', () => {
+    const result = rollItemLoot(
+      [{ itemKey: 'sword', dropChance: 60 }],
+      fixedRng(0.9), // 0.9*100=90 -- fails at raw 60% chance, but 60*(1+100/100)=120, capped to 100 -> should drop
+      { magicFind: 100, luck: 0 },
+    )
+    expect(result).toEqual([{ item_def_id: 'sword', rarity: 'Common', quantity: 1 }])
+  })
+
+  it('rolls quantity uniformly within [quantityMin, quantityMax]', () => {
+    const result = rollItemLoot(
+      [{ itemKey: 'sword', dropChance: 100, quantityMin: 2, quantityMax: 5 }],
+      fixedRng(0, 0.99), // drop roll, then quantity roll near the top of the range
+      { magicFind: 0, luck: 0 },
+    )
+    // qMin=2, qMax=5, range size 4; floor(0.99*4)=3; 2+3=5
+    expect(result[0].quantity).toBe(5)
+  })
 })

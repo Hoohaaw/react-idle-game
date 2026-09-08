@@ -2430,3 +2430,7 @@ implementation actually shipped.
 - No change to the combat engine's mitigation model, the blessing/trait systems, or existing
   mission/map mechanics beyond the new cross-busy-check additions to `start_mission`/`start_gather`/
   `admit_infirmary`.
+- Group content never reads `profiles.transcendence_count` — `transcendenceBonus` is hardcoded to 0
+  in `group-claim-stage`. Deliberate v1 scope call (spec is silent on it; this is the simplest
+  consistent default), not an oversight — revisit if/when transcendence should apply to
+  dungeons/raids.
