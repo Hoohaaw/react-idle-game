@@ -1,6 +1,7 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 import { SparklesIcon } from '@sanity/icons'
 import { STAT_DEFS } from '../../../src/lib/statDefinitions'
+import { auditCapstoneCost, CAPSTONE_STAT_BUDGET } from '../../../src/lib/blessingBudget'
 
 // The stats a scripted 'partyBuffOnStart' ability may target — mirrors src/lib/combat.ts's
 // AbilityStat allowlist exactly (attack/spellPower/healingPower are pre-routed into a single
@@ -55,10 +56,20 @@ export const capstoneBlessing = defineType({
       type: 'array',
       of: [defineArrayMember({ type: 'nodeEffect' })],
       validation: (rule) =>
-        rule.custom((value: unknown[] | undefined, context) => {
+        rule.custom((value: { stat: string; kind: 'flat' | 'pct'; value: number }[] | undefined, context) => {
           const kind = (context.parent as { kind?: string } | undefined)?.kind
           if (kind === 'ability') return true
-          return value && value.length > 0 ? true : 'A stat/conditional capstone needs at least one effect.'
+          if (!value || value.length === 0) return 'A stat/conditional capstone needs at least one effect.'
+          const audit = auditCapstoneCost(value)
+          if (audit.cost === null) {
+            // A `pct` effect is present — needs blessingBudget.ts's auditCapstonePctCost against
+            // this character's real L50 baseline instead (docs/BLESSINGS.md #1/#3).
+            return true
+          }
+          if (!audit.ok) {
+            return `Capstone must cost ${CAPSTONE_STAT_BUDGET} budget points — spends ${audit.cost.toFixed(2)}.`
+          }
+          return true
         }),
     }),
     defineField({

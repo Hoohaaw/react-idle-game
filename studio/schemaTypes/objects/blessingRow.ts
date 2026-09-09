@@ -1,6 +1,6 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 import { StarIcon } from '@sanity/icons'
-import { flatEffectsCost, BUDGET_TOLERANCE } from '../../../src/lib/characterBudget'
+import { auditBlessingRow } from '../../../src/lib/blessingBudget'
 
 type ChoicePreview = {
   choiceId?: string
@@ -36,15 +36,15 @@ export const blessingRow = defineType({
               return 'Both choices must have a different Choice (A/B).'
             }
             const [a, b] = choices
-            const costA = flatEffectsCost(a.effects ?? [])
-            const costB = flatEffectsCost(b.effects ?? [])
-            if (costA === null || costB === null) {
-              // A `pct` effect is present — can't auto-price it the same way (ADR-0045); the
-              // Phase C calc-script verification is the check of record for these rows.
+            const audit = auditBlessingRow(a.effects ?? [], b.effects ?? [])
+            if (audit.costA === null || audit.costB === null) {
+              // A `pct` effect is present — can't auto-price it the same way (ADR-0045); run
+              // blessingBudget.ts's auditPctDrift against this character's real baseline instead
+              // (docs/BLESSINGS.md #3) — the check of record for these rows.
               return true
             }
-            if (Math.abs(costA - costB) > BUDGET_TOLERANCE) {
-              return `Choices must cost the same (A=${costA.toFixed(2)}, B=${costB.toFixed(2)}) — a real fork, not a bigger number.`
+            if (!audit.ok) {
+              return `Choices must cost the same (A=${audit.costA.toFixed(2)}, B=${audit.costB.toFixed(2)}) — a real fork, not a bigger number.`
             }
             return true
           }),
