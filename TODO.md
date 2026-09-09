@@ -104,10 +104,13 @@ character sprite art. Older open items below may be stale — trust the mileston
   capstone does), so a row pick can't be gated to a specific resource/map/enemy. Gatherer rows
   work around this with unconditional, flavor-only bonuses (ADR-0046). Real engine PR if ever wanted.
   `↳ context: project-blessings · docs/BLESSINGS.md, studio/schemaTypes/objects/blessingChoice.ts`
-- [ ] **`blessingBudget.ts` validator script** — a dedicated equal-cost/pct-drift checker for
-  blessing content (mirrors the still-open `itemBudget.ts` TODO from ADR-0044); wave 1 verified
-  by a throwaway scratchpad script instead.
-  `↳ context: project-blessings · docs/BLESSINGS.md, src/lib/characterBudget.ts`
+- [x] **`blessingBudget.ts` validator script** (2026-09-09) — dedicated module: `auditBlessingRow`
+  (flat-effects equal-cost check, moved out of blessingRow.ts's inline validator into a reusable/
+  tested function), `auditCapstoneCost`/`CAPSTONE_STAT_BUDGET` (new — capstone stat/conditional
+  effects had no budget validator before this), and `pctEffectValue`/`auditPctDrift`/
+  `auditCapstonePctCost` (the pct-drift checker — takes a real per-level baseline from
+  `computeBaselines`, replacing the throwaway scratchpad approach with a reusable, tested one).
+  `↳ context: project-blessings · src/lib/blessingBudget.ts, docs/BLESSINGS.md`
 - [ ] **Re-derive harness power-tier proxy from real blessing content** — ADR-0040's own ask;
   `scripts/balance/roster.ts` is still the naked-baseline snapshot, unaware of wave 1's trees.
   `↳ context: project-balance-harness · docs/DECISIONS.md ADR-0040, scripts/balance/roster.ts`
