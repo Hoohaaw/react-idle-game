@@ -66,10 +66,12 @@ character sprite art. Older open items below may be stale — trust the mileston
   author a Common baseline), with a wider tolerance for minLevel≤3 "universal fill" items. New
   `PCT_STAT_PRICE` table prices pct effects (first-pass approximation, not modeled equivalence).
   `↳ context: project-items, project-character-budget · src/lib/itemBudget.ts, docs/ITEMS.md`
-- [ ] **5 wave-1 items fail the new item budget** — `rusted-blade`, `battered-cuirass`,
-  `iron-band` (all minLevel-1 starter placeholders, overcosted), `deadfen-treads` (carries a
-  `dodge` bonus that also violates docs/ITEMS.md's "armor slots = health only" rule), `grave-sigil`
-  (healingPower pct priced ~3.6x richer than `hoarfrost-talisman`'s). Retune values in Sanity drafts.
+- [x] **5 wave-1 items fail the new item budget** (2026-09-09) — retuned in Sanity drafts:
+  `rusted-blade` attack 5→2 (rate 2.0/1.5 target), `battered-cuirass` health 20→2/defense 3→1
+  (rate 1.3/0.75), `iron-band` defense 2→1/strength 2→1 (rate 2.0/1.2), `deadfen-treads` health
+  6→8 + dodge bonus removed entirely (rate 1.2/0.7, also fixes the armor-slots-health-only
+  violation), `grave-sigil` healingPower 6%→3% (rate 1.5/1.0 — down from 3.6x `hoarfrost-talisman`'s
+  rate to 1.8x). All 5 now pass `auditItem`.
   `↳ context: project-items · src/lib/itemBudget.ts (auditItem), docs/ITEMS.md`
 
 ## Decisions queue — 2026-07-10 (post balance-tuning + character-budget session)
