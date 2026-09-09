@@ -2472,7 +2472,26 @@ token single-source gesture.
   content-authoring wave, ADR-0050) author all three from the start.
 - No schema change — `itemDef`'s existing `slot`/`statBonuses` shape already supported this;
   the gap was purely in what content had been authored, not a missing capability.
-- `docs/BALANCE.md`'s wave-1 caster/healer verification numbers (+23.2%) are now stale for the
-  weapon slot specifically — a fresh calc-script check against the real `effectiveStats` engine
-  (same method ADR-0044 used) would confirm the new parity, but wasn't run as part of this change;
-  flagged as a natural follow-up rather than blocking the content fix.
+- **Calc-script verification run (2026-09-09), same method as ADR-0044** — full 14-slot Rare
+  loadout at L20, real `effectiveStats`, three real roster characters (Vex Nightcut/physical,
+  Callum Emberveil/caster, Aldric Faithward/healer). Confirms the fix's direction but reveals it
+  **overshoots parity rather than just closing the gap**:
+
+  | | naked | trinket only | trinket + role weapon (isolated) |
+  |---|---|---|---|
+  | Physical (attack) | 72.0 | +0.0% | **+32.2%** (matches ADR-0044's original figure exactly) |
+  | Caster (spellPower) | 73.0 | +11.6% | **+43.4%** |
+  | Healer (healingPower) | 71.0 | +14.5% | **+47.2%** |
+
+  Root cause: physical's trinket lane buffs a *different* stat (health, `wolfsbane-charm`) than
+  its primary (attack via weapon) — the two sources don't stack. Casters/healers' trinket lane was
+  always primary-stat-matching (`docs/ITEMS.md`'s original "trinket = magic/support lane" design),
+  so adding a primary-stat-matching weapon on top makes their two gear sources **stack on the same
+  stat**, while physical's stay split across two stats. The old +23.2%-vs-+32.2% gap is gone, but
+  a new one opened in the other direction (casters/healers now ahead by ~11–15 points).
+- **Not further tuned in this change** — whether to retune the new weapon values down, add a
+  physical-flavored (attack/crit) alternative trinket so physical also gets stat-matching stacking,
+  or accept the overshoot as directionally correct (casters/healers were underpowered, erring
+  toward them is lower-risk than erring toward physical) is an open call for a follow-up, not
+  resolved here. Numbers are real and reproducible — recorded so the next pass starts from
+  evidence, not a guess.

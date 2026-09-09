@@ -59,6 +59,12 @@ character sprite art. Older open items below may be stale — trust the mileston
   chances/rarity weights. `docs/ITEMS.md`'s slot-to-stat lane updated: `weapon` is now
   role-routed (3 itemDefs per tier), not physical-exclusive.
   `↳ context: project-items · docs/ITEMS.md, src/lib/itemBudget.ts`
+- [ ] **Caster/healer itemization now overshoots parity** (found 2026-09-09 verifying the item
+  above) — calc-script check (ADR-0051) shows casters/healers at +43.4%/+47.2% vs. physical's
+  +32.2% (isolated trinket+weapon), because their trinket lane always matched their primary stat
+  while physical's doesn't stack with its weapon. Needs a decision: retune the new weapons down,
+  give physical a stat-matching trinket option too, or accept the overshoot.
+  `↳ context: project-items · docs/DECISIONS.md ADR-0051, docs/ITEMS.md`
 - [x] **Item flavour text** (2026-08-19) — all 23 itemDefs given map-themed one-sentence
   descriptions (Gravemarch: burial-road/shadow/bone; Embercrag: volcanic/fire; Frosthollow:
   glacier/ice), written to Sanity drafts. No mechanical restatement — statBonuses already show
