@@ -2434,3 +2434,64 @@ implementation actually shipped.
   in `group-claim-stage`. Deliberate v1 scope call (spec is silent on it; this is the simplest
   consistent default), not an oversight — revisit if/when transcendence should apply to
   dungeons/raids.
+
+## ADR-0051 — Weapon slot is role-routed, not physical-exclusive
+
+**Date:** 2026-09-09 · **Status:** Accepted (Alex)
+
+**Context.** ADR-0043/0044's slot-to-stat lanes fixed `weapon` = the offense lane, attack, flat —
+without specifying a role. In practice every wave-1 weapon itemDef routed to `attack` only, so
+physical characters got a dedicated, always-scaling offense slot while casters/healers had none —
+their only `spellPower`/`healingPower` source was the shared `trinket` lane, competing with every
+other role's trinket picks (crit, dodge, health). `docs/BALANCE.md`'s wave-1 verification measured
+this directly: physical +32.2% attack from a full loadout vs. casters/healers' +23.2%
+spellPower/healingPower. Tracked as the open "Caster/healer weapon-equivalent itemization" TODO
+line since wave 1 shipped.
+
+**Decision.** `weapon` becomes **role-routed**: every physical weapon itemDef gets a caster
+(`spellPower`) and healer (`healingPower`) counterpart at the same `minLevel`, priced to the same
+`itemBudget.ts` rate (all three stats price at 1 per point, so matching the physical weapon's
+numeric value gives identical budget cost by construction — no new pricing logic needed), and
+dropped from the **same missions at the same `dropChance`/`rarityWeights`** as its physical
+sibling. Not a single omni-stat weapon that grants all three stats at once (rejected — would make
+every weapon flavor-identical across roles and cost 3x the budget per item) — a genuine per-role
+item, same as the existing per-map identity pattern.
+
+Wave-1 retrofit (all 3 live maps, 8 new itemDefs): `withered-femur-wand`/`cracked-prayer-beads`
+(Gravemarch L1, mirroring `rusted-blade`), `grave-iron-scepter`/`bone-reliquary` (Gravemarch L4,
+mirroring `grave-iron-cleaver`), `cinderfang-rod`/`cinderfang-censer` (Embercrag L8, mirroring
+`cinderfang-blade`), `glacial-wand`/`glacial-chalice` (Frosthollow L14, mirroring
+`glacial-greatsword`). Each wired into every mission that already dropped its physical
+counterpart (10 missions total), at identical drop odds — genuine farming parity, not a
+token single-source gesture.
+
+**Consequences.**
+- Closes the "Caster/healer weapon-equivalent itemization" TODO.md line.
+- `docs/ITEMS.md`'s slot-to-stat lane and per-map checklist updated: a map's weapon set is now 3
+  itemDefs per tier (one per role), not 1. Future maps (including the deferred dungeon/raid
+  content-authoring wave, ADR-0050) author all three from the start.
+- No schema change — `itemDef`'s existing `slot`/`statBonuses` shape already supported this;
+  the gap was purely in what content had been authored, not a missing capability.
+- **Calc-script verification run (2026-09-09), same method as ADR-0044** — full 14-slot Rare
+  loadout at L20, real `effectiveStats`, three real roster characters (Vex Nightcut/physical,
+  Callum Emberveil/caster, Aldric Faithward/healer). Confirms the fix's direction but reveals it
+  **overshoots parity rather than just closing the gap**:
+
+  | | naked | trinket only | trinket + role weapon (isolated) |
+  |---|---|---|---|
+  | Physical (attack) | 72.0 | +0.0% | **+32.2%** (matches ADR-0044's original figure exactly) |
+  | Caster (spellPower) | 73.0 | +11.6% | **+43.4%** |
+  | Healer (healingPower) | 71.0 | +14.5% | **+47.2%** |
+
+  Root cause: physical's trinket lane buffs a *different* stat (health, `wolfsbane-charm`) than
+  its primary (attack via weapon) — the two sources don't stack. Casters/healers' trinket lane was
+  always primary-stat-matching (`docs/ITEMS.md`'s original "trinket = magic/support lane" design),
+  so adding a primary-stat-matching weapon on top makes their two gear sources **stack on the same
+  stat**, while physical's stay split across two stats. The old +23.2%-vs-+32.2% gap is gone, but
+  a new one opened in the other direction (casters/healers now ahead by ~11–15 points).
+- **Not further tuned in this change** — whether to retune the new weapon values down, add a
+  physical-flavored (attack/crit) alternative trinket so physical also gets stat-matching stacking,
+  or accept the overshoot as directionally correct (casters/healers were underpowered, erring
+  toward them is lower-risk than erring toward physical) is an open call for a follow-up, not
+  resolved here. Numbers are real and reproducible — recorded so the next pass starts from
+  evidence, not a guess.
