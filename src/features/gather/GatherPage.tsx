@@ -64,6 +64,7 @@ export default function GatherPage() {
       : m.busy === 'gathering' ? 'gather'
       : m.busy === 'mission' ? 'mission'
       : m.busy === 'infirmary' ? 'infirmary'
+      : m.busy === 'group' ? 'group'
       : 'idle'
     return {
       id: m.id,

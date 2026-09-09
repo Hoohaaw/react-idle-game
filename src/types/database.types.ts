@@ -49,6 +49,22 @@ export type Database = {
           },
         ]
       }
+      group_runs: {
+        Row: {
+          player_id: string
+          kind: 'dungeon' | 'raid'
+          def_key: string
+          current_stage_index: number
+          status: 'in_progress' | 'complete'
+          party: string[]
+          stage_started_at: string | null
+          stage_ends_at: string | null
+          last_cleared_at: string | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       infirmary_admissions: {
         Row: {
           admitted_at: string

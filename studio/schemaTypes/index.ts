@@ -19,6 +19,9 @@ import { missionReward } from './objects/missionReward'
 import { acquisitionCondition } from './objects/acquisitionCondition'
 import { acquisition } from './objects/acquisition'
 import { characterLootDrop } from './objects/characterLootDrop'
+import { groupStage } from './objects/groupStage'
+import { dungeonDef } from './dungeonDef'
+import { raidDef } from './raidDef'
 
 export const schemaTypes = [
   characterDef,
@@ -39,6 +42,9 @@ export const schemaTypes = [
   itemStat,
   lootDrop,
   missionReward,
+  groupStage,
+  dungeonDef,
+  raidDef,
   acquisitionCondition,
   acquisition,
   characterLootDrop,

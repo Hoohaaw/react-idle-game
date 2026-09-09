@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchMissionRuns } from '@/services/missions'
 import { fetchOwnedCharacters, fetchGatherCharacterIds, type EquippedItem } from '@/services/playerCharacters'
 import { fetchAdmissions } from '@/services/infirmary'
+import { fetchGroupBusyCharacterIds } from '@/services/groupContent'
 import { fetchItemDefs } from '@/services/items'
 import { fetchCharacterDefs } from '@/services/characters'
 import { effectiveStats, mergeBonuses, type StatValue, type StatGrowth, type BlessingNodeDef } from '@/lib/stats'
@@ -40,6 +41,9 @@ function useGatherCharacterIds() {
 }
 function useInfirmaryAdmissions() {
   return useQuery({ queryKey: ['infirmaryAdmissions'], queryFn: fetchAdmissions })
+}
+function useGroupBusyCharacterIds() {
+  return useQuery({ queryKey: ['groupBusyCharacterIds'], queryFn: fetchGroupBusyCharacterIds })
 }
 function useCharacterDefs() {
   return useQuery({ queryKey: ['characterDefs'], queryFn: fetchCharacterDefs })
@@ -84,7 +88,7 @@ export type RosterMember = {
    *  conditional flavors, an ability isn't trait-context-dependent, so it's resolved once here
    *  and carried as-is into the win-chance estimator's Combatant construction. */
   ability?: CombatAbility
-  busy: 'mission' | 'gathering' | 'infirmary' | null
+  busy: 'mission' | 'gathering' | 'infirmary' | 'group' | null
 }
 
 export function useRoster() {
@@ -94,6 +98,7 @@ export function useRoster() {
   const runs = useMissionRuns()
   const gather = useGatherCharacterIds()
   const admissions = useInfirmaryAdmissions()
+  const groupBusy = useGroupBusyCharacterIds()
 
   const roster = useMemo<RosterMember[]>(() => {
     if (!owned.data || !defs.data || !items.data) return []
@@ -101,6 +106,7 @@ export function useRoster() {
     const onMission = new Set((runs.data ?? []).flatMap((r) => r.party))
     const gathering = new Set(gather.data ?? [])
     const admitted = new Set((admissions.data ?? []).map((a) => a.player_character_id))
+    const inGroupContent = new Set(groupBusy.data ?? [])
 
     return owned.data.flatMap((c) => {
       const def = defByKey.get(c.characterDefId)
@@ -148,10 +154,12 @@ export function useRoster() {
             ? 'mission'
             : admitted.has(c.id)
               ? 'infirmary'
-              : null,
+              : inGroupContent.has(c.id)
+                ? 'group'
+                : null,
       }]
     })
-  }, [owned.data, defs.data, items.data, runs.data, gather.data, admissions.data])
+  }, [owned.data, defs.data, items.data, runs.data, gather.data, admissions.data, groupBusy.data])
 
   return {
     roster,

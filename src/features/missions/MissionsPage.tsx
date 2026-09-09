@@ -149,7 +149,7 @@ export default function MissionsPage() {
     blessings: m.blessings,
     ability: m.ability,
     equipped: m.equipped,
-    busy: m.busy === 'mission' ? 'On mission' : m.busy === 'gathering' ? 'Gathering' : m.busy === 'infirmary' ? 'In Infirmary' : undefined,
+    busy: m.busy === 'mission' ? 'On mission' : m.busy === 'gathering' ? 'Gathering' : m.busy === 'infirmary' ? 'In Infirmary' : m.busy === 'group' ? 'In dungeon/raid' : undefined,
     downed: m.currentHp === 0,
   }))
 

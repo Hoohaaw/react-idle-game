@@ -19,6 +19,7 @@ const BUSY_REASON: Record<NonNullable<RosterMember['busy']>, string> = {
   mission: 'Gear is locked while on a mission.',
   gathering: 'Gear is locked while gathering.',
   infirmary: 'Gear is locked while in the infirmary.',
+  group: 'Gear is locked while in a dungeon or raid.',
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {

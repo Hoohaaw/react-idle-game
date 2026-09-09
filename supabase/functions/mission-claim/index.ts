@@ -34,6 +34,7 @@ import {
 } from '../../../src/lib/blessings.ts'
 import { evaluateCondition, type PlayerAcquisitionState } from '../../../src/lib/acquisition.ts'
 import { fetchAcquisitionCandidates } from '../_shared/characterAcquisition.ts'
+import { rollItemLoot } from '../../../src/lib/loot.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -138,19 +139,6 @@ const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
 }`
 
 const ITEMDEFS_GROQ = `*[_type == "itemDef" && itemKey in $keys]{ itemKey, statBonuses[]{ stat, kind, value } }`
-
-/** Weighted rarity pick (independent per-item roll — ADR-0017). Empty/zero weights → Common. */
-function rollRarity(weights: { rarity: string; weight: number }[] | undefined, rng: () => number): string {
-  const list = (weights ?? []).filter((w) => (w.weight ?? 0) > 0)
-  if (list.length === 0) return 'Common'
-  const total = list.reduce((s, w) => s + w.weight, 0)
-  let r = rng() * total
-  for (const w of list) {
-    r -= w.weight
-    if (r < 0) return w.rarity
-  }
-  return list[list.length - 1].rarity
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -374,17 +362,7 @@ Deno.serve(async (req) => {
       bucket[r.code] = (bucket[r.code] ?? 0) + amount
     }
     const lootRng = makeRng(`${run.id}:loot`)
-    for (const drop of mission.loot ?? []) {
-      if (!drop.itemKey) continue
-      const chance = Math.min(100, (drop.dropChance ?? 0) * (1 + magicFind / 100))
-      if (lootRng() * 100 >= chance) continue // this item didn't drop
-      const rarity = rollRarity(drop.rarityWeights, lootRng)
-      const qMin = drop.quantityMin ?? 1
-      const qMax = Math.max(qMin, drop.quantityMax ?? qMin)
-      let quantity = qMin + Math.floor(lootRng() * (qMax - qMin + 1))
-      if (lootRng() * 100 < luck) quantity += 1
-      loot.push({ item_def_id: drop.itemKey, rarity, quantity })
-    }
+    loot.push(...rollItemLoot(mission.loot ?? [], lootRng, { magicFind, luck }))
     for (const drop of mission.characterLootDrop ?? []) {
       if (!drop.charKey) continue
       if (unlockedCharacters[drop.charKey]) continue // already unlocked — don't waste the roll

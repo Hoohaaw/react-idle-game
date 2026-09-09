@@ -34,6 +34,19 @@ character sprite art. Older open items below may be stale — trust the mileston
   60s→1h, Frosthollow 5min→2h); formula recorded in `docs/MAPS.md` for future maps. Decided via
   design conversation, not a live playtest (none was run this session).
   `↳ context: project-maps · docs/DECISIONS.md ADR-0049, docs/MAPS.md`
+- [ ] **Dungeon/raid content-authoring wave** — ADR-0050 shipped the engine + one reference dungeon
+  ("Emberdeep Vault") + one reference raid ("Duskmaw Reliquary"). More dungeons/raids and their
+  full themed item sets are the deferred next wave, same split as maps (ADR-0034) vs. item
+  authoring (ADR-0043/0044).
+  `↳ context: project-dungeons-raids · docs/DECISIONS.md ADR-0050, studio/schemaTypes/dungeonDef.ts`
+- [ ] **Dungeon/raid server code has zero automated test coverage** — the accepted "no pgTAP/Deno
+  test infra" gap (same one `recruit_character` already carries) now also covers `group_runs` +
+  `start_group_stage`/`claim_group_stage` (new) and four EXISTING RPCs rewritten in the same
+  migration (`equip_item`, `unequip_item`, `choose_blessing`, `respec_blessings`, each gained a
+  `group_runs` busy-check). A bigger, more security-relevant surface than what the spec originally
+  accepted the gap for. Building real Edge Function/SQL test infra would close this — not just for
+  this feature, but for every future one that touches these RPCs.
+  `↳ context: project-dungeons-raids · supabase/migrations/20260908140000_group_runs.sql, docs/superpowers/specs/2026-09-08-dungeons-and-raids-design.md §10`
 - [x] **itemDef authoring session** (ADR-0043/0044, 2026-07-15) — 23 itemDefs live (19 new + 4
   backfilled), all 10 slot types covered, rarity-scaled level-requirement gate shipped, 21
   mission loot tables rewired, `docs/ITEMS.md` written for replicating on future maps.
