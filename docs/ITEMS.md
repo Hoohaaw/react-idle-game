@@ -66,12 +66,16 @@ theming plus which stats its items lean into:
 | Frosthollow | defensive attrition (defense/resistance/dodge/block) | ice = survive-the-grind |
 
 **Slot-to-stat lane, held constant across maps (avoids accidentally re-stacking one stat on
-every slot — see the gotcha below):** `weapon` = the offense lane (attack, flat). `offhand` = the
-defense lane (flat defense, the "shield" slot). `chest` = the one armor piece allowed a small
-defense secondary on top of its health. The other 5 armor slots (head/shoulders/hands/legs/feet)
-carry **health only** — no secondary stat. `ring` = light offense/defense utility (crit, dodge,
-resistance, healthRegen — pick one flavor per ring, don't stack three). `trinket` = the
-magic/support lane (spellPower or healingPower, `pct`) — see the caster/healer gap below.
+every slot — see the gotcha below):** `weapon` = the offense lane, flat, **role-routed**: a
+physical weapon carries `attack`, a caster weapon carries `spellPower`, a healer weapon carries
+`healingPower` — one itemDef per role, same minLevel/rarity band, same drop sources, so every
+role gets an equally-obtainable dedicated offense item instead of physical alone owning the slot
+(fixes the gap noted below — ADR pending). `offhand` = the defense lane (flat defense, the
+"shield" slot). `chest` = the one armor piece allowed a small defense secondary on top of its
+health. The other 5 armor slots (head/shoulders/hands/legs/feet) carry **health only** — no
+secondary stat. `ring` = light offense/defense utility (crit, dodge, resistance, healthRegen —
+pick one flavor per ring, don't stack three). `trinket` = the magic/support lane (spellPower or
+healingPower, `pct`) — a secondary, smaller source for casters/healers on top of their weapon.
 
 **Gotcha this wave hit and fixed:** an early draft put a small `defense` bonus on *every* armor
 slot "for flavor." Because a character wears 14 slots simultaneously, six small per-slot bonuses
@@ -81,11 +85,13 @@ secondary) and leaving the other armor slots to carry only health. **Lesson: bef
 stat values, count how many slots in the FULL 14-slot loadout touch the same stat — a bonus that
 looks small on one item can be large in aggregate.**
 
-**Known gap, not yet fixed:** wave 1's `weapon` lane is attack-only (physical). Casters and
-healers get no dedicated weapon-equivalent item — their only itemization this wave is the
-`trinket` lane (spellPower/healingPower `pct`), which the verification script measured at
-roughly +23% vs. physical's +32%. This is an accepted, scoped-down v1 limitation, not an
-oversight — see the TODO entry ("caster/healer weapon-equivalent itemization").
+**Gap closed (2026-09-09):** wave 1's `weapon` lane was attack-only (physical); casters/healers
+had no dedicated weapon-equivalent item and measured +23% vs. physical's +32% in the wave-1
+verification. Fixed by authoring a caster (`spellPower`) and healer (`healingPower`) weapon
+alongside every existing physical weapon, at the same minLevel and dropped from the same
+missions at the same rates — 8 new itemDefs across the 3 live maps. New maps should author all
+three role-weapons per tier from the start (see the per-map checklist below), not just the
+physical one.
 
 ## Sizing methodology (how wave 1's numbers were derived)
 
@@ -129,9 +135,10 @@ harness's power-tier proxy (ADR-0040) before writing to Sanity:
 
 1. Confirm which slot types already have items (query `*[_type=="itemDef"]{slot}` in drafts) —
    only author new armor-slot items if introducing a genuinely new power step for them.
-2. Author the map's weapon/offhand/chest/ring/trinket set (5 items, or fewer if reusing a
-   previous map's for a slot that doesn't need a fresh entry yet), following the slot-to-stat
-   lane + the map's stat-identity lean.
+2. Author the map's weapon/offhand/chest/ring/trinket set (7 items — `weapon` is 3, one per role:
+   physical/attack, caster/spellPower, healer/healingPower, same minLevel — plus 4 for the other
+   slots, or fewer if reusing a previous map's for a slot that doesn't need a fresh entry yet),
+   following the slot-to-stat lane + the map's stat-identity lean.
 3. Set `minLevel` anchored to the map's expected level band (docs/BALANCE.md), respecting the
    level-cap ceiling (≤36) above.
 4. Run the verification calc script against 2–3 representative characters at the map's expected

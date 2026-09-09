@@ -51,11 +51,14 @@ character sprite art. Older open items below may be stale — trust the mileston
   backfilled), all 10 slot types covered, rarity-scaled level-requirement gate shipped, 21
   mission loot tables rewired, `docs/ITEMS.md` written for replicating on future maps.
   `↳ context: project-items · docs/ITEMS.md, docs/DECISIONS.md ADR-0043/0044`
-- [ ] **Caster/healer weapon-equivalent itemization** — wave 1's `weapon` slot lane is
-  physical-attack only; casters/healers get spellPower/healingPower solely from trinkets,
-  measuring ~23% vs. physical's ~32% in the wave-1 verification. Needs a magic-implement item
-  lane (or a second weapon-slot variant per map) for role parity.
-  `↳ context: project-items · docs/ITEMS.md, src/lib/stats.ts`
+- [x] **Caster/healer weapon-equivalent itemization** (2026-09-09) — added a caster (spellPower)
+  and healer (healingPower) weapon alongside every existing physical weapon: 8 new itemDefs
+  (`withered-femur-wand`/`cracked-prayer-beads` L1, `grave-iron-scepter`/`bone-reliquary` L4,
+  `cinderfang-rod`/`cinderfang-censer` L8, `glacial-wand`/`glacial-chalice` L14), each budget-rate
+  matched to its physical counterpart and wired into the same 10 missions at the same drop
+  chances/rarity weights. `docs/ITEMS.md`'s slot-to-stat lane updated: `weapon` is now
+  role-routed (3 itemDefs per tier), not physical-exclusive.
+  `↳ context: project-items · docs/ITEMS.md, src/lib/itemBudget.ts`
 - [x] **Item flavour text** (2026-08-19) — all 23 itemDefs given map-themed one-sentence
   descriptions (Gravemarch: burial-road/shadow/bone; Embercrag: volcanic/fire; Frosthollow:
   glacier/ice), written to Sanity drafts. No mechanical restatement — statBonuses already show
