@@ -28,7 +28,8 @@ grant select on public.craft_runs to authenticated;
 grant select, insert, update, delete on public.craft_runs to service_role;
 
 -- ---------------------------------------------------------------------------------------------
--- start_craft: spend every reagent and open the run, atomically. p_resource_reagents and
+-- start_craft: open the run first (its primary key is the one-craft-at-a-time mutex, checked
+-- before anything is spent), then spend every reagent, atomically. p_resource_reagents and
 -- p_item_reagents are already resolved by the Edge Function from the authored recipeDef (the
 -- client is never trusted for costs); this function only verifies the player can pay and pays.
 --   p_resource_reagents : [{ code, quantity }]                 -- deducted from profiles.resources
@@ -61,6 +62,17 @@ begin
     raise exception 'start_craft: invalid duration';
   end if;
 
+  -- One craft at a time: the primary key is the mutex. A concurrent second start conflicts
+  -- here and raises before anything is spent; craft_runs is touched by no other RPC, so this
+  -- introduces no lock-order dependency.
+  insert into public.craft_runs (player_id, recipe_def_id, started_at, ends_at)
+  values (p_player, p_recipe_def_id, now(), now() + make_interval(secs => p_duration_seconds))
+  on conflict (player_id) do nothing
+  returning * into v_run;
+  if v_run.player_id is null then
+    raise exception 'start_craft: a craft is already in progress';
+  end if;
+
   -- Item reagents: lock each chosen (item, rarity) stack, verify, deduct (delete at zero) —
   -- the same consume idiom upgrade_items uses (20260709000000_upgrade_items_rpc.sql).
   for v_line in select * from jsonb_array_elements(coalesce(p_item_reagents, '[]'::jsonb))
@@ -88,11 +100,11 @@ begin
     end if;
   end loop;
 
-  -- Lock profile row for one-craft-at-a-time enforcement. Inventory locked above to match
-  -- claim_mission/claim_group_stage lock order and avoid deadlock.
+  -- Lock the wallet (inventory was locked above — same inventory-before-profiles order as
+  -- claim_mission / claim_group_stage). A missing profile must fail loudly, not skip the charge.
   perform 1 from public.profiles where player_id = p_player for update;
-  if exists (select 1 from public.craft_runs where player_id = p_player) then
-    raise exception 'start_craft: a craft is already in progress';
+  if not found then
+    raise exception 'start_craft: no profile';
   end if;
 
   -- Resource reagents: verify then deduct each from the JSONB wallet.
@@ -112,10 +124,6 @@ begin
        set resources = jsonb_set(resources, array[v_code], to_jsonb(v_have - v_need))
      where player_id = p_player;
   end loop;
-
-  insert into public.craft_runs (player_id, recipe_def_id, started_at, ends_at)
-  values (p_player, p_recipe_def_id, now(), now() + make_interval(secs => p_duration_seconds))
-  returning * into v_run;
 
   return v_run;
 end;
