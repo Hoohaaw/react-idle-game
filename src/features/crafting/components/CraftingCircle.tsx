@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { IconSlot } from '@/components/atoms/IconSlot'
 import { PrimaryButton, SecondaryButton } from '@/components/atoms/Button'
+import { RarityBadge } from '@/components/atoms/RarityBadge'
 import { RARITY_STYLES } from '@/lib/rarity'
 import { RESOURCE_COLOR } from '@/lib/resources'
 import { formatRemaining } from '@/lib/time'
@@ -12,7 +13,7 @@ import { RarityPicker } from './RarityPicker'
 // renders state and raises intents (pick a rarity, craft, claim, clear).
 const SLOT_COUNT = 6
 
-export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRarity, inProgress, remainingMs, canCraft, pending, error, onCraft, onClaim, onClear }: {
+export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRarity, inProgress, remainingMs, canCraft, pending, error, onCraft, onClaim, onClear, claimed }: {
   reagents: ResolvedReagent[]
   resultName: string | null
   rarityChoices: ItemRarityChoice[]
@@ -25,6 +26,7 @@ export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRari
   onCraft: () => void
   onClaim: () => void
   onClear: () => void
+  claimed: { name: string; rarity: string } | null
 }) {
   const [openPicker, setOpenPicker] = useState<number | null>(null)
   const SIZE = 300, RADIUS = 110, SLOT = 58, CENTER = 88
@@ -60,7 +62,7 @@ export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRari
         })}
 
         <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>
-          <CenterSlot size={CENTER} label={inProgress ? (ready ? 'Ready' : formatRemaining(remainingMs)) : (resultName ?? 'Result')} />
+          <CenterSlot size={CENTER} label={inProgress ? (ready ? 'Ready' : formatRemaining(remainingMs)) : (!resultName && claimed ? 'Crafted' : (resultName ?? 'Result'))} />
         </div>
       </div>
 
@@ -70,6 +72,11 @@ export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRari
           ? <PrimaryButton disabled={!ready || pending} onClick={onClaim}>{pending ? 'Claiming…' : ready ? 'Claim' : 'Crafting…'}</PrimaryButton>
           : <PrimaryButton disabled={!canCraft || pending} onClick={onCraft}>{pending ? 'Starting…' : 'Craft'}</PrimaryButton>}
       </div>
+      {!inProgress && claimed && !resultName && (
+        <p style={{ fontSize: 12, textAlign: 'center', color: 'var(--color-text-primary)' }}>
+          <RarityBadge rarity={claimed.rarity} size="sm" /> {claimed.name}
+        </p>
+      )}
       {error && <p style={{ color: '#e0635c', fontSize: 11, textAlign: 'center' }}>{error}</p>}
     </div>
   )

@@ -16,10 +16,6 @@ import { RecipeBook } from './components/RecipeBook'
 // now — mobile is a deferred follow-up.
 export default function CraftingPage() {
   const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [])
 
   const profile = useProfile()
   const inventory = useInventory()
@@ -29,9 +25,18 @@ export default function CraftingPage() {
   const startCraft = useStartCraft()
   const claimCraft = useClaimCraft()
 
+  // The 1 Hz clock only needs to run while a craft is in progress (drives the countdown label).
+  const hasRun = Boolean(run.data)
+  useEffect(() => {
+    if (!hasRun) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [hasRun])
+
   const [bookOpen, setBookOpen] = useState(true)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [picks, setPicks] = useState<{ key: string; choices: ItemRarityChoice[] }>({ key: '', choices: [] })
+  const [claimed, setClaimed] = useState<{ name: string; rarity: string } | null>(null)
 
   // A running craft owns the selection.
   const activeKey = run.data?.recipe_def_id ?? selectedKey
@@ -80,9 +85,10 @@ export default function CraftingPage() {
             canCraft={Boolean(recipe) && canAfford(resolved)}
             pending={startCraft.isPending || claimCraft.isPending}
             error={mutationError?.message ?? null}
-            onCraft={() => { if (recipe) startCraft.mutate({ recipeDefId: recipe.recipeKey, choices }) }}
-            onClaim={() => { if (run.data) claimCraft.mutate(run.data.recipe_def_id, { onSuccess: clear }) }}
+            onCraft={() => { if (recipe) { setClaimed(null); startCraft.mutate({ recipeDefId: recipe.recipeKey, choices }) } }}
+            onClaim={() => { if (run.data) claimCraft.mutate(run.data.recipe_def_id, { onSuccess: (res) => { clear(); setClaimed({ name: itemDefs.data?.[res.itemDefId]?.name ?? res.itemDefId, rarity: res.rarity }) } }) }}
             onClear={clear}
+            claimed={claimed}
           />
         </div>
 
@@ -99,7 +105,7 @@ export default function CraftingPage() {
               <RecipeBook
                 recipes={recipes.data ?? []}
                 selectedKey={activeKey}
-                onSelect={(key) => { if (!inProgress) setSelectedKey(key) }}
+                onSelect={(key) => { if (!inProgress) { setSelectedKey(key); startCraft.reset(); setClaimed(null) } }}
                 onClose={() => setBookOpen(false)}
               />
             </motion.div>
