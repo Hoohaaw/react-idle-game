@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { SecondaryButton } from '@/components/atoms/Button'
-import { RECIPES } from '@/lib/mockRecipes'
+import { useRecipes } from './hooks'
 import type { Item } from '@/types/item'
 import { CraftingCircle } from './components/CraftingCircle'
 import { CraftingInventory } from './components/CraftingInventory'
@@ -17,6 +17,8 @@ const COUNT = 6 // reagent slots
 export default function CraftingPage() {
   const [bookOpen, setBookOpen] = useState(true)
   const [reagents, setReagents] = useState<(Item | null)[]>(Array(COUNT).fill(null))
+  const recipes = useRecipes()
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
 
   const place = (item: Item) => setReagents(prev => {
     const idx = prev.findIndex(r => r === null)
@@ -46,7 +48,7 @@ export default function CraftingPage() {
               transition={{ duration: 0.17, ease: 'easeOut' }}
               style={{ gridColumn: '3', justifySelf: 'start', width: 280 }}
             >
-              <RecipeBook recipes={RECIPES} onClose={() => setBookOpen(false)} />
+              <RecipeBook recipes={recipes.data ?? []} selectedKey={selectedKey} onSelect={setSelectedKey} onClose={() => setBookOpen(false)} />
             </motion.div>
           ) : (
             <motion.div key="opener" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.11 }} style={{ gridColumn: '3', justifySelf: 'start' }}>
