@@ -31,7 +31,7 @@ export default function CraftingPage() {
 
   const [bookOpen, setBookOpen] = useState(true)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
-  const [choices, setChoices] = useState<ItemRarityChoice[]>([])
+  const [picks, setPicks] = useState<{ key: string; choices: ItemRarityChoice[] }>({ key: '', choices: [] })
 
   // A running craft owns the selection.
   const activeKey = run.data?.recipe_def_id ?? selectedKey
@@ -42,25 +42,29 @@ export default function CraftingPage() {
   const stacks = useMemo(() => inventory.data ?? [], [inventory.data])
   const resources = profile.data?.resources ?? {}
 
-  // Default each item line's rarity when a recipe is picked (or the inventory changes).
-  useEffect(() => {
-    if (!recipe || inProgress) return
-    // Syncing editable local state (rarity choices) to a default derived from external data
-    // (recipe/inventory); the player can then override via onPickRarity.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setChoices(recipe.reagents.flatMap((line, index) => {
-      if (line.kind !== 'item') return []
-      const rarity = defaultRarityChoice(line, stacks)
-      return rarity ? [{ reagentIndex: index, rarity }] : []
-    }))
-  }, [recipe, stacks, inProgress])
+  // Defaults are pure: recomputed from the recipe + current stacks on every render (cheap: ≤ 6 lines).
+  const defaults: ItemRarityChoice[] = recipe
+    ? recipe.reagents.flatMap((line, index) => {
+        if (line.kind !== 'item') return []
+        const rarity = defaultRarityChoice(line, stacks)
+        return rarity ? [{ reagentIndex: index, rarity }] : []
+      })
+    : []
+  // A manual pick only applies to the recipe it was made for; it wins over the default for its line.
+  const userChoices = recipe && picks.key === recipe.recipeKey ? picks.choices : []
+  const choices = defaults.map((d) => userChoices.find((c) => c.reagentIndex === d.reagentIndex) ?? d)
 
   const resolved = recipe ? resolveReagents(recipe.reagents, resources, stacks, choices) : []
-  const pickRarity = (reagentIndex: number, rarity: string) =>
-    setChoices((prev) => [...prev.filter((c) => c.reagentIndex !== reagentIndex), { reagentIndex, rarity }])
-  const clear = () => { setSelectedKey(null); setChoices([]) }
+  const pickRarity = (reagentIndex: number, rarity: string) => {
+    if (!recipe) return
+    setPicks((prev) => {
+      const kept = prev.key === recipe.recipeKey ? prev.choices.filter((c) => c.reagentIndex !== reagentIndex) : []
+      return { key: recipe.recipeKey, choices: [...kept, { reagentIndex, rarity }] }
+    })
+  }
+  const clear = () => { setSelectedKey(null); setPicks({ key: '', choices: [] }); startCraft.reset(); claimCraft.reset() }
 
-  const mutationError = (startCraft.error ?? claimCraft.error) as Error | null
+  const mutationError = inProgress ? claimCraft.error : startCraft.error
 
   return (
     <div>
