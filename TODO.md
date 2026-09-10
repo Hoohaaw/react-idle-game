@@ -170,9 +170,11 @@ character sprite art. Older open items below may be stale — trust the mileston
 
 ## Content (Sanity)
 - [x] Mission / item / loot-table schemas — `missionDef`/`itemDef`/`lootDrop` real and deployed.
-- [ ] **Recipe schema** — never built. Crafting still runs on `src/lib/mockRecipes.ts`; no
-  `recipeDef` in `studio/schemaTypes/`. Split out from the old combined TODO line 2026-08-20.
-  `↳ context: project-design-decisions (loot/items), project-crafting · studio/schemaTypes/, src/lib/mockRecipes.ts`
+- [x] **Recipe schema** (ADR-0052) — `recipeDef`/`reagentLine` Sanity types, `craft_runs` +
+  `start_craft`/`claim_craft`, `craft-start`/`craft-claim` Edge Functions, page migrated to
+  `src/features/crafting/`, mocks deleted, 3 reference recipes authored. `infuse` recipes and
+  discovery are separate follow-ups (spec §3).
+  `↳ context: project-crafting · docs/DECISIONS.md ADR-0052, docs/superpowers/specs/2026-09-09-crafting-create-recipes-design.md`
 - [ ] **Roster size target** — 19 `characterDef` docs live (matches ADR-0046's "all 19
   characters"). Unclear whether that's the full intended roster or more are planned — no target
   number found in docs/CHARACTERS.md or elsewhere. Needs a decision before "author the rest" is

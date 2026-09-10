@@ -2495,3 +2495,41 @@ token single-source gesture.
   toward them is lower-risk than erring toward physical) is an open call for a follow-up, not
   resolved here. Numbers are real and reproducible — recorded so the next pass starts from
   evidence, not a guess.
+
+## ADR-0052 — Crafting v1: `create` recipes as timed, server-authoritative crafts
+
+**Date:** 2026-09-10 · **Status:** Accepted (Alex)
+
+**Context.** Crafting was a UI mockup over `src/lib/mockRecipes.ts` — no `recipeDef` type, no
+runtime table, no Edge Function; the "Craft" button did nothing. The mock's `Recipe` type bundled
+two mechanically different ideas (`create`: reagents → a new item; `infuse`: modify a specific
+owned item). Design worked out in
+`docs/superpowers/specs/2026-09-09-crafting-create-recipes-design.md`.
+
+**Decision.**
+- **`create` only, `infuse` deferred.** `player_inventory` stacks by `(item_def_id, rarity)` with
+  no per-instance slot, so `infuse` needs an inventory-model change this ADR doesn't make.
+- **Recipes are pure content.** `recipeDef`'s `result` and every `reagentLine.item` are Sanity
+  references to `itemDef`; resource reagents name the resource registry. A new item or recipe is
+  authoring, never code (ADR-0004). `rarityWeight` was promoted from `lootDrop`'s inline member to
+  a shared object so both use one definition.
+- **Reagents: resources + items; item rarity is the player's pick at craft time.** Never authored,
+  never fixed to Common — the client sends `{ reagentIndex, rarity }` choices, the server resolves
+  costs from Sanity and only trusts the client for that choice.
+- **Timed, like missions; spent at start.** `craft-start` deducts every reagent atomically
+  (`start_craft`, all-or-nothing) and opens a `craft_runs` row with `ends_at`; `craft-claim`
+  rolls the result's rarity (`rollRarity`, seeded per run so a retry can't re-roll) and grants
+  one copy (`claim_craft`, atomic conditional delete = the double-claim guard).
+- **One craft at a time**, structurally: `craft_runs.player_id` is the primary key.
+- **No discovery in v1** — every recipe is visible.
+- **Page migrated** to `src/features/crafting/` with its three organisms (single consumer each);
+  the recipe book drives the circle (select → slots fill).
+
+**Consequences.**
+- Closes the "Recipe schema" TODO line. `src/lib/mockRecipes.ts`, `src/lib/mockInventory.ts`,
+  `src/types/recipe.ts` deleted.
+- No automated coverage for `craft-start`/`craft-claim` (accepted Edge Function gap), but
+  `src/test/migration-policy.test.ts` verifies the new table/RPC grants, and `src/lib/crafting.ts`
+  + `src/services/crafting.ts` are unit-tested.
+- Follow-ups: `infuse` (own spec), recipe discovery (could reuse ADR-0048's condition types),
+  more recipes (content wave).
