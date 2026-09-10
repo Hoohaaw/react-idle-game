@@ -1,41 +1,85 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { SecondaryButton } from '@/components/atoms/Button'
-import { useRecipes } from './hooks'
 import { useInventory } from '@/hooks/useInventory'
 import { useItemDefs } from '@/hooks/useRoster'
 import { useProfile } from '@/hooks/useProfile'
-import type { Item } from '@/types/item'
+import { resolveReagents, canAfford, defaultRarityChoice, type ItemRarityChoice } from '@/lib/crafting'
+import { useRecipes, useCraftRun, useStartCraft, useClaimCraft } from './hooks'
 import { CraftingCircle } from './components/CraftingCircle'
 import { CraftingInventory } from './components/CraftingInventory'
 import { RecipeBook } from './components/RecipeBook'
 
-const COUNT = 6 // reagent slots
-
-// The crafting circle + recipe book sit in a row at the top; the inventory spans the full
-// width below them. Reagent state lives here so the circle and the (separate, wider)
-// inventory share it. Mock data — recipe matching + crafting wired to the backend later
-// (server-authoritative). See [[project-crafting]]. Desktop-only layout for now — mobile is
-// a deferred follow-up (see [[project-mobile-responsive]]).
+// Crafting (create recipes): pick a recipe → its reagents fill the circle → Craft spends them and
+// starts the timer → Claim after ends_at grants the rolled result. One craft at a time (the
+// craft_runs row); while one is running the page locks to that recipe. Desktop-only layout for
+// now — mobile is a deferred follow-up.
 export default function CraftingPage() {
-  const [bookOpen, setBookOpen] = useState(true)
-  const [reagents, setReagents] = useState<(Item | null)[]>(Array(COUNT).fill(null))
-  const recipes = useRecipes()
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
   const profile = useProfile()
   const inventory = useInventory()
   const itemDefs = useItemDefs()
+  const recipes = useRecipes()
+  const run = useCraftRun()
+  const startCraft = useStartCraft()
+  const claimCraft = useClaimCraft()
 
-  const removeAt = (i: number) => setReagents(prev => prev.map((r, idx) => idx === i ? null : r))
-  const clearAll = () => setReagents(Array(COUNT).fill(null))
+  const [bookOpen, setBookOpen] = useState(true)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [choices, setChoices] = useState<ItemRarityChoice[]>([])
+
+  // A running craft owns the selection.
+  const activeKey = run.data?.recipe_def_id ?? selectedKey
+  const recipe = recipes.data?.find((r) => r.recipeKey === activeKey) ?? null
+  const inProgress = Boolean(run.data)
+  const remainingMs = run.data ? new Date(run.data.ends_at).getTime() - now : 0
+
+  const stacks = useMemo(() => inventory.data ?? [], [inventory.data])
+  const resources = profile.data?.resources ?? {}
+
+  // Default each item line's rarity when a recipe is picked (or the inventory changes).
+  useEffect(() => {
+    if (!recipe || inProgress) return
+    // Syncing editable local state (rarity choices) to a default derived from external data
+    // (recipe/inventory); the player can then override via onPickRarity.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setChoices(recipe.reagents.flatMap((line, index) => {
+      if (line.kind !== 'item') return []
+      const rarity = defaultRarityChoice(line, stacks)
+      return rarity ? [{ reagentIndex: index, rarity }] : []
+    }))
+  }, [recipe, stacks, inProgress])
+
+  const resolved = recipe ? resolveReagents(recipe.reagents, resources, stacks, choices) : []
+  const pickRarity = (reagentIndex: number, rarity: string) =>
+    setChoices((prev) => [...prev.filter((c) => c.reagentIndex !== reagentIndex), { reagentIndex, rarity }])
+  const clear = () => { setSelectedKey(null); setChoices([]) }
+
+  const mutationError = (startCraft.error ?? claimCraft.error) as Error | null
 
   return (
     <div>
-      {/* Crafting circle + recipe book — grouped in a row. Grid (1fr auto 1fr) centers the
-          circle and pins the fixed-width book in the right column. */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, alignItems: 'start', marginBottom: 32 }}>
         <div style={{ gridColumn: '2' }}>
-          <CraftingCircle reagents={reagents} onRemoveAt={removeAt} onClear={clearAll} />
+          <CraftingCircle
+            reagents={resolved}
+            resultName={recipe?.result.name ?? null}
+            rarityChoices={choices}
+            onPickRarity={pickRarity}
+            inProgress={inProgress}
+            remainingMs={remainingMs}
+            canCraft={Boolean(recipe) && canAfford(resolved)}
+            pending={startCraft.isPending || claimCraft.isPending}
+            error={mutationError?.message ?? null}
+            onCraft={() => { if (recipe) startCraft.mutate({ recipeDefId: recipe.recipeKey, choices }) }}
+            onClaim={() => { if (run.data) claimCraft.mutate(run.data.recipe_def_id, { onSuccess: clear }) }}
+            onClear={clear}
+          />
         </div>
 
         <AnimatePresence mode="wait" initial={false}>
@@ -48,7 +92,12 @@ export default function CraftingPage() {
               transition={{ duration: 0.17, ease: 'easeOut' }}
               style={{ gridColumn: '3', justifySelf: 'start', width: 280 }}
             >
-              <RecipeBook recipes={recipes.data ?? []} selectedKey={selectedKey} onSelect={setSelectedKey} onClose={() => setBookOpen(false)} />
+              <RecipeBook
+                recipes={recipes.data ?? []}
+                selectedKey={activeKey}
+                onSelect={(key) => { if (!inProgress) setSelectedKey(key) }}
+                onClose={() => setBookOpen(false)}
+              />
             </motion.div>
           ) : (
             <motion.div key="opener" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.11 }} style={{ gridColumn: '3', justifySelf: 'start' }}>
@@ -58,8 +107,7 @@ export default function CraftingPage() {
         </AnimatePresence>
       </div>
 
-      {/* Inventory — full width below the circle + book */}
-      <CraftingInventory resources={profile.data?.resources ?? {}} stacks={inventory.data ?? []} itemDefs={itemDefs.data ?? {}} />
+      <CraftingInventory resources={resources} stacks={stacks} itemDefs={itemDefs.data ?? {}} />
     </div>
   )
 }
