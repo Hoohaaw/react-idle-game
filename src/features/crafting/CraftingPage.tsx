@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { SecondaryButton } from '@/components/atoms/Button'
 import { useRecipes } from './hooks'
+import { useInventory } from '@/hooks/useInventory'
+import { useItemDefs } from '@/hooks/useRoster'
+import { useProfile } from '@/hooks/useProfile'
 import type { Item } from '@/types/item'
 import { CraftingCircle } from './components/CraftingCircle'
 import { CraftingInventory } from './components/CraftingInventory'
@@ -19,15 +22,12 @@ export default function CraftingPage() {
   const [reagents, setReagents] = useState<(Item | null)[]>(Array(COUNT).fill(null))
   const recipes = useRecipes()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const profile = useProfile()
+  const inventory = useInventory()
+  const itemDefs = useItemDefs()
 
-  const place = (item: Item) => setReagents(prev => {
-    const idx = prev.findIndex(r => r === null)
-    if (idx === -1) return prev
-    const next = [...prev]; next[idx] = item; return next
-  })
   const removeAt = (i: number) => setReagents(prev => prev.map((r, idx) => idx === i ? null : r))
   const clearAll = () => setReagents(Array(COUNT).fill(null))
-  const filled = reagents.filter(Boolean).length
 
   return (
     <div>
@@ -59,7 +59,7 @@ export default function CraftingPage() {
       </div>
 
       {/* Inventory — full width below the circle + book */}
-      <CraftingInventory onPlace={place} filled={filled} count={COUNT} />
+      <CraftingInventory resources={profile.data?.resources ?? {}} stacks={inventory.data ?? []} itemDefs={itemDefs.data ?? {}} />
     </div>
   )
 }
