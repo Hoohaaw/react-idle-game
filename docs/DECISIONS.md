@@ -2495,3 +2495,22 @@ token single-source gesture.
   toward them is lower-risk than erring toward physical) is an open call for a follow-up, not
   resolved here. Numbers are real and reproducible — recorded so the next pass starts from
   evidence, not a guess.
+
+**Amendment (2026-09-10) — retuned the magic weapons down (Alex's call, per the 2026-09-09 audit's
+recommendation).** The table above decomposes exactly: every role weapon contributed the identical
++23.2 flat at the anchor (value 16 × RARITY_MULT.Rare 1.45), so the three weapons were at parity in
+isolation (+31.8 / +32.7 / +32.2%) — the overshoot was entirely the primary-stat-matching trinket
+stacking on top (+11.6 caster, +14.5 healer). Retune: caster/healer weapon values ≈ 0.6× their
+physical sibling at every tier — `2/6/15/16` → **`1/4/9/12`** across the L1/L4/L8/L14 pairs.
+Predicted at the same anchor (same formula that reproduced the measured numbers): caster
+**+35.4%**, healer **+39.0%**, physical unchanged at +32.2%. Overshoot shrinks from +11/+15 points
+to +3/+7. The residual is a hard constraint, not a choice: exact parity wanted ~10 (caster) / ~9
+(healer) at L14, but `itemBudget.ts`'s weapon-slot floor (rate ≥ 0.825/level → value ≥ 11.55 at
+minLevel 14) rejects anything under 12 — the slot's budget rate was anchored to *physical* wave-1
+medians and doesn't know a magic weapon is meant to be lighter. Options if the residual ever
+matters: a role-aware weapon budget rate in `itemBudget.ts`, or trimming the L12 healer trinket
+(`hoarfrost-talisman` 10%) which is the healer-side driver. Lower tiers are noisier still
+(the L1 pair rounds to 1 either way; the healer's only sub-L12 trinket is `grave-sigil` at 3%, so
+early healers now sit slightly *under* physical) — accepted as within this game's tolerances
+(BALANCE.md bands are 15-point buckets). `docs/ITEMS.md` now carries the 0.6× rule for future
+maps.
