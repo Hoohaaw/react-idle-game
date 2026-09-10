@@ -1,7 +1,7 @@
-import { RARITY_STYLES } from '../../lib/rarity'
-import { IconSlot } from '../atoms/IconSlot'
-import { PrimaryButton, SecondaryButton } from '../atoms/Button'
-import type { Item } from '../../types/item'
+import { RARITY_STYLES } from '@/lib/rarity'
+import { IconSlot } from '@/components/atoms/IconSlot'
+import { PrimaryButton, SecondaryButton } from '@/components/atoms/Button'
+import type { Item } from '@/types/item'
 
 // Six reagent slots arranged on a ring around a central result slot, plus the Clear/Craft
 // actions. Controlled — the reagent state lives in the page so the inventory can be laid

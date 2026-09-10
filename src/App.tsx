@@ -19,7 +19,7 @@ const GroupContentPage = lazy(() => import('@/features/groupContent').then((m) =
 const UpgradingPage = lazy(() => import('./pages/UpgradingPage'))
 const ShopPage = lazy(() => import('./pages/ShopPage'))
 const InventoryPage = lazy(() => import('./pages/InventoryPage'))
-const CraftingPage = lazy(() => import('./pages/CraftingPage'))
+const CraftingPage = lazy(() => import('./features/crafting').then((m) => ({ default: m.CraftingPage })))
 const UpgradesPage = lazy(() => import('./pages/UpgradesPage'))
 const TranscendencePage = lazy(() => import('./pages/TranscendencePage'))
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))

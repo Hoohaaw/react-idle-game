@@ -1,7 +1,7 @@
-import { ItemTile } from '../molecules/ItemTile'
-import { ItemTooltip } from './ItemTooltip'
-import { MOCK_INVENTORY } from '../../lib/mockInventory'
-import type { Item } from '../../types/item'
+import { ItemTile } from '@/components/molecules/ItemTile'
+import { ItemTooltip } from '@/components/organisms/ItemTooltip'
+import { MOCK_INVENTORY } from '@/lib/mockInventory'
+import type { Item } from '@/types/item'
 
 // The player's inventory laid out as a wide, auto-filling grid. Clicking an item adds it to
 // the crafting circle's next open reagent slot. Mock data for now. See [[project-crafting]].

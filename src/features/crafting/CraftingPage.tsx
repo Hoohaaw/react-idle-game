@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CraftingCircle } from '../components/organisms/CraftingCircle'
-import { CraftingInventory } from '../components/organisms/CraftingInventory'
-import { RecipeBook } from '../components/organisms/RecipeBook'
-import { SecondaryButton } from '../components/atoms/Button'
-import { RECIPES } from '../lib/mockRecipes'
-import type { Item } from '../types/item'
+import { SecondaryButton } from '@/components/atoms/Button'
+import { RECIPES } from '@/lib/mockRecipes'
+import type { Item } from '@/types/item'
+import { CraftingCircle } from './components/CraftingCircle'
+import { CraftingInventory } from './components/CraftingInventory'
+import { RecipeBook } from './components/RecipeBook'
 
 const COUNT = 6 // reagent slots
 

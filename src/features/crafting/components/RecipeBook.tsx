@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { IconButton } from '../atoms/IconButton'
-import { IconSlot } from '../atoms/IconSlot'
-import { SegmentedControl } from '../atoms/SegmentedControl'
-import { ResourceTooltip } from './ResourceTooltip'
-import { RESOURCE_COLOR } from '../../lib/resources'
-import type { Recipe } from '../../types/recipe'
+import { IconButton } from '@/components/atoms/IconButton'
+import { IconSlot } from '@/components/atoms/IconSlot'
+import { SegmentedControl } from '@/components/atoms/SegmentedControl'
+import { ResourceTooltip } from '@/components/organisms/ResourceTooltip'
+import { RESOURCE_COLOR } from '@/lib/resources'
+import type { Recipe } from '@/types/recipe'
 
 // The recipe collection panel. Only discovered recipes are shown — locked ones stay hidden
 // until found in-game. An All / Infusions / Creations filter narrows by kind. See
