@@ -61,31 +61,6 @@ begin
     raise exception 'start_craft: invalid duration';
   end if;
 
-  -- One craft at a time. Lock the profile row first so two concurrent starts serialize here
-  -- (and so the resource deductions below can't race a claim_mission payout).
-  perform 1 from public.profiles where player_id = p_player for update;
-  if exists (select 1 from public.craft_runs where player_id = p_player) then
-    raise exception 'start_craft: a craft is already in progress';
-  end if;
-
-  -- Resource reagents: verify then deduct each from the JSONB wallet.
-  for v_line in select * from jsonb_array_elements(coalesce(p_resource_reagents, '[]'::jsonb))
-  loop
-    v_code := v_line->>'code';
-    v_need := (v_line->>'quantity')::integer;
-    if v_code is null or v_need is null or v_need < 1 then
-      raise exception 'start_craft: invalid resource reagent';
-    end if;
-    select coalesce((resources->>v_code)::numeric, 0) into v_have
-      from public.profiles where player_id = p_player;
-    if v_have < v_need then
-      raise exception 'start_craft: not enough % (have %, need %)', v_code, v_have, v_need;
-    end if;
-    update public.profiles
-       set resources = jsonb_set(resources, array[v_code], to_jsonb(v_have - v_need))
-     where player_id = p_player;
-  end loop;
-
   -- Item reagents: lock each chosen (item, rarity) stack, verify, deduct (delete at zero) —
   -- the same consume idiom upgrade_items uses (20260709000000_upgrade_items_rpc.sql).
   for v_line in select * from jsonb_array_elements(coalesce(p_item_reagents, '[]'::jsonb))
@@ -111,6 +86,31 @@ begin
          set quantity = quantity - v_need
        where player_id = p_player and item_def_id = v_item and rarity = v_rarity;
     end if;
+  end loop;
+
+  -- Lock profile row for one-craft-at-a-time enforcement. Inventory locked above to match
+  -- claim_mission/claim_group_stage lock order and avoid deadlock.
+  perform 1 from public.profiles where player_id = p_player for update;
+  if exists (select 1 from public.craft_runs where player_id = p_player) then
+    raise exception 'start_craft: a craft is already in progress';
+  end if;
+
+  -- Resource reagents: verify then deduct each from the JSONB wallet.
+  for v_line in select * from jsonb_array_elements(coalesce(p_resource_reagents, '[]'::jsonb))
+  loop
+    v_code := v_line->>'code';
+    v_need := (v_line->>'quantity')::integer;
+    if v_code is null or v_need is null or v_need < 1 then
+      raise exception 'start_craft: invalid resource reagent';
+    end if;
+    select coalesce((resources->>v_code)::numeric, 0) into v_have
+      from public.profiles where player_id = p_player;
+    if v_have < v_need then
+      raise exception 'start_craft: not enough % (have %, need %)', v_code, v_have, v_need;
+    end if;
+    update public.profiles
+       set resources = jsonb_set(resources, array[v_code], to_jsonb(v_have - v_need))
+     where player_id = p_player;
   end loop;
 
   insert into public.craft_runs (player_id, recipe_def_id, started_at, ends_at)
