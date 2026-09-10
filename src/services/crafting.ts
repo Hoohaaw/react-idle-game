@@ -50,14 +50,19 @@ export async function fetchRecipes(): Promise<RecipeView[]> {
     if (!r.result?.itemKey) return [] // dangling result reference — unauthorable, skip
     const reagentNames: Record<string, string> = {}
     const reagents: ReagentLine[] = []
+    // Invariant: the client's reagents[] must be index-identical to the authored array because
+    // craft-start addresses item-rarity choices by authored index — never drop a single line. A
+    // malformed line (resource line without `resource`, item line without a resolved
+    // `item.itemKey`, or an unknown `kind`) drops the whole recipe instead.
     for (const line of r.reagents ?? []) {
       if (line.kind === 'resource' && line.resource) {
         reagents.push({ kind: 'resource', resource: line.resource, quantity: line.quantity })
       } else if (line.kind === 'item' && line.item?.itemKey) {
         reagents.push({ kind: 'item', itemKey: line.item.itemKey, quantity: line.quantity })
         reagentNames[line.item.itemKey] = line.item.name ?? line.item.itemKey
+      } else {
+        return [] // malformed reagent line — drop the whole recipe, not just the line
       }
-      // a line missing its resource/item is an authoring error — dropped rather than crashing the page
     }
     return [{
       recipeKey: r.recipeKey,

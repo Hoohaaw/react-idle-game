@@ -7,12 +7,12 @@ vi.mock('@/lib/supabase', () => ({
 
 import { sanity } from './sanity'
 import { supabase } from '@/lib/supabase'
-import { fetchRecipes, fetchCraftRun, startCraft } from './crafting'
+import { fetchRecipes, fetchCraftRun, startCraft, claimCraft } from './crafting'
 
 describe('fetchRecipes', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('maps a raw recipeDef into RecipeView, normalising reagent lines and dropping broken refs', async () => {
+  it('drops a recipe entirely when any reagent line is malformed, keeps a well-formed one', async () => {
     vi.mocked(sanity.fetch).mockResolvedValue([
       {
         recipeKey: 'forge-rusted-blade',
@@ -24,7 +24,19 @@ describe('fetchRecipes', () => {
         reagents: [
           { kind: 'resource', resource: 'Iron', quantity: 3, item: null },
           { kind: 'item', resource: null, quantity: 1, item: { itemKey: 'iron-band', name: 'Iron Band', slot: 'ring' } },
-          { kind: 'item', resource: null, quantity: 1, item: null }, // dangling ref → dropped
+          { kind: 'item', resource: null, quantity: 1, item: null }, // dangling ref → whole recipe dropped
+        ],
+      },
+      {
+        recipeKey: 'forge-iron-ring',
+        name: 'Forge an Iron Ring',
+        description: 'y',
+        durationSeconds: 120,
+        result: { itemKey: 'iron-ring', name: 'Iron Ring', slot: 'ring' },
+        resultRarityWeights: [{ rarity: 'Common', weight: 3 }],
+        reagents: [
+          { kind: 'resource', resource: 'Iron', quantity: 2, item: null },
+          { kind: 'item', resource: null, quantity: 1, item: { itemKey: 'iron-band', name: 'Iron Band', slot: 'ring' } },
         ],
       },
       { recipeKey: 'broken', name: 'No result', durationSeconds: 1, result: null, reagents: [] }, // no result → dropped
@@ -33,14 +45,14 @@ describe('fetchRecipes', () => {
     const result = await fetchRecipes()
 
     expect(result).toEqual([{
-      recipeKey: 'forge-rusted-blade',
-      name: 'Forge a Rusted Blade',
-      description: 'x',
-      durationSeconds: 300,
-      result: { itemKey: 'rusted-blade', name: 'Rusted Blade', slot: 'weapon' },
+      recipeKey: 'forge-iron-ring',
+      name: 'Forge an Iron Ring',
+      description: 'y',
+      durationSeconds: 120,
+      result: { itemKey: 'iron-ring', name: 'Iron Ring', slot: 'ring' },
       resultRarityWeights: [{ rarity: 'Common', weight: 3 }],
       reagents: [
-        { kind: 'resource', resource: 'Iron', quantity: 3 },
+        { kind: 'resource', resource: 'Iron', quantity: 2 },
         { kind: 'item', itemKey: 'iron-band', quantity: 1 },
       ],
       reagentNames: { 'iron-band': 'Iron Band' },
@@ -70,5 +82,16 @@ describe('startCraft', () => {
       body: { recipeDefId: 'x', itemReagentChoices: [{ reagentIndex: 1, rarity: 'Rare' }] },
     })
     expect(result).toEqual({ recipe_def_id: 'x' })
+  })
+})
+
+describe('claimCraft', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('invokes craft-claim with recipeDefId and returns the granted item', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue({ data: { itemDefId: 'rusted-blade', rarity: 'Rare' }, error: null } as never)
+    const result = await claimCraft('x')
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('craft-claim', { body: { recipeDefId: 'x' } })
+    expect(result).toEqual({ itemDefId: 'rusted-blade', rarity: 'Rare' })
   })
 })
