@@ -27,5 +27,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // migration-policy.test.ts reads the filesystem (node:fs) — it type-checks under the Node
+  // project (tsconfig.node.json), not the browser one.
+  "exclude": ["src/test/migration-policy.test.ts"]
 }

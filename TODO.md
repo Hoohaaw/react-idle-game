@@ -59,11 +59,11 @@ character sprite art. Older open items below may be stale — trust the mileston
   chances/rarity weights. `docs/ITEMS.md`'s slot-to-stat lane updated: `weapon` is now
   role-routed (3 itemDefs per tier), not physical-exclusive.
   `↳ context: project-items · docs/ITEMS.md, src/lib/itemBudget.ts`
-- [ ] **Caster/healer itemization now overshoots parity** (found 2026-09-09 verifying the item
-  above) — calc-script check (ADR-0051) shows casters/healers at +43.4%/+47.2% vs. physical's
-  +32.2% (isolated trinket+weapon), because their trinket lane always matched their primary stat
-  while physical's doesn't stack with its weapon. Needs a decision: retune the new weapons down,
-  give physical a stat-matching trinket option too, or accept the overshoot.
+- [x] **Caster/healer itemization overshoots parity** (2026-09-10) — retuned the 8 magic weapons
+  to ≈0.6× their physical siblings (`2/6/15/16` → `1/4/9/12`): predicted +35.4%/+39.0% vs physical
+  +32.2% at the L20 Rare anchor, down from +43.4/+47.2. Residual is `itemBudget.ts`'s weapon floor
+  at L14 (can't go under 12), not a choice — see ADR-0051's amendment. Rule recorded in
+  `docs/ITEMS.md`: magic weapon ≈ 0.6× physical at the same tier.
   `↳ context: project-items · docs/DECISIONS.md ADR-0051, docs/ITEMS.md`
 - [x] **Item flavour text** (2026-08-19) — all 23 itemDefs given map-themed one-sentence
   descriptions (Gravemarch: burial-road/shadow/bone; Embercrag: volcanic/fire; Frosthollow:

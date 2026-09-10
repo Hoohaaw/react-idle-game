@@ -70,7 +70,12 @@ every slot — see the gotcha below):** `weapon` = the offense lane, flat, **rol
 physical weapon carries `attack`, a caster weapon carries `spellPower`, a healer weapon carries
 `healingPower` — one itemDef per role, same minLevel/rarity band, same drop sources, so every
 role gets an equally-obtainable dedicated offense item instead of physical alone owning the slot
-(fixes the gap noted below — ADR pending). `offhand` = the defense lane (flat defense, the
+(ADR-0051). **Size the caster/healer weapon at ≈0.6× the physical weapon's value at the same
+tier**, not 1:1 — the `trinket` lane below already stacks on their primary stat (spellPower/
+healingPower `pct`), while physical's trinket options don't touch `attack`. Matching values 1:1
+overshot parity by +11–15 points (ADR-0051's amendment has the measured table); 0.6× lands within
+a few points. Mind `itemBudget.ts`'s weapon-slot floor at higher tiers — it was anchored to
+physical medians, so a "light" magic weapon can hit the minimum rate before it hits parity. `offhand` = the defense lane (flat defense, the
 "shield" slot). `chest` = the one armor piece allowed a small defense secondary on top of its
 health. The other 5 armor slots (head/shoulders/hands/legs/feet) carry **health only** — no
 secondary stat. `ring` = light offense/defense utility (crit, dodge, resistance, healthRegen —
