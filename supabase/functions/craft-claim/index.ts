@@ -43,7 +43,10 @@ Deno.serve(async (req) => {
     .select('recipe_def_id, started_at, ends_at')
     .eq('player_id', playerId)
     .maybeSingle()
-  if (runErr) return json({ error: 'Could not load craft' }, 500)
+  if (runErr) {
+    console.error('craft-claim: run lookup failed', runErr)
+    return json({ error: 'Could not load craft' }, 500)
+  }
   if (!run || run.recipe_def_id !== recipeDefId) return json({ error: 'No such craft in progress' }, 404)
   if (new Date(run.ends_at).getTime() > Date.now()) return json({ error: 'Craft not finished' }, 409)
 
@@ -61,6 +64,10 @@ Deno.serve(async (req) => {
   if (!def?.resultItemKey) return json({ error: 'Recipe has no result item' }, 500)
 
   // 3. Roll the rarity — deterministic per run, so a retried claim can't re-roll.
+  // NOTE: the seed is derivable by the client (player id, recipe key, started_at are all
+  // readable under RLS), so the outcome is predictable at start time. Harmless while there is
+  // no cancel/abandon path; any future cancel feature must re-seed or refund, or it becomes a
+  // re-roll exploit.
   const rng = makeRng(`${playerId}:${recipeDefId}:${run.started_at}:craft`)
   const rarity = rollRarity(def.resultRarityWeights ?? undefined, rng)
 
@@ -72,6 +79,7 @@ Deno.serve(async (req) => {
     p_result_rarity: rarity,
   })
   if (claimErr) {
+    console.error('craft-claim: claim_craft failed', claimErr)
     const reason = claimErr.message.replace(/^.*claim_craft:\s*/, '')
     return json({ error: reason || 'Could not claim the craft' }, 409)
   }
