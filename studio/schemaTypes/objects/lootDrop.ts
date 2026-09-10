@@ -5,7 +5,6 @@ import { defineType, defineField, defineArrayMember } from 'sanity'
 // every item that drops it rolls a rarity from that drop's own weights. So a mission can hand out
 // several items in one clear, each at its own odds. The five rarities match the player_inventory
 // CHECK constraint exactly (Common…Legendary).
-const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'] as const
 
 export const lootDrop = defineType({
   name: 'lootDrop',
@@ -33,31 +32,7 @@ export const lootDrop = defineType({
       description:
         'When this item drops, its rarity is a weighted roll among these lines. Omit a rarity to make it impossible; leave the whole list empty to always drop Common.',
       type: 'array',
-      of: [
-        defineArrayMember({
-          type: 'object',
-          name: 'rarityWeight',
-          fields: [
-            defineField({
-              name: 'rarity',
-              title: 'Rarity',
-              type: 'string',
-              options: { list: RARITIES.map((r) => ({ title: r, value: r })) },
-              validation: (rule) => rule.required(),
-            }),
-            defineField({
-              name: 'weight',
-              title: 'Weight',
-              type: 'number',
-              validation: (rule) => rule.required().min(0),
-            }),
-          ],
-          preview: {
-            select: { rarity: 'rarity', weight: 'weight' },
-            prepare: ({ rarity, weight }) => ({ title: `${rarity ?? '?'} · w${weight ?? 0}` }),
-          },
-        }),
-      ],
+      of: [defineArrayMember({ type: 'rarityWeight' })],
     }),
     defineField({
       name: 'quantityMin',

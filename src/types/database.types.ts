@@ -14,6 +14,17 @@ export type Database = {
   }
   public: {
     Tables: {
+      craft_runs: {
+        Row: {
+          player_id: string
+          recipe_def_id: string
+          started_at: string
+          ends_at: string
+        }
+        Insert: never // all writes go through the RPCs — no direct client insert (ADR-0003)
+        Update: never
+        Relationships: []
+      }
       gather_assignments: {
         Row: {
           id: string

@@ -44,14 +44,15 @@ export function PrimaryButton({ children, disabled, fullWidth, onClick, type }: 
   )
 }
 
-export function SecondaryButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+export function SecondaryButton({ children, disabled, onClick }: { children: ReactNode; disabled?: boolean; onClick?: () => void }) {
   return (
-    <button onClick={onClick} className="btn btn-secondary" style={{
+    <button disabled={disabled} onClick={onClick} className="btn btn-secondary" style={{
       padding: '10px 24px',
       fontFamily: 'Georgia, serif',
       fontSize: '14px',
       letterSpacing: '1px',
-      cursor: 'pointer',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? 0.45 : 1,
       borderRadius: '5px',
       border: '2px solid var(--color-gold-dark)',
       background: 'linear-gradient(180deg, #2a1a08 0%, #180e04 100%)',
