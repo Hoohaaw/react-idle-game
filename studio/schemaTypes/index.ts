@@ -22,6 +22,9 @@ import { characterLootDrop } from './objects/characterLootDrop'
 import { groupStage } from './objects/groupStage'
 import { dungeonDef } from './dungeonDef'
 import { raidDef } from './raidDef'
+import { rarityWeight } from './objects/rarityWeight'
+import { reagentLine } from './objects/reagentLine'
+import { recipeDef } from './recipeDef'
 
 export const schemaTypes = [
   characterDef,
@@ -48,4 +51,7 @@ export const schemaTypes = [
   acquisitionCondition,
   acquisition,
   characterLootDrop,
+  rarityWeight,
+  reagentLine,
+  recipeDef,
 ]
