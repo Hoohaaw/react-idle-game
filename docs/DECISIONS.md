@@ -2531,5 +2531,13 @@ owned item). Design worked out in
 - No automated coverage for `craft-start`/`craft-claim` (accepted Edge Function gap), but
   `src/test/migration-policy.test.ts` verifies the new table/RPC grants, and `src/lib/crafting.ts`
   + `src/services/crafting.ts` are unit-tested.
+- **Open risk (accepted for v1):** there is no cancel/abandon path. If a recipe's content breaks
+  between start and claim (recipe removed, result reference dangling), `craft-claim` fails and
+  the player's single craft slot stays occupied until the `craft_runs` row is deleted by hand.
+  Spec §7 accepted this; a cancel feature must be designed together with the rarity seed (the
+  seed is client-derivable, so cancel + restart would be a free re-roll without a refund rule).
+- **Design observation:** reagent rarity does not influence the result roll, so the rarity
+  picker is a "don't burn my Epic" safety rather than a gameplay decision. Making reagent rarity
+  matter is the natural home for the `infuse` follow-up.
 - Follow-ups: `infuse` (own spec), recipe discovery (could reuse ADR-0048's condition types),
   more recipes (content wave).

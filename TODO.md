@@ -175,6 +175,10 @@ character sprite art. Older open items below may be stale — trust the mileston
   `src/features/crafting/`, mocks deleted, 3 reference recipes authored. `infuse` recipes and
   discovery are separate follow-ups (spec §3).
   `↳ context: project-crafting · docs/DECISIONS.md ADR-0052, docs/superpowers/specs/2026-09-09-crafting-create-recipes-design.md`
+- [ ] **Crafting cancel/abandon** — no way to clear a stuck craft (recipe broken between start and
+  claim) except deleting the `craft_runs` row. Design together with the rarity seed (client-derivable;
+  cancel + restart = free re-roll) and a refund rule. See ADR-0052 consequences.
+  `↳ context: project-crafting · docs/DECISIONS.md ADR-0052`
 - [ ] **Roster size target** — 19 `characterDef` docs live (matches ADR-0046's "all 19
   characters"). Unclear whether that's the full intended roster or more are planned — no target
   number found in docs/CHARACTERS.md or elsewhere. Needs a decision before "author the rest" is
@@ -183,8 +187,9 @@ character sprite art. Older open items below may be stale — trust the mileston
 
 ## App wiring
 - [x] `@sanity/client` installed (`^7.22.1`) and in use.
-- [x] Mock data replaced with real Supabase/Sanity reads in `src/pages/*.tsx` — one exception:
-  crafting still reads `mockRecipes.ts` (tied to the recipe-schema gap above).
+- [x] Mock data replaced with real Supabase/Sanity reads in `src/pages/*.tsx` — the one exception
+  (crafting reading `mockRecipes.ts`) is closed: ADR-0052 deleted the mocks in favor of real
+  Sanity recipes.
 
 ## Housekeeping / polish
 - [x] Rename the project in `package.json` — now `The-Idle-Game` (working title; final game name still open)
