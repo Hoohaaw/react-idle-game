@@ -37,3 +37,4 @@ todo-reviews/
 
 # Local-only screenshots (verification captures, not shared)
 screenshots/
+.worktrees/

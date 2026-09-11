@@ -202,34 +202,40 @@ export type Database = {
         Row: {
           created_at: string
           currencies: Json
+          echo_shop: Json
+          echoes: number
           infirmary_level: number
           lifetime_stats: Json
           map_progress: Json
           player_id: string
+          reset_count: number
           resources: Json
-          transcendence_count: number
           unlocked_characters: Json
         }
         Insert: {
           created_at?: string
           currencies?: Json
+          echo_shop?: Json
+          echoes?: number
           infirmary_level?: number
           lifetime_stats?: Json
           map_progress?: Json
           player_id: string
-          resources?: Json
-          transcendence_count?: number
+          reset_count?: number
           unlocked_characters?: Json
+          resources?: Json
         }
         Update: {
           created_at?: string
           currencies?: Json
+          echo_shop?: Json
+          echoes?: number
           infirmary_level?: number
           lifetime_stats?: Json
           map_progress?: Json
           player_id?: string
+          reset_count?: number
           resources?: Json
-          transcendence_count?: number
           unlocked_characters?: Json
         }
         Relationships: []

@@ -276,23 +276,24 @@ export type RewardModifiers = {
   marginBonus?: number
   levelBonus?: number
   partyBonus?: number
-  transcendenceBonus?: number
 }
 
 /**
  * The reward pipeline (ADR-0012/0014), applied on a WIN only:
  *
- *   final = base × (1 + marginBonus) × (1 + levelBonus) × (1 + partyBonus) × (1 + transcendenceBonus)
+ *   final = base × (1 + marginBonus) × (1 + levelBonus) × (1 + partyBonus)
  *
  * Each modifier is an INDEPENDENT multiplier (not summed into one pool). `marginBonus` (combat
  * decisiveness) and `levelBonus` (avg party level) come from the combat result via the helpers in
- * `combat.ts`; party-size and transcendence are their systems' tuning numbers. Returns a raw number;
- * callers round for the specific reward type (coins/resources/XP are integers).
+ * `combat.ts`; party-size is that system's tuning number. Echo Shop bonuses (gold gain,
+ * per-resource gain, mission speed — ADR-0053) are a SEPARATE multiplier the caller applies
+ * after this function returns: they aren't uniform across coins/resources/XP the way these
+ * three are, so they don't belong in this shared pipeline. Returns a raw number; callers round
+ * for the specific reward type (coins/resources/XP are integers).
  */
 export function finalReward(base: number, mods: RewardModifiers = {}): number {
   const margin = 1 + (mods.marginBonus ?? 0)
   const level = 1 + (mods.levelBonus ?? 0)
   const party = 1 + (mods.partyBonus ?? 0)
-  const transcendence = 1 + (mods.transcendenceBonus ?? 0)
-  return base * margin * level * party * transcendence
+  return base * margin * level * party
 }

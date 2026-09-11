@@ -28,7 +28,7 @@ describe('fetchRecruitCandidates', () => {
     vi.mocked(fetchProfile).mockResolvedValue({
       currencies: {},
       resources: {},
-      transcendenceCount: 0,
+      resetCount: 0,
       infirmaryLevel: 1,
       mapProgress: {},
       unlockedCharacters: {},
@@ -45,7 +45,7 @@ describe('fetchRecruitCandidates', () => {
     vi.mocked(fetchProfile).mockResolvedValue({
       currencies: {},
       resources: {},
-      transcendenceCount: 0,
+      resetCount: 0,
       infirmaryLevel: 1,
       mapProgress: {},
       unlockedCharacters: { ember_knight: '2026-08-01T00:00:00Z' },
@@ -62,7 +62,7 @@ describe('fetchRecruitCandidates', () => {
     vi.mocked(fetchProfile).mockResolvedValue({
       currencies: {},
       resources: {},
-      transcendenceCount: 0,
+      resetCount: 0,
       infirmaryLevel: 1,
       mapProgress: {},
       unlockedCharacters: {
@@ -85,7 +85,7 @@ describe('fetchRecruitCandidates', () => {
     vi.mocked(fetchProfile).mockResolvedValue({
       currencies: {},
       resources: {},
-      transcendenceCount: 0,
+      resetCount: 0,
       infirmaryLevel: 1,
       mapProgress: {},
       unlockedCharacters: {
@@ -131,7 +131,7 @@ describe('fetchRecruitCandidates', () => {
     vi.mocked(fetchProfile).mockResolvedValue({
       currencies: {},
       resources: {},
-      transcendenceCount: 0,
+      resetCount: 0,
       infirmaryLevel: 1,
       mapProgress: {},
       unlockedCharacters: {

@@ -21,7 +21,7 @@ const ShopPage = lazy(() => import('./pages/ShopPage'))
 const InventoryPage = lazy(() => import('./pages/InventoryPage'))
 const CraftingPage = lazy(() => import('@/features/crafting').then((m) => ({ default: m.CraftingPage })))
 const UpgradesPage = lazy(() => import('./pages/UpgradesPage'))
-const TranscendencePage = lazy(() => import('./pages/TranscendencePage'))
+const PrestigePage = lazy(() => import('@/features/reset').then((m) => ({ default: m.PrestigePage })))
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
 const GameStatsPage = lazy(() => import('./pages/GameStatsPage'))
 
@@ -58,7 +58,7 @@ export default function App() {
             <Route path="/upgrades" element={<UpgradesPage />} />
             <Route path="/blessings" element={<BlessingsPage />} />
             <Route path="/respec" element={<RespecPage />} />
-            <Route path="/transcendence" element={<TranscendencePage />} />
+            <Route path="/reset" element={<PrestigePage />} />
             <Route path="/statistics" element={<StatisticsPage />} />
             <Route path="/game-stats" element={<GameStatsPage />} />
           </Route>

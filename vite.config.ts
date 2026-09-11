@@ -14,8 +14,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    // .claude/worktrees holds full nested copies of this repo (isolated agent worktrees) —
-    // without this, Vitest picks up their test files too and silently double-runs the suite.
-    exclude: [...configDefaults.exclude, '.claude/**'],
+    // .claude/worktrees and .worktrees/ both hold full nested copies of this repo (isolated
+    // agent/SDD-task worktrees) — without this, Vitest picks up their test files too and
+    // silently double-runs the suite.
+    exclude: [...configDefaults.exclude, '.claude/**', '.worktrees/**'],
   },
 })

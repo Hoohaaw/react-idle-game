@@ -16,6 +16,7 @@ import {
   type RawBlessingRow, type CapstoneDef, type BlessingPicks,
 } from '../../../src/lib/blessings.ts'
 import { rollItemLoot } from '../../../src/lib/loot.ts'
+import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 
 // group-claim-stage: the dungeon/raid combat resolver (spec §5). Combatant-building is IDENTICAL to
 // mission-claim (character-intrinsic, not mission-specific) — deliberately not extracted into a
@@ -184,11 +185,20 @@ Deno.serve(async (req) => {
   const result = simulateCombat({ party: combatants, encounter: { enemies, timeLimitSeconds: stage.encounter.timeLimitSeconds }, seed: runId })
   const win = result.outcome === 'win'
 
+  // Echo Shop levels (ADR-0053) — this retires the old "group content doesn't fold in
+  // transcendence" workaround entirely: there is no more count-based bonus for it to skip, so
+  // dungeons/raids and missions are on equal footing again.
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('echo_shop')
+    .eq('player_id', playerId)
+    .maybeSingle()
+  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
+
   const mods = {
     marginBonus: marginBonus(result.survivingHpPct),
     levelBonus: levelRewardBonus(chars.map((c) => c.level)),
     partyBonus: (chars.length - 1) * PARTY_BONUS_PER_EXTRA_MEMBER,
-    transcendenceBonus: 0, // group content doesn't fold in transcendence (spec is silent; kept simple for v1)
   }
   const baseXp = typeof stage.baseXp === 'number' ? stage.baseXp : 0
 
@@ -216,7 +226,12 @@ Deno.serve(async (req) => {
   if (win) {
     for (const r of stage.rewards ?? []) {
       const isGold = r.kind === 'currency' && r.code === 'gold'
-      const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1))
+      const shopMult = isGold
+        ? resolveShopBonus(shop, 'goldGain')
+        : r.kind === 'resource'
+          ? resolveShopBonus(shop, 'resourceGain', r.code)
+          : 1
+      const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1) * shopMult)
       if (amount <= 0) continue
       const bucket = r.kind === 'resource' ? resources : currencies
       bucket[r.code] = (bucket[r.code] ?? 0) + amount
