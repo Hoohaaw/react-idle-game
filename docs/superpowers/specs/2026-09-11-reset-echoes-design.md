@@ -268,9 +268,12 @@ that same `select` — no extra query anywhere.
   multiplied by `resolveShopBonus(shop, 'resourceGain', code)`. These are **applied after**
   `finalReward`, not folded into `RewardModifiers` — `goldGain`/`resourceGain` aren't uniform
   across coins/resources/XP the way margin/level/party are, so they don't fit that shared bag.
-- **`mission-start` / `start_gather` / `start_group_stage`**: `durationSeconds` is divided by
-  `resolveShopBonus(shop, 'missionSpeed')` (a speed bonus shortens duration — `1 / multiplier`,
-  not `× multiplier`) before being passed to the RPC that opens the run.
+- **`mission-start` / `group-start-stage`** (the two activities with a fixed `ends_at` timer):
+  `durationSeconds` is divided by `resolveShopBonus(shop, 'missionSpeed')` (a speed bonus
+  shortens duration — `1 / multiplier`, not `× multiplier`) before being passed to the RPC that
+  opens the run. **`gather-start` is NOT touched** — gathering is continuous accrual with no
+  duration/`ends_at` to shorten (confirmed by reading `gather-start/index.ts`); its speed lane is
+  entirely `gatherRate` at collect time (already covered above), not `missionSpeed`.
 
 ## 6. Client data layer & UI
 
