@@ -175,6 +175,12 @@ character sprite art. Older open items below may be stale — trust the mileston
   `src/features/crafting/`, mocks deleted, 3 reference recipes authored. `infuse` recipes and
   discovery are separate follow-ups (spec §3).
   `↳ context: project-crafting · docs/DECISIONS.md ADR-0052, docs/superpowers/specs/2026-09-09-crafting-create-recipes-design.md`
+- [ ] **Deploy the Sanity Studio schema** — `recipeDef`/`reagentLine`/`rarityWeight` exist in
+  `studio/schemaTypes/` and content authored through them already works (verified end-to-end
+  against the hosted Supabase project 2026-09-10), but the Studio UI itself hasn't been redeployed
+  since, so these types won't show up for authoring there yet. Run `cd studio && npm run
+  schema:deploy` (or `npm run deploy` for the full Studio).
+  `↳ context: project-crafting · studio/schemaTypes/recipeDef.ts`
 - [ ] **Crafting cancel/abandon** — no way to clear a stuck craft (recipe broken between start and
   claim) except deleting the `craft_runs` row. Design together with the rarity seed (client-derivable;
   cancel + restart = free re-roll) and a refund rule. See ADR-0052 consequences.
