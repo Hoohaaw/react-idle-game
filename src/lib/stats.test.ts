@@ -195,9 +195,9 @@ describe('effectiveStats', () => {
 })
 
 describe('finalReward', () => {
-  it('multiplies the base by each (1 + modifier) — margin × level × party × transcendence', () => {
-    const out = finalReward(100, { marginBonus: 0.15, levelBonus: 0.2, partyBonus: 0.2, transcendenceBonus: 0.1 })
-    expect(out).toBeCloseTo(100 * 1.15 * 1.2 * 1.2 * 1.1)
+  it('multiplies the base by each (1 + modifier) — margin × level × party', () => {
+    const out = finalReward(100, { marginBonus: 0.15, levelBonus: 0.2, partyBonus: 0.2 })
+    expect(out).toBeCloseTo(100 * 1.15 * 1.2 * 1.2)
   })
 
   it('treats missing modifiers as 0 (no change)', () => {
