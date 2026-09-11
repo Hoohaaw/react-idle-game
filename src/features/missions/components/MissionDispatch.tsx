@@ -24,14 +24,12 @@ const MAX_PARTY = 3
 export function MissionDispatch({
   mission = SAMPLE_DISPATCH_MISSION,
   roster = SAMPLE_DISPATCH_ROSTER,
-  transcendenceCount = 1,
   pending = false,
   error = null,
   onDispatch,
 }: {
   mission?: DispatchMission
   roster?: DispatchChar[]
-  transcendenceCount?: number
   pending?: boolean
   error?: string | null
   onDispatch?: (party: string[]) => void
@@ -48,8 +46,7 @@ export function MissionDispatch({
   const avgLevel = party.length ? party.reduce((sum, c) => sum + c.level, 0) / party.length : 0
   const levelBonus = avgLevel * 0.4                        // % — levelBonus = avgPartyLevel × 0.004
   const partyBonus = Math.max(0, party.length - 1) * 10    // % — (partySize − 1) × 10%
-  const transcendenceBonus = transcendenceCount * 10       // % — transcendence_count × 10%
-  const knownPct = ((1 + levelBonus / 100) * (1 + partyBonus / 100) * (1 + transcendenceBonus / 100) - 1) * 100
+  const knownPct = ((1 + levelBonus / 100) * (1 + partyBonus / 100) - 1) * 100
   const MARGIN_MAX = 50                                    // combat margin caps at +50% (a flawless win)
 
   return (
@@ -100,7 +97,6 @@ export function MissionDispatch({
               }}>
                 <RewardRow label={`Level bonus (avg Lv ${avgLevel ? avgLevel.toFixed(0) : '—'})`} pct={levelBonus} />
                 <RewardRow label={`Party size${party.length > 0 ? ` (×${party.length})` : ''}`} pct={partyBonus} />
-                {transcendenceBonus > 0 && <RewardRow label={`Transcendence (×${transcendenceCount})`} pct={transcendenceBonus} />}
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--color-gold-dark)' }}>
                   <span style={{ color: 'var(--color-text-muted)', fontSize: 12, letterSpacing: '0.5px' }}>Guaranteed multipliers</span>
                   <span style={{ color: 'var(--color-text-gold)', fontSize: 14, fontWeight: 'bold' }}>+{knownPct.toFixed(1)}%</span>

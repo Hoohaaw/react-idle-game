@@ -35,6 +35,7 @@ import {
 import { evaluateCondition, type PlayerAcquisitionState } from '../../../src/lib/acquisition.ts'
 import { fetchAcquisitionCandidates } from '../_shared/characterAcquisition.ts'
 import { rollItemLoot } from '../../../src/lib/loot.ts'
+import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -44,7 +45,6 @@ import { rollItemLoot } from '../../../src/lib/loot.ts'
 // truth so the client can replay the same fight) — ADR-0016. This function decides the numbers; the
 // RPC owns atomicity + the double-claim guard.
 
-const TRANSCENDENCE_BONUS_PER_COUNT = 0.1 // ADR-0014/design: transcendence_count × 10% to all rewards.
 const PARTY_BONUS_PER_EXTRA_MEMBER = 0.1 // (partySize − 1) × 10%.
 // First-time clear of a map stage pays this on XP/gold/resources (ADR-0041) — pushing new
 // content is rewarded once; repeat clears (farming) pay the normal pipeline. Loot is untouched.
@@ -190,13 +190,13 @@ Deno.serve(async (req) => {
   const chars = (charsData ?? []) as CharRow[]
   if (chars.length !== party.length) return json({ error: 'Party is missing characters' }, 500)
 
-  // 3. Player profile: transcendence multiplier + map progress (for the first-clear check).
+  // 3. Player profile: Echo Shop levels (ADR-0053) + map progress (for the first-clear check).
   const { data: profile } = await admin
     .from('profiles')
-    .select('transcendence_count, map_progress, lifetime_stats, unlocked_characters')
+    .select('map_progress, lifetime_stats, unlocked_characters, echo_shop')
     .eq('player_id', playerId)
     .maybeSingle()
-  const transcendenceCount = profile?.transcendence_count ?? 0
+  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
   const mapProgress = (profile?.map_progress ?? {}) as Record<string, number>
   const lifetimeStats = (profile?.lifetime_stats ?? {}) as Record<string, number>
   const unlockedCharacters = (profile?.unlocked_characters ?? {}) as Record<string, string>
@@ -315,7 +315,6 @@ Deno.serve(async (req) => {
     marginBonus: marginBonus(result.survivingHpPct),
     levelBonus: levelRewardBonus(chars.map((c) => c.level)),
     partyBonus: (chars.length - 1) * PARTY_BONUS_PER_EXTRA_MEMBER,
-    transcendenceBonus: transcendenceCount * TRANSCENDENCE_BONUS_PER_COUNT,
   }
   const baseXp = typeof mission.baseXp === 'number' ? mission.baseXp : 0
 
@@ -356,7 +355,15 @@ Deno.serve(async (req) => {
   if (win) {
     for (const r of mission.rewards ?? []) {
       const isGold = r.kind === 'currency' && r.code === 'gold'
-      const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1) * firstClearMult)
+      // Echo Shop bonus (ADR-0053), applied AFTER finalReward — goldGain/resourceGain aren't
+      // uniform across coins/resources/XP the way margin/level/party are, so they don't fold
+      // into `mods` (src/lib/stats.ts's finalReward doc comment explains why).
+      const shopMult = isGold
+        ? resolveShopBonus(shop, 'goldGain')
+        : r.kind === 'resource'
+          ? resolveShopBonus(shop, 'resourceGain', r.code)
+          : 1
+      const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1) * firstClearMult * shopMult)
       if (amount <= 0) continue
       const bucket = r.kind === 'resource' ? resources : currencies
       bucket[r.code] = (bucket[r.code] ?? 0) + amount

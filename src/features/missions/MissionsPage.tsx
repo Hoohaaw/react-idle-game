@@ -236,7 +236,6 @@ export default function MissionsPage() {
           <MissionDispatch
             mission={toDispatchMission(dispatchMission)}
             roster={dispatchRoster}
-            transcendenceCount={0}
             pending={startM.isPending}
             error={startM.error ? (startM.error as Error).message : null}
             onDispatch={handleDispatch}

@@ -147,10 +147,16 @@ character sprite art. Older open items below may be stale — trust the mileston
 ## Backend (Supabase)
 - [x] First Edge Function — `recruit/` shipped; leveling is XP-driven via `mission-claim`
   (compute-on-read, ADR-0002), never needed a separate level-up endpoint.
-- [ ] **Transcendence-reset logic** (keep characters, reset level → 1 + blessings) — the counter
-  (`transcendence_count`) exists in `stats.ts`/`currencies.ts`/`mission-claim`, but
-  `src/pages/TranscendencePage.tsx` is a 5-line stub. No reset RPC built at all.
-  `↳ context: project-design-decisions (transcendence), project-undecided (reset scope) · supabase/functions/, src/pages/TranscendencePage.tsx`
+- [x] **Reset tier** (ADR-0053) — `reset_player`/`purchase_echo_shop_node` RPCs, the
+  `reset-player`/`echo-shop-purchase` Edge Functions, the 20-node Echo Shop registry
+  (`src/lib/echoShop.ts`), and the `src/features/reset/` page (nav renamed "Transcendence" →
+  "Reset"). The harder Transcendence tier (full wipe including characters) is its own follow-up,
+  not built here.
+  `↳ context: project-reset · docs/DECISIONS.md ADR-0053, docs/superpowers/specs/2026-09-11-reset-echoes-design.md`
+- [ ] **Transcendence tier** (ADR-0023's hard-wipe half) — full wipe including characters, its
+  own currency and tree focused on character power, appearing as a second tab in the Reset
+  page's `PrestigePage` shell once unlocked. Needs its own spec.
+  `↳ context: project-reset · docs/DECISIONS.md ADR-0023/ADR-0053`
 - [x] Generate DB types — `src/types/database.types.ts` (465 lines, real generated types).
 - [x] Auth wiring — `src/features/auth/AuthPage.tsx` + `RequireAuth.tsx`, wired into `App.tsx`.
 - [x] Hosted Supabase project + migrations — 15 migrations live, `config.toml` has a real

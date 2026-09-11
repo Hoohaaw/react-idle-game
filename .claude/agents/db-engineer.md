@@ -45,7 +45,7 @@ grant all    on <table> to service_role;
 
 | Table | Key columns |
 |---|---|
-| `profiles` | `player_id` (PK→auth.users), `currencies` jsonb, `resources` jsonb, `transcendence_count` |
+| `profiles` | `player_id` (PK→auth.users), `currencies` jsonb, `resources` jsonb, `reset_count`, `echoes`, `echo_shop` jsonb |
 | `player_characters` | `id`, `player_id`, `character_def_id` (=charKey), `level`, `xp`, `blessings` jsonb, `equipped` jsonb |
 | `player_inventory` | `id`, `player_id`, `item_def_id`, `rarity`, `quantity` |
 | `mission_runs` | `id`, `player_id`, `mission_def_id`, `party` uuid[], `started_at`, `ends_at` |
