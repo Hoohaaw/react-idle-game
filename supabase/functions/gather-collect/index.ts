@@ -4,6 +4,7 @@ import { MINE_BY_RESOURCE, accrue } from '../../../src/lib/gather.ts'
 import { statsByCharacter } from '../_shared/charMaxHp.ts'
 import { evaluateCondition, type PlayerAcquisitionState } from '../../../src/lib/acquisition.ts'
 import { fetchAcquisitionCandidates } from '../_shared/characterAcquisition.ts'
+import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 
 // gather-collect: bank a gatherer's accrued yield, optionally stopping (unassigning). ADR-0019. Computes the
 // payout in TS from elapsed ticks (src/lib/gather.ts — the same math the client displays), then applies it
@@ -57,11 +58,12 @@ Deno.serve(async (req) => {
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('lifetime_stats, unlocked_characters')
+    .select('lifetime_stats, unlocked_characters, echo_shop')
     .eq('player_id', playerId)
     .maybeSingle()
   const lifetimeStats = (profile?.lifetime_stats ?? {}) as Record<string, number>
   const unlockedCharacters = (profile?.unlocked_characters ?? {}) as Record<string, string>
+  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
 
   const mine = MINE_BY_RESOURCE[assignment.resource_id]
   if (!mine) return json({ error: 'Unknown mine' }, 500)
@@ -87,13 +89,17 @@ Deno.serve(async (req) => {
   }
 
   const lastMs = new Date(assignment.last_collected_at).getTime()
-  const { gained, consumedSec } = accrue(
+  const { gained: baseGained, consumedSec } = accrue(
     Date.now() - lastMs,
     mine.intervalSec,
     mine.yieldPerTick,
     gatherSpeed,
     gatherYield,
   )
+  // Echo Shop Gather Rate (ADR-0053), applied on top of the character-derived accrual above —
+  // a separate multiplier, same "applied after the core calc" pattern as mission-claim's shop
+  // bonuses.
+  const gained = Math.floor(baseGained * resolveShopBonus(shop, 'gatherRate', assignment.resource_id))
   const newLastCollectedAt = new Date(lastMs + consumedSec * 1000).toISOString()
 
   const lifetimeStatsDelta: Record<string, number> =
