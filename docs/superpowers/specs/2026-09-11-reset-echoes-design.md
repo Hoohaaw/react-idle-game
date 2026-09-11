@@ -281,15 +281,27 @@ that same `select` — no extra query anywhere.
   `resetPlayer()` (invokes `reset-player`), `purchaseEchoShopNode(nodeKey)` (invokes
   `echo-shop-purchase`).
 - **Nav rename**: `GameHeader.tsx`'s "Transcendence" entry → **"Reset"**, route `/transcendence`
-  → `/reset`. Frees "Transcendence" as its own future nav entry.
-- New feature module `src/features/reset/` (real functionality from the start, not a
-  `src/pages/` stub — matches `missions/`'s reference shape), one page, two sections:
-  1. **Echo Shop** (primary content): a grid of the 20 `ECHO_SHOP_NODES`, each showing label,
-     current level (from `echoShop[key] ?? 0`), current effect at that level, `nodeCost()` for
-     the next level, a Buy button (disabled if `echoes` balance is short). Current `echoes`
-     balance shown prominently — this is the "visual cue" that persists across every reset.
-  2. **Reset** (visually separated, rare/irreversible action): live preview of
-     `totalStagesCleared`, `lifetimeGoldEarned`, and the projected Echoes award if reset right
+  → `/reset`.
+- **Built as a tabbed shell, not a single-purpose page — this is deliberate, not speculative
+  scope.** The future Transcendence tier (its own spec, §9) will be "the same shop, a second
+  page" per design intent: one shop-like destination with a tab per prestige tier, the
+  Transcendence tab appearing only once that tier is unlocked. Building this spec's page as a
+  bare `ResetPage` would mean rebuilding it into a tab container later; building it as a tab
+  container with exactly one tab today is the same amount of work now and avoids that rework.
+  Concretely: `src/features/reset/` exports a `PrestigePage` that renders a small tab bar (today:
+  just a "Reset" tab, always present) around the content below; adding Transcendence later is
+  purely additive — a new `TranscendenceTab` component plus an unlock check that reveals its tab,
+  no restructuring of what's built here. The nav entry/route naming ("Reset"/`/reset`) stays
+  accurate for now since Reset is the only reachable tab — renaming the nav/route to something
+  tier-agnostic (e.g. "Prestige") is a call for whoever writes the Transcendence spec, once
+  there's a second tab to justify it.
+  1. **Echo Shop** (primary content of the Reset tab): a grid of the 20 `ECHO_SHOP_NODES`, each
+     showing label, current level (from `echoShop[key] ?? 0`), current effect at that level,
+     `nodeCost()` for the next level, a Buy button (disabled if `echoes` balance is short).
+     Current `echoes` balance shown prominently — this is the "visual cue" that persists across
+     every reset.
+  2. **Reset** (visually separated within the same tab, rare/irreversible action): live preview
+     of `totalStagesCleared`, `lifetimeGoldEarned`, and the projected Echoes award if reset right
      now; the gate status (disabled with a reason if the order-1 map's boss isn't cleared);
      a confirm button behind a modal stating plainly what's wiped (gold, resources, map
      progress, dungeon/raid progress, infirmary level) vs. what's kept (characters, gear,
@@ -329,11 +341,15 @@ that same `select` — no extra query anywhere.
 
 ## 9. Follow-ups (not this spec)
 
-- **The Transcendence tier itself** — full wipe (characters included), its own currency, its own
-  tree focused on character power (explicitly reserved out of the Echo Shop, §3). Needs its own
-  spec: what survives a Transcendence (does `echoes`/`echo_shop`/`reset_count` finally get wiped
-  too, matching "resets everything back to how the game started"?), currency name, tree
-  structure, the achievement formula for ITS currency, and whether it unlocks exclusive content.
+- **The Transcendence tier itself** — full wipe (characters included), its own currency
+  (separate from Echoes — never merged into `echoes`/`echo_shop`), its own tree focused on
+  character power (explicitly reserved out of the Echo Shop, §3). **UI intent already decided**
+  (§6): it's a second tab in the same `PrestigePage` shell this spec builds, appearing once that
+  tier is unlocked — the Transcendence spec should build on that shell, not a new page/route.
+  Still needs its own spec for: what survives a Transcendence (does `echoes`/`echo_shop`/
+  `reset_count` finally get wiped too, matching "resets everything back to how the game
+  started"?), currency name, tree structure, the achievement formula for ITS currency, the
+  unlock condition that reveals its tab, and whether it unlocks exclusive content.
 - **More Echo Shop categories** beyond this wave (a content-adjacent-but-still-code wave, same
   pattern as items/blessings getting expanded over time).
 - **Real balance tuning** of `STAGE_RATE`/`GOLD_RATE`/`PER_LEVEL_BONUS`/`costBase`/`costGrowth`
