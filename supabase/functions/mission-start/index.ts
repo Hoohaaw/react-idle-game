@@ -3,6 +3,7 @@ import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
 import { statsByCharacter } from '../_shared/charMaxHp.ts'
 import { missionDurationMultiplier } from '../../../src/lib/traits.ts'
+import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 
 // mission-start: dispatch a party on a mission (ADR-0003 server-authoritative write). Validates the
 // caller, resolves the mission's authored duration from Sanity (the client is NOT trusted for it), and
@@ -90,6 +91,16 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error('party stats lookup failed — using authored duration', e)
   }
+
+  // Echo Shop Mission Speed (ADR-0053) — a separate multiplier layered on top of the
+  // trait/gear/blessing one above, applied last.
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('echo_shop')
+    .eq('player_id', playerId)
+    .maybeSingle()
+  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
+  durationSeconds = Math.max(1, Math.round(durationSeconds / resolveShopBonus(shop, 'missionSpeed')))
 
   const { data: run, error: rpcErr } = await admin.rpc('start_mission', {
     p_player: playerId,

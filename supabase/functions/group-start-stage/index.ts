@@ -2,6 +2,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
 import { GROUP_PARTY_CAP, GROUP_LOCKOUT, type GroupKind } from '../../../src/lib/groupContent.ts'
+import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 
 // group-start-stage: dispatch the CURRENT stage of a dungeon/raid run (ADR-0003 server-authoritative
 // write; docs/superpowers/specs/2026-09-08-dungeons-and-raids-design.md §5). Mirrors mission-start's
@@ -70,6 +71,15 @@ Deno.serve(async (req) => {
     return json({ error: 'Stage has no valid duration' }, 500)
   }
 
+  // Echo Shop Mission Speed (ADR-0053) — same lane mission-start applies for missions.
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('echo_shop')
+    .eq('player_id', playerId)
+    .maybeSingle()
+  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
+  const durationSeconds = Math.max(1, Math.round(stage.durationSeconds / resolveShopBonus(shop, 'missionSpeed')))
+
   const { data: groupRun, error: rpcErr } = await admin.rpc('start_group_stage', {
     p_player: playerId,
     p_kind: kind,
@@ -77,7 +87,7 @@ Deno.serve(async (req) => {
     p_party: party,
     p_stage_index: stageIndex,
     p_total_stages: def.stages.length,
-    p_duration_seconds: stage.durationSeconds,
+    p_duration_seconds: durationSeconds,
     p_lockout: GROUP_LOCKOUT[kind as GroupKind],
     p_map_gate: def.gateKey ?? null,
   })
