@@ -47,5 +47,5 @@ features/<feature>/
 
 Established as part of the workflow/structure setup. **Missions** is migrated as the
 exemplar; remaining domains (team, mines, crafting, inventory, upgrading, blessings,
-transcendence, shop, statistics) migrate **incrementally** — one feature per branch,
-as each is next touched. Pages not yet migrated still live in `src/pages/`.
+shop, statistics) migrate **incrementally** — one feature per branch, as each is next
+touched. Pages not yet migrated still live in `src/pages/`.

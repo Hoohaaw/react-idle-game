@@ -27,7 +27,7 @@ const NAV = [
   { label: 'Upgrades', to: '/upgrades' },
   { label: 'Blessings', to: '/blessings' },
   { label: 'Respec', to: '/respec' },
-  { label: 'Transcendence', to: '/transcendence' },
+  { label: 'Reset', to: '/reset' },
   { label: 'Statistics', to: '/statistics' },
   { label: 'Game Stats', to: '/game-stats' },
   { label: 'Design', to: '/design' }, // dev-only — remove before production
