@@ -90,8 +90,9 @@ a snapshot as of **2026-07-24**.
   spellPower/healingPower-equivalent lane is an open gap.
 - **Resource sinks & character acquisition economy** — recruit costs, upgrade costs, and general
   gold/resource sinks beyond blessing respec are still being designed.
-- **History/activity log**, **transcendence flow**, and **character art** (sprites are
-  currently a gap) round out the near-term list.
+- **History/activity log** and **character art** (sprites are currently a gap) round out the
+  near-term list; the Reset tier (ADR-0053) is built — the harder Transcendence tier remains
+  open.
 
 See [`TODO.md`](../TODO.md) for the live, itemized backlog and [`docs/DECISIONS.md`](./DECISIONS.md)
 for the full ADR trail behind every decision above.

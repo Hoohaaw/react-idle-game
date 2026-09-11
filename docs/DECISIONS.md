@@ -2560,3 +2560,48 @@ owned item). Design worked out in
   matter is the natural home for the `infuse` follow-up.
 - Follow-ups: `infuse` (own spec), recipe discovery (could reuse ADR-0048's condition types),
   more recipes (content wave).
+
+## ADR-0053 — Reset (ADR-0023's soft tier): Echoes + the Echo Shop, built
+
+**Date:** 2026-09-11 · **Status:** Accepted (Alex)
+
+**Context.** ADR-0023 (2026-07-09) split the original single "transcendence" idea into a soft
+**Reset** (keeps characters, wipes current-run progress) and a hard **Transcendence** (wipes
+everything, characters included) — but the split was never carried into code.
+`profiles.transcendence_count` existed with nothing ever incrementing it; `mission-claim` applied
+a flat `transcendenceCount × 10%` bonus to every reward; `group-claim-stage` hardcoded that bonus
+to 0 (ADR-0050); `TranscendencePage.tsx` was a 5-line stub. Design worked out in
+`docs/superpowers/specs/2026-09-11-reset-echoes-design.md`.
+
+**Decision.**
+- **`transcendence_count` renamed `reset_count`** — the column IS what ADR-0023 calls "Reset,"
+  just never renamed. The flat `transcendenceCount × 10%` bonus is **retired**, not kept
+  alongside the new mechanic — the Echo Shop's explicit, player-chosen bonuses replace it.
+- **`echoes` (currency) and `echo_shop` (permanent purchase levels) are separate `profiles`
+  columns, deliberately kept OUT of the `currencies` JSONB** — `reset_player` wipes `currencies`
+  wholesale, and if Echoes lived inside that map the reward a reset just earned would be wiped in
+  the same statement.
+- **`reset_player` RPC**: busy-checked across mission/gather/dungeon-raid/infirmary/craft
+  activity, gated on the order-1 map's boss cleared (content-driven via Sanity `mapDef.order`),
+  wipes `currencies`/`resources`/`map_progress`/`group_runs`/`infirmary_level`, credits Echoes via
+  `floor(totalStagesCleared × 10) + floor(sqrt(lifetimeGoldEarned) × 2)` (provisional constants).
+  `group_runs` and `infirmary_level` were added to the reset scope during the spec's self-review
+  — not originally discussed live, flagged for Alex, confirmed on PR review.
+- **Echo Shop is a code registry** (`src/lib/echoShop.ts`), not Sanity content — mechanical,
+  account-wide multipliers (ADR-0004's pattern), not narrative content. 20 nodes: Mission Speed,
+  Gold Gain, and Gather Rate + Resource Gain per resource in `RESOURCE_SOURCE` (9 resources × 2
+  lanes). Character-power nodes are explicitly reserved for the future Transcendence tier.
+- **Built as a tab shell** (`src/features/reset/`'s `PrestigePage`) — one "Reset" tab today; the
+  future Transcendence tier adds a second tab to this same shell once unlocked, rather than a
+  new page.
+
+**Consequences.**
+- `RewardModifiers.transcendenceBonus` removed from `src/lib/stats.ts`'s `finalReward` pipeline.
+- Nav/route renamed "Transcendence"/`/transcendence` → "Reset"/`/reset`;
+  `src/pages/TranscendencePage.tsx` deleted.
+- No automated Edge Function coverage for `reset-player`/`echo-shop-purchase` (same accepted gap
+  as every other Edge Function here), but the pure formula/registry (`src/lib/reset.ts`,
+  `src/lib/echoShop.ts`) and the services layer are unit-tested.
+- Follow-ups: the Transcendence tier itself (own spec — currency name, tree, what survives it,
+  the unlock condition for its tab), more Echo Shop categories, real balance tuning of the
+  formula/cost-curve/per-level-bonus constants once there's playtest data.
