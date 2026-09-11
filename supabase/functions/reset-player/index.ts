@@ -1,15 +1,14 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
-import { sumStagesCleared, isResetGateMet } from '../../../src/lib/reset.ts'
+import { isResetGateMet } from '../../../src/lib/reset.ts'
 
 // reset-player: the soft-reset action (ADR-0053). Validates the caller, checks the gate (the
 // order-1 map's boss cleared) against the player's OWN profile — a UX gate, not a security
 // boundary; reset_player itself doesn't re-check it (nothing bad happens if bypassed beyond
 // "reset with fewer stages cleared than intended," which only costs the player who did it) —
-// computes the two numbers the RPC needs (total stages cleared, lifetime gold earned) from that
-// same profile row, and hands off to the atomic reset_player RPC, which owns the wipe/award and
-// the busy check.
+// then hands off to the atomic reset_player RPC, which recomputes the award from the player's
+// OWN locked profile row (never from numbers this function could pass in) and owns the wipe.
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -29,7 +28,7 @@ Deno.serve(async (req) => {
 
   const { data: profile, error: profileErr } = await admin
     .from('profiles')
-    .select('map_progress, lifetime_stats')
+    .select('map_progress')
     .eq('player_id', playerId)
     .maybeSingle()
   if (profileErr) {
@@ -37,7 +36,6 @@ Deno.serve(async (req) => {
     return json({ error: 'Could not load profile' }, 500)
   }
   const mapProgress = (profile?.map_progress ?? {}) as Record<string, number>
-  const lifetimeStats = (profile?.lifetime_stats ?? {}) as Record<string, number>
 
   let gateMap: { mapKey?: string } | null
   try {
@@ -55,13 +53,8 @@ Deno.serve(async (req) => {
     return json({ error: "Clear the first map's boss before resetting" }, 403)
   }
 
-  const totalStages = sumStagesCleared(mapProgress)
-  const lifetimeGold = lifetimeStats.goldEarned ?? 0
-
   const { data: result, error: rpcErr } = await admin.rpc('reset_player', {
     p_player: playerId,
-    p_total_stages: totalStages,
-    p_lifetime_gold: lifetimeGold,
   })
   if (rpcErr) {
     console.error('reset-player: reset_player failed', rpcErr)

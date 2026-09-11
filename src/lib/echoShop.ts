@@ -4,7 +4,7 @@
 // currencies.ts (ADR-0004), not narrative per-character content. Character-power nodes are
 // explicitly reserved for a future Transcendence tier — this shop is economy/logistics only.
 
-import { RESOURCE_SOURCE } from './resources'
+import { RESOURCE_SOURCE } from './resources.ts'
 
 export type ShopEffectKind = 'missionSpeed' | 'goldGain' | 'gatherRate' | 'resourceGain'
 

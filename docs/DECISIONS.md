@@ -2433,7 +2433,8 @@ implementation actually shipped.
 - Group content never reads `profiles.transcendence_count` — `transcendenceBonus` is hardcoded to 0
   in `group-claim-stage`. Deliberate v1 scope call (spec is silent on it; this is the simplest
   consistent default), not an oversight — revisit if/when transcendence should apply to
-  dungeons/raids.
+  dungeons/raids. **Superseded by ADR-0053**: `transcendenceBonus` is retired entirely and
+  `group-claim-stage` now applies the Echo Shop's `goldGain`/`resourceGain` bonuses instead.
 
 ## ADR-0051 — Weapon slot is role-routed, not physical-exclusive
 
@@ -2602,6 +2603,13 @@ to 0 (ADR-0050); `TranscendencePage.tsx` was a 5-line stub. Design worked out in
 - No automated Edge Function coverage for `reset-player`/`echo-shop-purchase` (same accepted gap
   as every other Edge Function here), but the pure formula/registry (`src/lib/reset.ts`,
   `src/lib/echoShop.ts`) and the services layer are unit-tested.
+- **Known balance risk, flagged at final review, not a bug**: the gold term reads
+  `lifetime_stats.goldEarned`, a cumulative stock `reset_player` never wipes — so a high-lifetime-
+  gold player re-earns the *same* gold-derived Echoes on every reset, for only the cost of
+  re-clearing the gate's 7 starter stages (which gets faster as Echo Shop levels compound). Matches
+  spec §5b as written; the fix (a delta against a snapshot taken at the player's last reset) is
+  deferred to the real balance-tuning follow-up below, not done here.
 - Follow-ups: the Transcendence tier itself (own spec — currency name, tree, what survives it,
   the unlock condition for its tab), more Echo Shop categories, real balance tuning of the
-  formula/cost-curve/per-level-bonus constants once there's playtest data.
+  formula/cost-curve/per-level-bonus constants once there's playtest data (including the
+  gold-term-as-stock risk above).

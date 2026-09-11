@@ -27,23 +27,35 @@ comment on column public.profiles.echo_shop is
 -- reset_player: the soft-reset action. Busy-checked across every activity table this codebase
 -- has (mission/gather/group/infirmary/craft); gated on the order-1 map's boss being cleared
 -- (checked by the calling Edge Function, not here — a UX gate, not a security boundary, same
--- split as every other *-start function in this codebase). p_total_stages and p_lifetime_gold
--- are computed by the Edge Function from the player's OWN profile row (map_progress summed,
--- lifetime_stats.goldEarned) — this function only does the atomic wipe + award.
+-- split as every other *-start function in this codebase). The award is computed HERE, from the
+-- locked profiles row's own map_progress/lifetime_stats — never from caller-supplied numbers.
+-- Two concurrent calls both reading a stale total before either commits, then both awarding off
+-- that stale figure, was a real double-award race with values passed in as arguments; recomputing
+-- under the `for update` lock closes it (the second call sees the first call's wipe).
 -- ---------------------------------------------------------------------------------------------
 create or replace function public.reset_player(
-  p_player        uuid,
-  p_total_stages  integer,
-  p_lifetime_gold numeric
+  p_player uuid
 ) returns jsonb
 language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_awarded integer;
+  v_awarded        integer;
+  v_map_progress   jsonb;
+  v_lifetime_stats jsonb;
+  v_total_stages   numeric;
+  v_lifetime_gold  numeric;
 begin
-  perform 1 from public.profiles where player_id = p_player for update;
+  select map_progress, lifetime_stats
+    into v_map_progress, v_lifetime_stats
+    from public.profiles
+   where player_id = p_player
+   for update;
+
+  if not found then
+    raise exception 'reset_player: player not found';
+  end if;
 
   if exists (select 1 from public.mission_runs where player_id = p_player)
     or exists (
@@ -62,10 +74,16 @@ begin
     raise exception 'reset_player: a character is busy';
   end if;
 
+  select coalesce(sum((value)::numeric), 0)
+    into v_total_stages
+    from jsonb_each_text(coalesce(v_map_progress, '{}'::jsonb));
+
+  v_lifetime_gold := coalesce((v_lifetime_stats ->> 'goldEarned')::numeric, 0);
+
   -- STAGE_RATE=10, GOLD_RATE=2 — first-pass provisional constants (spec §3's non-goal on
   -- tuning), same treatment as combat.ts's COMBAT block: shape is final, numbers are tuned
   -- later against real playtest data via a calc-script pass.
-  v_awarded := floor(coalesce(p_total_stages, 0) * 10) + floor(sqrt(greatest(coalesce(p_lifetime_gold, 0), 0)) * 2);
+  v_awarded := floor(v_total_stages * 10) + floor(sqrt(greatest(v_lifetime_gold, 0)) * 2);
 
   update public.profiles
      set currencies      = '{}'::jsonb,
@@ -82,8 +100,8 @@ begin
 end;
 $$;
 
-revoke all on function public.reset_player(uuid, integer, numeric) from public, anon, authenticated;
-grant execute on function public.reset_player(uuid, integer, numeric) to service_role;
+revoke all on function public.reset_player(uuid) from public, anon, authenticated;
+grant execute on function public.reset_player(uuid) to service_role;
 
 -- ---------------------------------------------------------------------------------------------
 -- purchase_echo_shop_node: buy the next level of one Echo Shop node. p_cost is resolved

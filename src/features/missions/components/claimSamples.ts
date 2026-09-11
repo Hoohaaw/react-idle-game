@@ -3,7 +3,8 @@ import type { CharacterRole } from '@/lib/roles'
 // The result a claim renders — mirrors the mission-claim Edge Function response (outcome/reason/
 // survivingHpPct/rewards/per-character ending HP + XP), enriched with the display fields the UI joins
 // in (names/classes/item labels). Rewards follow the win-gated pipeline (ADR-0012/0017):
-//   final = base × (1+margin) × (1+level) × (1+party) × (1+transcendence)   — granted only on a win.
+//   final = base × (1+margin) × (1+level) × (1+party)   — granted only on a win. Echo Shop
+//   gold/resource bonuses (ADR-0053) are a separate multiplier applied after this pipeline.
 // Kept in a data-only module (not the component file) so Fast Refresh stays happy.
 export type ClaimMember = {
   name: string
@@ -28,7 +29,7 @@ export type ClaimResultView = {
   baseGold: number
   resources: { label: string; value: number }[]
   loot: { name: string; slot: string; rarity: string }[]
-  bonuses: ClaimBonus[] // margin, level, party, transcendence
+  bonuses: ClaimBonus[] // margin, level, party
   newlyUnlocked: NewRecruitReveal[]
 }
 
@@ -55,7 +56,6 @@ export const SAMPLE_CLAIM_WIN: ClaimResultView = {
     { label: 'Combat margin', detail: '62% HP kept', pct: 31 },
     { label: 'Level bonus', detail: 'avg Lv 18', pct: 7.2 },
     { label: 'Party size', detail: '×2', pct: 10 },
-    { label: 'Transcendence', detail: '×1', pct: 10 },
   ],
   newlyUnlocked: [],
 }
