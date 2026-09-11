@@ -43,6 +43,8 @@ as $$
 declare
   v_awarded integer;
 begin
+  perform 1 from public.profiles where player_id = p_player for update;
+
   if exists (select 1 from public.mission_runs where player_id = p_player)
     or exists (
       select 1 from public.gather_assignments ga
