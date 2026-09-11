@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Alert } from '@/components/atoms/Alert'
 import { PrimaryButton, SecondaryButton } from '@/components/atoms/Button'
 import { Modal } from '@/components/organisms/Modal'
-import { computeEchoesAward, sumStagesCleared, isResetGateMet } from '@/lib/reset'
+import { computeEchoesAward, sumStagesCleared, isResetGateMet, RESET_GATE_STAGE } from '@/lib/reset'
 import { useGateMap, useResetPlayer } from '../hooks'
 
 // The rare/irreversible action (spec §6) — visually separated from the shop above. Shows the
@@ -19,11 +19,15 @@ export function ResetAction({ mapProgress, lifetimeGoldEarned }: { mapProgress: 
   const totalStagesCleared = sumStagesCleared(mapProgress)
   const projectedEchoes = computeEchoesAward(totalStagesCleared, lifetimeGoldEarned)
 
-  const disabledReason = !gateMap.data
+  const disabledReason = gateMap.isPending
     ? 'Loading...'
-    : !gateMet
-      ? `Clear ${gateMap.data.name}'s boss (stage 7) first.`
-      : null
+    : gateMap.error
+      ? 'Could not check reset eligibility.'
+      : !gateMap.data
+        ? 'No starter map configured yet.'
+        : !gateMet
+          ? `Clear ${gateMap.data.name}'s boss (stage ${RESET_GATE_STAGE}) first.`
+          : null
 
   return (
     <div className="atom-heavy" style={{

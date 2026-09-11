@@ -21,7 +21,7 @@ const ShopPage = lazy(() => import('./pages/ShopPage'))
 const InventoryPage = lazy(() => import('./pages/InventoryPage'))
 const CraftingPage = lazy(() => import('@/features/crafting').then((m) => ({ default: m.CraftingPage })))
 const UpgradesPage = lazy(() => import('./pages/UpgradesPage'))
-const PrestigePage = lazy(() => import('./features/reset').then((m) => ({ default: m.PrestigePage })))
+const PrestigePage = lazy(() => import('@/features/reset').then((m) => ({ default: m.PrestigePage })))
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
 const GameStatsPage = lazy(() => import('./pages/GameStatsPage'))
 

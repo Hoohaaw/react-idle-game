@@ -29,10 +29,10 @@ export function EchoShopGrid({ echoes, echoShop }: { echoes: number; echoShop: R
               <p style={{ color: 'var(--color-gold-light)', fontSize: 13, fontWeight: 'bold' }}>{node.label}</p>
               <p style={{ color: 'var(--color-text-muted)', fontSize: 11 }}>{node.description}</p>
               <p style={{ color: 'var(--color-text-primary)', fontSize: 12 }}>
-                Level {level} <span style={{ color: 'var(--color-text-gold)' }}>(+{effectPercent(node.effect.kind, level)}%)</span>
+                Level {level} <span style={{ color: 'var(--color-text-gold)' }}>(+{Math.round(effectPercent(node.effect.kind, level))}%)</span>
               </p>
               <PrimaryButton disabled={!canAfford || purchase.isPending} onClick={() => purchase.mutate(node.key)}>
-                {purchase.isPending ? 'Buying...' : `Buy — ${cost} Echoes`}
+                {purchase.isPending ? 'Buying...' : `Buy — ${cost.toLocaleString()} Echoes`}
               </PrimaryButton>
             </div>
           )
