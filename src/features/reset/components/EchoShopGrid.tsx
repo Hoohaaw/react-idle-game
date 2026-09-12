@@ -1,7 +1,7 @@
 // src/features/reset/components/EchoShopGrid.tsx
 import { Alert } from '@/components/atoms/Alert'
 import { PrimaryButton } from '@/components/atoms/Button'
-import { ECHO_SHOP_NODES, nodeCost, effectPercent } from '@/lib/echoShop'
+import { ECHO_SHOP_NODES, nodeCost, effectPercent, MAX_PROTECTED_SLOTS } from '@/lib/echoShop'
 import { usePurchaseEchoShopNode } from '../hooks'
 
 // The permanent purchase grid (ADR-0053) — levels persist across every Reset; this is the
@@ -29,10 +29,17 @@ export function EchoShopGrid({ echoes, echoShop }: { echoes: number; echoShop: R
               <p style={{ color: 'var(--color-gold-light)', fontSize: 13, fontWeight: 'bold' }}>{node.label}</p>
               <p style={{ color: 'var(--color-text-muted)', fontSize: 11 }}>{node.description}</p>
               <p style={{ color: 'var(--color-text-primary)', fontSize: 12 }}>
-                Level {level} <span style={{ color: 'var(--color-text-gold)' }}>(+{Math.round(effectPercent(node.effect.kind, level))}%)</span>
+                {node.key === 'protectedSlots'
+                  ? <>Level {level} <span style={{ color: 'var(--color-text-gold)' }}>({level} / {MAX_PROTECTED_SLOTS} slots)</span></>
+                  : <>Level {level} <span style={{ color: 'var(--color-text-gold)' }}>(+{Math.round(effectPercent(node.effect.kind, level))}%)</span></>}
               </p>
-              <PrimaryButton disabled={!canAfford || purchase.isPending} onClick={() => purchase.mutate(node.key)}>
-                {purchase.isPending ? 'Buying...' : `Buy — ${cost.toLocaleString()} Echoes`}
+              <PrimaryButton
+                disabled={!canAfford || purchase.isPending || (node.key === 'protectedSlots' && level >= MAX_PROTECTED_SLOTS)}
+                onClick={() => purchase.mutate(node.key)}
+              >
+                {node.key === 'protectedSlots' && level >= MAX_PROTECTED_SLOTS
+                  ? 'Maximum reached'
+                  : purchase.isPending ? 'Buying...' : `Buy — ${cost.toLocaleString()} Echoes`}
               </PrimaryButton>
             </div>
           )
