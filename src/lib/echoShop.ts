@@ -6,7 +6,9 @@
 
 import { RESOURCE_SOURCE } from './resources.ts'
 
-export type ShopEffectKind = 'missionSpeed' | 'goldGain' | 'gatherRate' | 'resourceGain'
+export type ShopEffectKind = 'missionSpeed' | 'goldGain' | 'gatherRate' | 'resourceGain' | 'protectedSlots'
+
+export const MAX_PROTECTED_SLOTS = 5
 
 export type ShopNode = {
   key: string
@@ -25,6 +27,7 @@ const PER_LEVEL_BONUS: Record<ShopEffectKind, number> = {
   goldGain: 0.02,
   gatherRate: 0.03,
   resourceGain: 0.03,
+  protectedSlots: 0, // bare counter, not a resolveShopBonus multiplier — level IS the slot count
 }
 
 const FLAT_NODES: Record<string, ShopNode> = {
@@ -43,6 +46,14 @@ const FLAT_NODES: Record<string, ShopNode> = {
     effect: { kind: 'goldGain' },
     costBase: 20,
     costGrowth: 1.15,
+  },
+  protectedSlots: {
+    key: 'protectedSlots',
+    label: 'Protected Slot',
+    description: 'A character in a protected slot survives your next Transcend completely untouched.',
+    effect: { kind: 'protectedSlots' },
+    costBase: 500,
+    costGrowth: 1.8,
   },
 }
 
