@@ -200,6 +200,9 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ascendant_milestones: Json
+          ascendant_shards: number
+          ascendant_shop: Json
           created_at: string
           currencies: Json
           echo_shop: Json
@@ -210,9 +213,13 @@ export type Database = {
           player_id: string
           reset_count: number
           resources: Json
+          transcend_count: number
           unlocked_characters: Json
         }
         Insert: {
+          ascendant_milestones?: Json
+          ascendant_shards?: number
+          ascendant_shop?: Json
           created_at?: string
           currencies?: Json
           echo_shop?: Json
@@ -222,10 +229,14 @@ export type Database = {
           map_progress?: Json
           player_id: string
           reset_count?: number
+          transcend_count?: number
           unlocked_characters?: Json
           resources?: Json
         }
         Update: {
+          ascendant_milestones?: Json
+          ascendant_shards?: number
+          ascendant_shop?: Json
           created_at?: string
           currencies?: Json
           echo_shop?: Json
@@ -236,6 +247,7 @@ export type Database = {
           player_id?: string
           reset_count?: number
           resources?: Json
+          transcend_count?: number
           unlocked_characters?: Json
         }
         Relationships: []

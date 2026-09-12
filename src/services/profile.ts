@@ -23,12 +23,22 @@ export type PlayerProfile = {
   /** Cumulative "ever earned" ledger (docs/superpowers/specs/2026-08-20-character-acquisition-
    *  design.md) — goldEarned, missionSecondsSent, resourceGathered.<key>. Never wiped by a Reset. */
   lifetimeStats: Record<string, number>
+  /** Ascendant Shards currency (ADR-0023), earned via lifetime-stat milestones. Never wiped. */
+  ascendantShards: number
+  /** nodeKey -> level (ADR-0023, src/lib/ascendantShop.ts). Never wiped. */
+  ascendantShop: Record<string, number>
+  /** "<metricKey>.<i>" -> true for every permanently-claimed milestone. Never wiped. */
+  ascendantMilestones: Record<string, boolean>
+  /** How many times the player has Transcended. Never wiped. */
+  transcendCount: number
 }
 
 export async function fetchProfile(): Promise<PlayerProfile> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats')
+    .select(
+      'currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count',
+    )
     .maybeSingle()
   if (error) throw error
   return {
@@ -41,5 +51,9 @@ export async function fetchProfile(): Promise<PlayerProfile> {
     echoes: data?.echoes ?? 0,
     echoShop: (data?.echo_shop ?? {}) as Record<string, number>,
     lifetimeStats: (data?.lifetime_stats ?? {}) as Record<string, number>,
+    ascendantShards: data?.ascendant_shards ?? 0,
+    ascendantShop: (data?.ascendant_shop ?? {}) as Record<string, number>,
+    ascendantMilestones: (data?.ascendant_milestones ?? {}) as Record<string, boolean>,
+    transcendCount: data?.transcend_count ?? 0,
   }
 }
