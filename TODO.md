@@ -157,6 +157,11 @@ character sprite art. Older open items below may be stale — trust the mileston
   own currency and tree focused on character power, appearing as a second tab in the Reset
   page's `PrestigePage` shell once unlocked. Needs its own spec.
   `↳ context: project-reset · docs/DECISIONS.md ADR-0023/ADR-0053`
+- [ ] **Legendary class-specific quest-lines** — certain Legendary items, equippable only by a
+  specific class, unlock a class-specific mission/quest line that further powers up that item once
+  equipped. Flavor + a power ceiling for build-defining Legendaries. Raised during Transcendence
+  brainstorming (2026-09-12) but is an independent item/content system, not part of that spec.
+  `↳ context: project-items · docs/ITEMS.md, studio/schemaTypes/itemDef.ts`
 - [x] Generate DB types — `src/types/database.types.ts` (465 lines, real generated types).
 - [x] Auth wiring — `src/features/auth/AuthPage.tsx` + `RequireAuth.tsx`, wired into `App.tsx`.
 - [x] Hosted Supabase project + migrations — 15 migrations live, `config.toml` has a real
