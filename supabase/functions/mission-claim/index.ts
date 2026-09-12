@@ -402,6 +402,7 @@ Deno.serve(async (req) => {
   if (win) {
     const goldGranted = currencies['gold'] ?? 0
     if (goldGranted > 0) lifetimeStatsDelta.goldEarned = goldGranted
+    lifetimeStatsDelta.missionsCleared = 1
   }
   // Wall-clock mission time (ends_at − started_at), NOT result.durationSeconds — that's simulateCombat's
   // in-fight virtual time (scripts/balance/enemies.ts:29-31), which runs 60-170s per mission regardless
