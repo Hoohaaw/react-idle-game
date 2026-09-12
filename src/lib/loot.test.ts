@@ -76,3 +76,32 @@ describe('rollItemLoot', () => {
     expect(result[0].quantity).toBe(5)
   })
 })
+
+describe('rollRarity with bias', () => {
+  it('bias of 1 (default) behaves exactly as before — every existing test still passes unchanged', () => {
+    // no new assertion needed here beyond re-running the existing suite (Step 2's full run) —
+    // this test documents the intent: rollRarity(weights, rng) === rollRarity(weights, rng, 1)
+    const weights = [{ rarity: 'Common', weight: 70 }, { rarity: 'Rare', weight: 30 }]
+    const rng = () => 0.8 // lands in the Rare band at bias 1
+    expect(rollRarity(weights, rng)).toBe(rollRarity(weights, rng, 1))
+  })
+
+  it('a bias > 1 shifts weight toward every rarity except the lowest one present (by RARITY_ORDER)', () => {
+    const weights = [{ rarity: 'Common', weight: 50 }, { rarity: 'Rare', weight: 50 }]
+    // At bias 1, rng()=0.6 with total=100 lands past Common's 50 -> Rare.
+    // At a high bias, Rare's effective weight grows relative to Common's (which is never biased,
+    // being the lowest rarity in RARITY_ORDER), so a LOWER rng value should also land in Rare now.
+    const rng = () => 0.3
+    expect(rollRarity(weights, rng, 1)).toBe('Common')
+    expect(rollRarity(weights, rng, 3)).toBe('Rare')
+  })
+})
+
+describe('rollItemLoot with bias', () => {
+  it('omitting bias reproduces the exact same result as passing bias: 1', () => {
+    const lines = [{ itemKey: 'test-item', dropChance: 100, quantityMin: 1, quantityMax: 1, rarityWeights: [{ rarity: 'Common', weight: 100 }] }]
+    const makeRng = () => { let calls = 0; const seq = [0.1, 0.1, 0.1]; return () => seq[calls++] ?? 0.1 }
+    expect(rollItemLoot(lines, makeRng(), { magicFind: 0, luck: 0 }))
+      .toEqual(rollItemLoot(lines, makeRng(), { magicFind: 0, luck: 0, bias: 1 }))
+  })
+})
