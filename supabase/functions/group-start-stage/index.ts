@@ -3,6 +3,7 @@ import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
 import { GROUP_PARTY_CAP, GROUP_LOCKOUT, type GroupKind } from '../../../src/lib/groupContent.ts'
 import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
+import { resolveFlatAscendantBonus } from '../../../src/lib/ascendantShop.ts'
 
 // group-start-stage: dispatch the CURRENT stage of a dungeon/raid run (ADR-0003 server-authoritative
 // write; docs/superpowers/specs/2026-09-08-dungeons-and-raids-design.md §5). Mirrors mission-start's
@@ -74,11 +75,14 @@ Deno.serve(async (req) => {
   // Echo Shop Mission Speed (ADR-0053) — same lane mission-start applies for missions.
   const { data: profile } = await admin
     .from('profiles')
-    .select('echo_shop')
+    .select('echo_shop, ascendant_shop')
     .eq('player_id', playerId)
     .maybeSingle()
   const shop = (profile?.echo_shop ?? {}) as Record<string, number>
-  const durationSeconds = Math.max(1, Math.round(stage.durationSeconds / resolveShopBonus(shop, 'missionSpeed')))
+  const ascendantShop = (profile?.ascendant_shop ?? {}) as Record<string, number>
+  const durationSeconds = Math.max(1, Math.round(
+    stage.durationSeconds / resolveShopBonus(shop, 'missionSpeed') / resolveFlatAscendantBonus(ascendantShop, 'missionSpeed')
+  ))
 
   const { data: groupRun, error: rpcErr } = await admin.rpc('start_group_stage', {
     p_player: playerId,
