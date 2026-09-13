@@ -150,13 +150,14 @@ character sprite art. Older open items below may be stale — trust the mileston
 - [x] **Reset tier** (ADR-0053) — `reset_player`/`purchase_echo_shop_node` RPCs, the
   `reset-player`/`echo-shop-purchase` Edge Functions, the 20-node Echo Shop registry
   (`src/lib/echoShop.ts`), and the `src/features/reset/` page (nav renamed "Transcendence" →
-  "Reset"). The harder Transcendence tier (full wipe including characters) is its own follow-up,
-  not built here.
+  "Reset"). The harder Transcendence tier (full wipe including characters) shipped separately,
+  see ADR-0054 below.
   `↳ context: project-reset · docs/DECISIONS.md ADR-0053, docs/superpowers/specs/2026-09-11-reset-echoes-design.md`
-- [ ] **Transcendence tier** (ADR-0023's hard-wipe half) — full wipe including characters, its
-  own currency and tree focused on character power, appearing as a second tab in the Reset
-  page's `PrestigePage` shell once unlocked. Needs its own spec.
-  `↳ context: project-reset · docs/DECISIONS.md ADR-0023/ADR-0053`
+- [x] **Transcendence tier** (ADR-0054) — Ascendant Shards (earned via milestone thresholds on
+  lifetime stats, not a lump sum), the Ascendant Shop (per-character Power/Vitality + flat
+  economy nodes + rarity bias), the all-raids-cleared unlock gate, and protected character slots
+  (a new Echo Shop node). Second tab in the `PrestigePage` shell, gated on eligibility.
+  `↳ context: project-reset · docs/DECISIONS.md ADR-0054, docs/superpowers/specs/2026-09-12-transcendence-ascendant-shards-design.md`
 - [ ] **Legendary class-specific quest-lines** — certain Legendary items, equippable only by a
   specific class, unlock a class-specific mission/quest line that further powers up that item once
   equipped. Flavor + a power ceiling for build-defining Legendaries. Raised during Transcendence
