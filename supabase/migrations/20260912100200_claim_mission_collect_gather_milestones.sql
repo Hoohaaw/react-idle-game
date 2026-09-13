@@ -102,10 +102,14 @@ begin
   end loop;
 
   -- Ascendant Milestones (ADR-0023): computed from the row's own state, AFTER every delta above
-  -- has already been applied to it, so this sees the true post-claim lifetime_stats.
+  -- has already been applied to it, so this sees the true post-claim lifetime_stats. `for update`
+  -- is required here (not just incidentally covered by an earlier UPDATE in this function) so two
+  -- concurrent claims for the same player always serialize on this row before computing/awarding
+  -- shards — otherwise both could read the same pre-award state and double-award ascendant_shards.
   select lifetime_stats, transcend_count, ascendant_milestones
     into v_lifetime_stats, v_transcend_count, v_ascendant_milestones
-    from public.profiles where player_id = p_player;
+    from public.profiles where player_id = p_player
+    for update;
   v_milestones := check_ascendant_milestones(v_lifetime_stats, v_transcend_count, v_ascendant_milestones);
   update public.profiles
      set ascendant_shards = ascendant_shards + (v_milestones->>'shards')::int,
@@ -183,9 +187,14 @@ begin
     end if;
   end loop;
 
+  -- `for update` is required here: gather-collect's caller can call this with p_gained = 0 (a
+  -- routine zero-gain collect), in which case NO earlier statement in this function has touched
+  -- the profiles row yet — without an explicit lock here, two concurrent zero-gain calls would
+  -- both read the same pre-award state and double-award ascendant_shards.
   select lifetime_stats, transcend_count, ascendant_milestones
     into v_lifetime_stats, v_transcend_count, v_ascendant_milestones
-    from public.profiles where player_id = p_player;
+    from public.profiles where player_id = p_player
+    for update;
   v_milestones := check_ascendant_milestones(v_lifetime_stats, v_transcend_count, v_ascendant_milestones);
   update public.profiles
      set ascendant_shards = ascendant_shards + (v_milestones->>'shards')::int,
