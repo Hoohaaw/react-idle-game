@@ -178,6 +178,16 @@ character sprite art. Older open items below may be stale — trust the mileston
   to one side and not the other (`src/test/migration-policy.test.ts` already parses migrations and
   is the natural home for this check).
   `↳ context: project-reset · docs/DECISIONS.md ADR-0054`
+- [ ] **Achievements system** — a badge/accomplishment tracker for players, distinct from the
+  reward-granting Ascendant Milestones (which award Shards). Needs its own design: what counts as
+  an achievement, whether it's purely cosmetic or has its own payout, and a UI surface. The
+  `lifetime_stats` column + `LIFETIME_STAT_DEFS` registry and the `ASCENDANT_MILESTONES` pattern
+  (threshold ladders, permanent-claim tracking) are natural building blocks to reuse or extend.
+  `↳ context: project-reset · src/lib/lifetimeStats.ts, src/lib/ascendantMilestones.ts`
+- [ ] **Lifetime stats page** — a page showing the player's full `lifetime_stats` (missions/
+  dungeons/raids cleared, gold earned, resources gathered, mission time sent, etc.), not just the
+  Ascendant Milestone progress subset already shown in the Transcend tab's `MilestoneProgressList`.
+  `↳ context: project-reset · src/lib/lifetimeStats.ts, src/features/reset/components/MilestoneProgressList.tsx`
 - [ ] **Legendary class-specific quest-lines** — certain Legendary items, equippable only by a
   specific class, unlock a class-specific mission/quest line that further powers up that item once
   equipped. Flavor + a power ceiling for build-defining Legendaries. Raised during Transcendence
