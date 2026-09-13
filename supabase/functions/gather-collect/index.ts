@@ -58,12 +58,13 @@ Deno.serve(async (req) => {
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('lifetime_stats, unlocked_characters, echo_shop')
+    .select('lifetime_stats, unlocked_characters, echo_shop, ascendant_shop')
     .eq('player_id', playerId)
     .maybeSingle()
   const lifetimeStats = (profile?.lifetime_stats ?? {}) as Record<string, number>
   const unlockedCharacters = (profile?.unlocked_characters ?? {}) as Record<string, string>
   const shop = (profile?.echo_shop ?? {}) as Record<string, number>
+  const ascendantShop = (profile?.ascendant_shop ?? {}) as Record<string, number>
 
   const mine = MINE_BY_RESOURCE[assignment.resource_id]
   if (!mine) return json({ error: 'Unknown mine' }, 500)
@@ -80,7 +81,7 @@ Deno.serve(async (req) => {
       .eq('player_id', playerId)
       .maybeSingle()
     if (charRow) {
-      const stats = await statsByCharacter([charRow], { resource: assignment.resource_id })
+      const stats = await statsByCharacter([charRow], { resource: assignment.resource_id }, ascendantShop)
       gatherSpeed = stats[charRow.id]?.gatherSpeed ?? 0
       gatherYield = stats[charRow.id]?.gatherYield ?? 0
     }
