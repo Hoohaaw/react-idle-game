@@ -2632,7 +2632,7 @@ unlock gate, no wipe RPC.
   (`check_ascendant_milestones`, called from `claim_mission`/`collect_gather`/`claim_group_stage`/
   `transcend_player`), never computed in TypeScript beforehand — closing, by construction, the
   exact double-award race `reset_player` shipped and had to be fixed for during Reset's launch
-  review. (The same race resurfaced once more during this feature's own execution — see
+  review. (The same race resurfaced *twice more* during this feature's own execution — see
   Consequences.)
 - **The unlock gate — every currently-authored raid cleared, ever — is a permanent flag inside
   `lifetime_stats`** (`raidCleared.<raidKey>`), not a check against `group_runs`, since Reset
@@ -2652,15 +2652,36 @@ unlock gate, no wipe RPC.
   ADR-0050).
 - `src/lib/loot.ts`'s `rollRarity`/`rollItemLoot` gained an optional `bias` parameter for the new
   Rarity Bias node — additive, defaults to no change.
-- **The double-award race recurred once during implementation, in `collect_gather` specifically**:
-  its milestone re-select initially had no `for update`, safe for `claim_mission` only because an
-  earlier delta always locks the row first, but reachable in `collect_gather` whenever called with
-  `p_gained = 0` (two near-simultaneous zero-gain gather collects). Caught by task review before
-  merge, already live on the hosted project for a short window, fixed with `for update` on the
-  milestone select (matching `transcend_player`'s existing pattern) and re-deployed. Worth
-  remembering for any future RPC that adds this milestone-check block: `for update` on the
-  re-select is not optional cheap insurance — it is the entire safety property, and "an earlier
-  statement happens to lock the row first" is not a substitute for stating it explicitly.
+- **The double-award race recurred twice during implementation, in `collect_gather` and then
+  independently in `claim_group_stage`** — both traced to the same root cause: the plan's own
+  template snippet for the milestone-check block had a plain `select ... into ...` with no
+  `for update`, safe only when an *earlier* statement in the same function happened to lock the
+  row first. `collect_gather` breaks that assumption whenever called with `p_gained = 0` (two
+  near-simultaneous zero-gain gather collects — no prior UPDATE fires); `claim_group_stage` breaks
+  it on any losing stage claim (no prior UPDATE fires either). The first occurrence was caught by
+  task review before merge, briefly live on hosted, fixed with `for update` and re-deployed. The
+  *second* occurrence, in `claim_group_stage`, was written the same review wave off the same
+  flawed template and passed its own task review — it was only caught by the final whole-branch
+  review, and turned out to have been live on hosted production since the task first shipped (a
+  mistaken assumption that its migration "wasn't deployed yet" went unchecked until directly
+  queried against the live database). Both are now fixed and confirmed live-correct. **The lesson
+  this cost two fix cycles to learn: a template snippet that gets copied into N call sites needs
+  the locking property fixed at the template, not rediscovered independently at each site** — see
+  the new CLAUDE.md rule this added.
+- Also found and fixed during the final whole-branch review, none reachable during normal per-task
+  review because each depends on a different part of the branch at once: the protected-character
+  picker sent Sanity `charKey`s instead of the owned-roster UUIDs `transcend_player` requires
+  (Transcend 409'd for anyone who tried to protect a character); the `rarityBias` Ascendant Shop
+  node was purchasable but never read by either loot-rolling call site; `transcend_player` deleted
+  wiped characters' equipped gear with no return to `player_inventory` (unlike the established
+  `unequip_item` pattern); the Task-14 regeneration of `database.types.ts` silently dropped
+  `craft_runs`/`group_runs`'s `Insert: never`/`Update: never` ADR-0003 compile-time guards.
 - Follow-ups: real balance tuning of every threshold/cost/percentage; a full milestone/achievement
   gallery UI; the legendary class-specific quest-line idea raised during this feature's
-  brainstorming, tracked as its own TODO item, unrelated to this mechanic.
+  brainstorming, tracked as its own TODO item, unrelated to this mechanic; `purchase_ascendant_shop_node`
+  (and its sibling `purchase_echo_shop_node`) compute cost in TypeScript from an unlocked read
+  before applying it under a lock that doesn't re-derive price — same shape as the fixed race, one
+  layer down, needs a coordinated fix across both RPCs; Ascendant stat bonuses aren't yet wired
+  into `mission-start`/`gather-collect`/the client-side roster display, so those show pre-Ascendant
+  numbers; no test yet pins the SQL (`check_ascendant_milestones`) and TypeScript
+  (`ASCENDANT_MILESTONES`) ladder definitions in sync against future drift.

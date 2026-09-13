@@ -93,6 +93,14 @@ main context what an agent can do in its own.
 - Writing tests for any file → **test-writer**
 - Everything else (cross-cutting changes, discussions, planning) → main context
 
+**Regenerating `src/types/database.types.ts`** (via the Supabase MCP `generate_typescript_types`
+tool) has produced a genuinely broken `CompositeTypes<>` generic at least twice in this project's
+history — diff the regenerated file against the previous version before trusting it verbatim,
+especially the `CompositeTypes<>`/`Tables<>`/`TablesInsert<>`/`TablesUpdate<>`/`Enums<>` generic
+helpers near the top, and any table whose columns are entirely RPC-only (e.g. `craft_runs`,
+`group_runs`) — those should keep `Insert: never` / `Update: never` as a compile-time ADR-0003
+guard, which a regeneration will silently overwrite with a full (wrong) Insert/Update shape.
+
 ---
 
 ## Core engineering rules (don't violate — full rationale in ADRs)
@@ -100,6 +108,15 @@ main context what an agent can do in its own.
   through Edge Functions. Every gameplay table = RLS owner-read + explicit GRANTs + no client write.
 - **Compute-on-read stats** (ADR-0002): store only intent (`level`, `xp`, blessings, equipped);
   never store derived stat values.
+- **Award/credit logic must lock the row it reads, in the same read** (`select ... for update`),
+  never rely on an earlier statement in the same function happening to lock it first. This bit
+  twice in ADR-0054's Ascendant Milestone check (`collect_gather`, then independently
+  `claim_group_stage`, both from the same unlocked template snippet) — one occurrence shipped to
+  production before being caught. Any RPC that reads a counter/flag to decide whether to grant a
+  reward (currency, unlock, milestone) needs `for update` on that read as part of its own
+  statement, not as a property inherited from surrounding code. When copying this pattern into a
+  new call site, copy the lock too — don't assume the new site's control flow reproduces the old
+  site's incidental locking.
 - **Definition/instance split** (ADR-0001): authored content → Sanity; per-player runtime → Supabase.
 - **Registry-driven extensibility** (ADR-0004): stats/currencies/resources are code registries +
   JSONB — adding one is a one-line change, no migration.
