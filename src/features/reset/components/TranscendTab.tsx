@@ -3,6 +3,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { Alert } from '@/components/atoms/Alert'
 import { AscendantShopGrid } from './AscendantShopGrid'
 import { MilestoneProgressList } from './MilestoneProgressList'
+import { TranscendAction } from './TranscendAction'
 
 export function TranscendTab() {
   const profile = useProfile()
@@ -23,6 +24,7 @@ export function TranscendTab() {
         transcendCount={profile.data.transcendCount}
         ascendantMilestones={profile.data.ascendantMilestones}
       />
+      <TranscendAction protectedSlots={profile.data.echoShop.protectedSlots ?? 0} />
     </div>
   )
 }
