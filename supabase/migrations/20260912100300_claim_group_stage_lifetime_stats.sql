@@ -101,7 +101,8 @@ begin
 
   select lifetime_stats, transcend_count, ascendant_milestones
     into v_lifetime_stats, v_transcend_count, v_ascendant_milestones
-    from public.profiles where player_id = p_player;
+    from public.profiles where player_id = p_player
+    for update;
   v_milestones := check_ascendant_milestones(v_lifetime_stats, v_transcend_count, v_ascendant_milestones);
   update public.profiles
      set ascendant_shards = ascendant_shards + (v_milestones->>'shards')::int,

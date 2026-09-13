@@ -21,18 +21,8 @@ export type Database = {
           recipe_def_id: string
           started_at: string
         }
-        Insert: {
-          ends_at: string
-          player_id: string
-          recipe_def_id: string
-          started_at?: string
-        }
-        Update: {
-          ends_at?: string
-          player_id?: string
-          recipe_def_id?: string
-          started_at?: string
-        }
+        Insert: never // all writes go through the RPCs — no direct client insert (ADR-0003)
+        Update: never
         Relationships: []
       }
       gather_assignments: {
@@ -82,28 +72,8 @@ export type Database = {
           stage_started_at: string | null
           status: string
         }
-        Insert: {
-          current_stage_index?: number
-          def_key: string
-          kind: string
-          last_cleared_at?: string | null
-          party?: string[]
-          player_id: string
-          stage_ends_at?: string | null
-          stage_started_at?: string | null
-          status?: string
-        }
-        Update: {
-          current_stage_index?: number
-          def_key?: string
-          kind?: string
-          last_cleared_at?: string | null
-          party?: string[]
-          player_id?: string
-          stage_ends_at?: string | null
-          stage_started_at?: string | null
-          status?: string
-        }
+        Insert: never
+        Update: never
         Relationships: []
       }
       infirmary_admissions: {

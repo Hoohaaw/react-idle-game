@@ -373,7 +373,7 @@ Deno.serve(async (req) => {
       bucket[r.code] = (bucket[r.code] ?? 0) + amount
     }
     const lootRng = makeRng(`${run.id}:loot`)
-    loot.push(...rollItemLoot(mission.loot ?? [], lootRng, { magicFind, luck }))
+    loot.push(...rollItemLoot(mission.loot ?? [], lootRng, { magicFind, luck, bias: resolveFlatAscendantBonus(ascendantShop, 'rarityBias') }))
     for (const drop of mission.characterLootDrop ?? []) {
       if (!drop.charKey) continue
       if (unlockedCharacters[drop.charKey]) continue // already unlocked — don't waste the roll

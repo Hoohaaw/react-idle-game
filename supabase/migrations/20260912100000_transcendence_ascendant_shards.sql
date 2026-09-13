@@ -170,6 +170,15 @@ begin
          ascendant_milestones = ascendant_milestones || (v_milestones -> 'newKeys')
    where player_id = p_player;
 
+  insert into public.player_inventory (player_id, item_def_id, rarity, quantity)
+  select p_player, item.value ->> 'itemDefId', item.value ->> 'rarity', count(*)::int
+    from public.player_characters pc,
+         jsonb_each(pc.equipped) as item
+   where pc.player_id = p_player and not (pc.id = any(p_protected_ids))
+   group by item.value ->> 'itemDefId', item.value ->> 'rarity'
+  on conflict (player_id, item_def_id, rarity)
+  do update set quantity = public.player_inventory.quantity + excluded.quantity;
+
   delete from public.group_runs where player_id = p_player;
   delete from public.player_characters where player_id = p_player and not (id = any(p_protected_ids));
 

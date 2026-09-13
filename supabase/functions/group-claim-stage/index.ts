@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
       bucket[r.code] = (bucket[r.code] ?? 0) + amount
     }
     const lootRng = makeRng(`${runId}:loot`)
-    loot = rollItemLoot(stage.loot ?? [], lootRng, { magicFind, luck })
+    loot = rollItemLoot(stage.loot ?? [], lootRng, { magicFind, luck, bias: resolveFlatAscendantBonus(ascendantShop, 'rarityBias') })
   }
 
   const lifetimeStatsDelta: Record<string, number> = {}

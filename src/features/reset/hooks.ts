@@ -53,7 +53,7 @@ export function useTranscendPlayer() {
   return useMutation({
     mutationFn: transcendPlayer,
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['profile'] })
+      void qc.invalidateQueries()
     },
   })
 }

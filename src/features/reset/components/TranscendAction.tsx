@@ -3,13 +3,13 @@ import { useState } from 'react'
 import { Alert } from '@/components/atoms/Alert'
 import { PrimaryButton, SecondaryButton } from '@/components/atoms/Button'
 import { Modal } from '@/components/organisms/Modal'
-import { useCharacterDefs } from '@/hooks/useRoster'
+import { useRoster } from '@/hooks/useRoster'
 import { useRaidEligibility, useTranscendPlayer } from '../hooks'
 
 export function TranscendAction({ protectedSlots }: { protectedSlots: number }) {
   const eligibility = useRaidEligibility()
   const transcend = useTranscendPlayer()
-  const characterDefs = useCharacterDefs()
+  const roster = useRoster()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   const [justDone, setJustDone] = useState<number | null>(null)
@@ -46,9 +46,9 @@ export function TranscendAction({ protectedSlots }: { protectedSlots: number }) 
             Choose up to {protectedSlots} characters to protect ({selected.length}/{protectedSlots}):
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {(characterDefs.data ?? []).map((c) => (
-              <label key={c.charKey} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-text-primary)' }}>
-                <input type="checkbox" checked={selected.includes(c.charKey)} onChange={() => toggle(c.charKey)} />
+            {(roster.roster ?? []).map((c) => (
+              <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-text-primary)' }}>
+                <input type="checkbox" checked={selected.includes(c.id)} onChange={() => toggle(c.id)} />
                 {c.name}
               </label>
             ))}
