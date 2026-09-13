@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { ECHO_SHOP_NODES, nodeCost, resolveShopBonus, effectPercent } from './echoShop'
+import { ECHO_SHOP_NODES, nodeCost, resolveShopBonus, effectPercent, MAX_PROTECTED_SLOTS } from './echoShop'
 
 describe('ECHO_SHOP_NODES', () => {
-  it('has exactly 20 nodes: missionSpeed, goldGain, and 9 resources x 2 lanes', () => {
-    expect(Object.keys(ECHO_SHOP_NODES)).toHaveLength(20)
+  it('has exactly 21 nodes: missionSpeed, goldGain, protectedSlots, and 9 resources x 2 lanes', () => {
+    expect(Object.keys(ECHO_SHOP_NODES)).toHaveLength(21)
     expect(ECHO_SHOP_NODES.missionSpeed).toBeDefined()
     expect(ECHO_SHOP_NODES.goldGain).toBeDefined()
     expect(ECHO_SHOP_NODES['gatherRate.Iron']).toBeDefined()
@@ -18,6 +18,24 @@ describe('ECHO_SHOP_NODES', () => {
   it('flat nodes carry no resource', () => {
     expect(ECHO_SHOP_NODES.missionSpeed.effect).toEqual({ kind: 'missionSpeed' })
     expect(ECHO_SHOP_NODES.goldGain.effect).toEqual({ kind: 'goldGain' })
+  })
+})
+
+describe('ECHO_SHOP_NODES.protectedSlots', () => {
+  it('exists as a flat node with no resource', () => {
+    expect(ECHO_SHOP_NODES.protectedSlots).toBeDefined()
+    expect(ECHO_SHOP_NODES.protectedSlots.effect).toEqual({ kind: 'protectedSlots' })
+  })
+
+  it('is priced steeper than every other flat node', () => {
+    expect(ECHO_SHOP_NODES.protectedSlots.costBase).toBeGreaterThan(ECHO_SHOP_NODES.missionSpeed.costBase)
+    expect(ECHO_SHOP_NODES.protectedSlots.costGrowth).toBeGreaterThan(ECHO_SHOP_NODES.missionSpeed.costGrowth)
+  })
+})
+
+describe('MAX_PROTECTED_SLOTS', () => {
+  it('is 5', () => {
+    expect(MAX_PROTECTED_SLOTS).toBe(5)
   })
 })
 

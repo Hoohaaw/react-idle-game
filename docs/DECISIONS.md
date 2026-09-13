@@ -2613,3 +2613,75 @@ to 0 (ADR-0050); `TranscendencePage.tsx` was a 5-line stub. Design worked out in
   the unlock condition for its tab), more Echo Shop categories, real balance tuning of the
   formula/cost-curve/per-level-bonus constants once there's playtest data (including the
   gold-term-as-stock risk above).
+
+## ADR-0054 — Transcendence: Ascendant Shards, earned continuously via milestones
+
+**Date:** 2026-09-12 · **Status:** Accepted (Alex)
+
+**Context.** ADR-0023 (2026-07-09) split the original prestige idea into a soft Reset and a hard
+Transcendence; Reset shipped as ADR-0053. Transcendence was deferred — no currency, no shop, no
+unlock gate, no wipe RPC.
+
+**Decision.**
+- **Ascendant Shards, the Transcendence currency, are earned continuously through milestone
+  thresholds on lifetime stats** (gold, each resource, missions/dungeons/raids cleared, Transcend
+  count itself) — not a lump sum computed at the moment of Transcending. Crossing a threshold
+  anywhere permanently retires it (`profiles.ascendant_milestones`), rewarding breadth of progress
+  over depth in one metric.
+- **The milestone check runs entirely inside the SQL RPC that already holds the row's lock**
+  (`check_ascendant_milestones`, called from `claim_mission`/`collect_gather`/`claim_group_stage`/
+  `transcend_player`), never computed in TypeScript beforehand — closing, by construction, the
+  exact double-award race `reset_player` shipped and had to be fixed for during Reset's launch
+  review. (The same race resurfaced *twice more* during this feature's own execution — see
+  Consequences.)
+- **The unlock gate — every currently-authored raid cleared, ever — is a permanent flag inside
+  `lifetime_stats`** (`raidCleared.<raidKey>`), not a check against `group_runs`, since Reset
+  already deletes every `group_runs` row and would otherwise re-lock an already-earned gate on
+  every Reset.
+- **Transcending wipes `echoes`/`echo_shop` on top of everything Reset wipes**, plus every
+  character — except characters in a **protected slot**, a new Echo Shop node (Echoes currency,
+  capped at 5, expensive) chosen at the moment of Transcending.
+- **Ascendant Power/Vitality are per-character, account-wide investments** (keyed to `charKey`,
+  surviving both Reset and Transcend, re-applying automatically when a character is recruited
+  again) — the character-power lane the Reset spec explicitly reserved for this tier.
+
+**Consequences.**
+- `claim_mission`, `collect_gather`, and `claim_group_stage` (all pre-existing, already-shipped
+  RPCs) gained a shared milestone-check block; `claim_group_stage` additionally gained
+  `lifetime_stats` plumbing it never had at all (a scope cut from when dungeons/raids shipped,
+  ADR-0050).
+- `src/lib/loot.ts`'s `rollRarity`/`rollItemLoot` gained an optional `bias` parameter for the new
+  Rarity Bias node — additive, defaults to no change.
+- **The double-award race recurred twice during implementation, in `collect_gather` and then
+  independently in `claim_group_stage`** — both traced to the same root cause: the plan's own
+  template snippet for the milestone-check block had a plain `select ... into ...` with no
+  `for update`, safe only when an *earlier* statement in the same function happened to lock the
+  row first. `collect_gather` breaks that assumption whenever called with `p_gained = 0` (two
+  near-simultaneous zero-gain gather collects — no prior UPDATE fires); `claim_group_stage` breaks
+  it on any losing stage claim (no prior UPDATE fires either). The first occurrence was caught by
+  task review before merge, briefly live on hosted, fixed with `for update` and re-deployed. The
+  *second* occurrence, in `claim_group_stage`, was written the same review wave off the same
+  flawed template and passed its own task review — it was only caught by the final whole-branch
+  review, and turned out to have been live on hosted production since the task first shipped (a
+  mistaken assumption that its migration "wasn't deployed yet" went unchecked until directly
+  queried against the live database). Both are now fixed and confirmed live-correct. **The lesson
+  this cost two fix cycles to learn: a template snippet that gets copied into N call sites needs
+  the locking property fixed at the template, not rediscovered independently at each site** — see
+  the new CLAUDE.md rule this added.
+- Also found and fixed during the final whole-branch review, none reachable during normal per-task
+  review because each depends on a different part of the branch at once: the protected-character
+  picker sent Sanity `charKey`s instead of the owned-roster UUIDs `transcend_player` requires
+  (Transcend 409'd for anyone who tried to protect a character); the `rarityBias` Ascendant Shop
+  node was purchasable but never read by either loot-rolling call site; `transcend_player` deleted
+  wiped characters' equipped gear with no return to `player_inventory` (unlike the established
+  `unequip_item` pattern); the Task-14 regeneration of `database.types.ts` silently dropped
+  `craft_runs`/`group_runs`'s `Insert: never`/`Update: never` ADR-0003 compile-time guards.
+- Follow-ups: real balance tuning of every threshold/cost/percentage; a full milestone/achievement
+  gallery UI; the legendary class-specific quest-line idea raised during this feature's
+  brainstorming, tracked as its own TODO item, unrelated to this mechanic; `purchase_ascendant_shop_node`
+  (and its sibling `purchase_echo_shop_node`) compute cost in TypeScript from an unlocked read
+  before applying it under a lock that doesn't re-derive price — same shape as the fixed race, one
+  layer down, needs a coordinated fix across both RPCs; Ascendant stat bonuses aren't yet wired
+  into `mission-start`/`gather-collect`/the client-side roster display, so those show pre-Ascendant
+  numbers; no test yet pins the SQL (`check_ascendant_milestones`) and TypeScript
+  (`ASCENDANT_MILESTONES`) ladder definitions in sync against future drift.

@@ -36,6 +36,7 @@ import { evaluateCondition, type PlayerAcquisitionState } from '../../../src/lib
 import { fetchAcquisitionCandidates } from '../_shared/characterAcquisition.ts'
 import { rollItemLoot } from '../../../src/lib/loot.ts'
 import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
+import { resolveCharAscendantBonuses, resolveFlatAscendantStatBonuses, resolveFlatAscendantBonus } from '../../../src/lib/ascendantShop.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -193,10 +194,11 @@ Deno.serve(async (req) => {
   // 3. Player profile: Echo Shop levels (ADR-0053) + map progress (for the first-clear check).
   const { data: profile } = await admin
     .from('profiles')
-    .select('map_progress, lifetime_stats, unlocked_characters, echo_shop')
+    .select('map_progress, lifetime_stats, unlocked_characters, echo_shop, ascendant_shop')
     .eq('player_id', playerId)
     .maybeSingle()
   const shop = (profile?.echo_shop ?? {}) as Record<string, number>
+  const ascendantShop = (profile?.ascendant_shop ?? {}) as Record<string, number>
   const mapProgress = (profile?.map_progress ?? {}) as Record<string, number>
   const lifetimeStats = (profile?.lifetime_stats ?? {}) as Record<string, number>
   const unlockedCharacters = (profile?.unlocked_characters ?? {}) as Record<string, string>
@@ -253,6 +255,8 @@ Deno.serve(async (req) => {
       extraBonuses: mergeBonuses(
         collectTraitBonuses(def.traits ?? [], traitCtx),
         resolveCapstoneBonuses(def.capstone, earnedCapstone, traitCtx),
+        resolveCharAscendantBonuses(ascendantShop, def.charKey),
+        resolveFlatAscendantStatBonuses(ascendantShop),
       ),
     })
     statsById[c.id] = stats
@@ -361,7 +365,7 @@ Deno.serve(async (req) => {
       const shopMult = isGold
         ? resolveShopBonus(shop, 'goldGain')
         : r.kind === 'resource'
-          ? resolveShopBonus(shop, 'resourceGain', r.code)
+          ? resolveShopBonus(shop, 'resourceGain', r.code) * resolveFlatAscendantBonus(ascendantShop, 'resourceGain')
           : 1
       const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1) * firstClearMult * shopMult)
       if (amount <= 0) continue
@@ -369,7 +373,7 @@ Deno.serve(async (req) => {
       bucket[r.code] = (bucket[r.code] ?? 0) + amount
     }
     const lootRng = makeRng(`${run.id}:loot`)
-    loot.push(...rollItemLoot(mission.loot ?? [], lootRng, { magicFind, luck }))
+    loot.push(...rollItemLoot(mission.loot ?? [], lootRng, { magicFind, luck, bias: resolveFlatAscendantBonus(ascendantShop, 'rarityBias') }))
     for (const drop of mission.characterLootDrop ?? []) {
       if (!drop.charKey) continue
       if (unlockedCharacters[drop.charKey]) continue // already unlocked — don't waste the roll
@@ -402,6 +406,7 @@ Deno.serve(async (req) => {
   if (win) {
     const goldGranted = currencies['gold'] ?? 0
     if (goldGranted > 0) lifetimeStatsDelta.goldEarned = goldGranted
+    lifetimeStatsDelta.missionsCleared = 1
   }
   // Wall-clock mission time (ends_at − started_at), NOT result.durationSeconds — that's simulateCombat's
   // in-fight virtual time (scripts/balance/enemies.ts:29-31), which runs 60-170s per mission regardless

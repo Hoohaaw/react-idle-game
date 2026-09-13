@@ -16,10 +16,10 @@ export type Database = {
     Tables: {
       craft_runs: {
         Row: {
+          ends_at: string
           player_id: string
           recipe_def_id: string
           started_at: string
-          ends_at: string
         }
         Insert: never // all writes go through the RPCs — no direct client insert (ADR-0003)
         Update: never
@@ -62,15 +62,15 @@ export type Database = {
       }
       group_runs: {
         Row: {
-          player_id: string
-          kind: 'dungeon' | 'raid'
-          def_key: string
           current_stage_index: number
-          status: 'in_progress' | 'complete'
-          party: string[]
-          stage_started_at: string | null
-          stage_ends_at: string | null
+          def_key: string
+          kind: string
           last_cleared_at: string | null
+          party: string[]
+          player_id: string
+          stage_ends_at: string | null
+          stage_started_at: string | null
+          status: string
         }
         Insert: never
         Update: never
@@ -200,6 +200,9 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ascendant_milestones: Json
+          ascendant_shards: number
+          ascendant_shop: Json
           created_at: string
           currencies: Json
           echo_shop: Json
@@ -210,9 +213,13 @@ export type Database = {
           player_id: string
           reset_count: number
           resources: Json
+          transcend_count: number
           unlocked_characters: Json
         }
         Insert: {
+          ascendant_milestones?: Json
+          ascendant_shards?: number
+          ascendant_shop?: Json
           created_at?: string
           currencies?: Json
           echo_shop?: Json
@@ -222,10 +229,14 @@ export type Database = {
           map_progress?: Json
           player_id: string
           reset_count?: number
-          unlocked_characters?: Json
           resources?: Json
+          transcend_count?: number
+          unlocked_characters?: Json
         }
         Update: {
+          ascendant_milestones?: Json
+          ascendant_shards?: number
+          ascendant_shop?: Json
           created_at?: string
           currencies?: Json
           echo_shop?: Json
@@ -236,6 +247,7 @@ export type Database = {
           player_id?: string
           reset_count?: number
           resources?: Json
+          transcend_count?: number
           unlocked_characters?: Json
         }
         Relationships: []
@@ -261,6 +273,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      check_ascendant_milestones: {
+        Args: {
+          p_claimed: Json
+          p_lifetime_stats: Json
+          p_transcend_count: number
+        }
+        Returns: Json
+      }
       choose_blessing: {
         Args: {
           p_char: string
@@ -270,12 +290,37 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_craft: {
+        Args: {
+          p_player: string
+          p_recipe_def_id: string
+          p_result_item_def_id: string
+          p_result_rarity: string
+        }
+        Returns: Json
+      }
+      claim_group_stage: {
+        Args: {
+          p_char_updates: Json
+          p_currencies: Json
+          p_def_key: string
+          p_is_last_stage: boolean
+          p_kind: string
+          p_loot: Json
+          p_player: string
+          p_resources: Json
+          p_won: boolean
+        }
+        Returns: Json
+      }
       claim_mission: {
         Args: {
           p_char_updates: Json
           p_currencies: Json
+          p_lifetime_stats?: Json
           p_loot: Json
           p_map_key?: string
+          p_newly_unlocked?: string[]
           p_player: string
           p_resources: Json
           p_run_id: string
@@ -288,7 +333,9 @@ export type Database = {
         Args: {
           p_assignment_id: string
           p_gained: number
+          p_lifetime_stats?: Json
           p_new_last_collected_at: string
+          p_newly_unlocked?: string[]
           p_player: string
           p_resource: string
           p_stop: boolean
@@ -310,6 +357,66 @@ export type Database = {
         }
         Returns: Json
       }
+      purchase_ascendant_shop_node: {
+        Args: { p_cost: number; p_node_key: string; p_player: string }
+        Returns: Json
+      }
+      purchase_echo_shop_node: {
+        Args: { p_cost: number; p_node_key: string; p_player: string }
+        Returns: Json
+      }
+      recruit_character: {
+        Args: {
+          p_char_key: string
+          p_character_def_id: string
+          p_condition_exists: boolean
+          p_gold_cost: number
+          p_player: string
+        }
+        Returns: {
+          acquired_at: string
+          blessings: Json
+          character_def_id: string
+          current_hp: number | null
+          equipped: Json
+          id: string
+          level: number
+          player_id: string
+          xp: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "player_characters"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reset_player: { Args: { p_player: string }; Returns: Json }
+      respec_blessings: {
+        Args: { p_char: string; p_cost: number; p_player: string }
+        Returns: Json
+      }
+      start_craft: {
+        Args: {
+          p_duration_seconds: number
+          p_item_reagents: Json
+          p_player: string
+          p_recipe_def_id: string
+          p_resource_reagents: Json
+        }
+        Returns: {
+          ends_at: string
+          player_id: string
+          recipe_def_id: string
+          started_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "craft_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       start_gather: {
         Args: { p_char: string; p_player: string; p_resource_id: string }
         Returns: {
@@ -323,6 +430,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "gather_assignments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      start_group_stage: {
+        Args: {
+          p_def_key: string
+          p_duration_seconds: number
+          p_kind: string
+          p_lockout: string
+          p_map_gate?: string
+          p_party: string[]
+          p_player: string
+          p_stage_index: number
+          p_total_stages: number
+        }
+        Returns: {
+          current_stage_index: number
+          def_key: string
+          kind: string
+          last_cleared_at: string | null
+          party: string[]
+          player_id: string
+          stage_ends_at: string | null
+          stage_started_at: string | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "group_runs"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -351,6 +488,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      transcend_player: {
+        Args: { p_player: string; p_protected_ids: string[] }
+        Returns: Json
       }
       unequip_item: {
         Args: { p_char: string; p_player: string; p_slot_key: string }
@@ -388,12 +529,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -417,11 +558,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -442,11 +583,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -467,11 +608,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -484,11 +625,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

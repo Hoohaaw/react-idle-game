@@ -24,6 +24,15 @@ describe('LIFETIME_STAT_DEFS', () => {
     expect(LIFETIME_STAT_DEFS.find((d) => d.key === 'missionSecondsSent')).toBeDefined()
   })
 
+  it('includes missionsCleared, dungeonsCleared, and raidsCleared', () => {
+    expect(LIFETIME_STAT_KEYS).toContain('missionsCleared')
+    expect(LIFETIME_STAT_KEYS).toContain('dungeonsCleared')
+    expect(LIFETIME_STAT_KEYS).toContain('raidsCleared')
+    expect(LIFETIME_STAT_LABELS.missionsCleared).toBeTruthy()
+    expect(LIFETIME_STAT_LABELS.dungeonsCleared).toBeTruthy()
+    expect(LIFETIME_STAT_LABELS.raidsCleared).toBeTruthy()
+  })
+
   it('contains a resourceGathered.<key> entry for every resource in RESOURCE_SOURCE', () => {
     for (const resource of Object.keys(RESOURCE_SOURCE)) {
       expect(LIFETIME_STAT_DEFS.find((d) => d.key === `resourceGathered.${resource}`)).toBeDefined()

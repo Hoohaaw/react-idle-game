@@ -19,6 +19,10 @@ type Row = {
   echoes?: number
   echo_shop?: unknown
   lifetime_stats?: unknown
+  ascendant_shards?: number
+  ascendant_shop?: unknown
+  ascendant_milestones?: unknown
+  transcend_count?: number
 }
 
 function mockProfile(result: { data: Row | null; error: unknown }) {
@@ -33,7 +37,7 @@ describe('fetchProfile', () => {
     vi.clearAllMocks()
   })
 
-  it('maps the wallet row to typed currencies/resources/echoes/echoShop/lifetimeStats/resetCount', async () => {
+  it('maps the wallet row to typed currencies/resources/echoes/echoShop/lifetimeStats/resetCount/ascendantShards/ascendantShop/ascendantMilestones/transcendCount', async () => {
     mockProfile({
       data: {
         currencies: { gold: 1420 },
@@ -45,6 +49,10 @@ describe('fetchProfile', () => {
         echoes: 380,
         echo_shop: { missionSpeed: 3, 'gatherRate.Iron': 1 },
         lifetime_stats: { goldEarned: 5000 },
+        ascendant_shards: 12,
+        ascendant_shop: { critChance: 2 },
+        ascendant_milestones: { 'goldEarned.0': true },
+        transcend_count: 1,
       },
       error: null,
     })
@@ -61,6 +69,10 @@ describe('fetchProfile', () => {
       echoes: 380,
       echoShop: { missionSpeed: 3, 'gatherRate.Iron': 1 },
       lifetimeStats: { goldEarned: 5000 },
+      ascendantShards: 12,
+      ascendantShop: { critChance: 2 },
+      ascendantMilestones: { 'goldEarned.0': true },
+      transcendCount: 1,
     })
   })
 
@@ -79,6 +91,10 @@ describe('fetchProfile', () => {
       echoes: 0,
       echoShop: {},
       lifetimeStats: {},
+      ascendantShards: 0,
+      ascendantShop: {},
+      ascendantMilestones: {},
+      transcendCount: 0,
     })
   })
 
@@ -99,7 +115,7 @@ describe('fetchProfile', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('profiles')
     expect(select).toHaveBeenCalledWith(
-      'currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats',
+      'currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count',
     )
   })
 })

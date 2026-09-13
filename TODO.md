@@ -150,13 +150,34 @@ character sprite art. Older open items below may be stale — trust the mileston
 - [x] **Reset tier** (ADR-0053) — `reset_player`/`purchase_echo_shop_node` RPCs, the
   `reset-player`/`echo-shop-purchase` Edge Functions, the 20-node Echo Shop registry
   (`src/lib/echoShop.ts`), and the `src/features/reset/` page (nav renamed "Transcendence" →
-  "Reset"). The harder Transcendence tier (full wipe including characters) is its own follow-up,
-  not built here.
+  "Reset"). The harder Transcendence tier (full wipe including characters) shipped separately,
+  see ADR-0054 below.
   `↳ context: project-reset · docs/DECISIONS.md ADR-0053, docs/superpowers/specs/2026-09-11-reset-echoes-design.md`
-- [ ] **Transcendence tier** (ADR-0023's hard-wipe half) — full wipe including characters, its
-  own currency and tree focused on character power, appearing as a second tab in the Reset
-  page's `PrestigePage` shell once unlocked. Needs its own spec.
-  `↳ context: project-reset · docs/DECISIONS.md ADR-0023/ADR-0053`
+- [x] **Transcendence tier** (ADR-0054) — Ascendant Shards (earned via milestone thresholds on
+  lifetime stats, not a lump sum), the Ascendant Shop (per-character Power/Vitality + flat
+  economy nodes + rarity bias), the all-raids-cleared unlock gate, and protected character slots
+  (a new Echo Shop node). Second tab in the `PrestigePage` shell, gated on eligibility.
+  `↳ context: project-reset · docs/DECISIONS.md ADR-0054, docs/superpowers/specs/2026-09-12-transcendence-ascendant-shards-design.md`
+- [ ] **Ascendant/Echo Shop purchase price race** — `purchase_ascendant_shop_node` and
+  `purchase_echo_shop_node` both compute the node's cost in TypeScript from an unlocked read, then
+  apply it under a lock that validates only the balance, not the price — same shape as the
+  milestone double-award race fixed twice during Transcendence's launch (see ADR-0054), one layer
+  down. Two concurrent purchases at the same level can both underpay. Needs a coordinated fix
+  across both RPCs (re-derive cost from the locked level server-side, don't trust `p_cost`).
+  `↳ context: project-reset · docs/DECISIONS.md ADR-0054`
+- [ ] **Wire Ascendant stat bonuses into mission-start/gather-collect/client roster display** —
+  `resolveCharAscendantBonuses`/`resolveFlatAscendantStatBonuses` are applied in `mission-claim`
+  and `group-claim-stage` but not in `mission-start`, `gather-collect`, or the client-side
+  `useRoster()` effective-stats computation — so once a player buys Vitality, the roster's
+  displayed max HP, the infirmary projection, and the dispatch win-chance estimate all understate
+  what the server actually simulates at claim time.
+  `↳ context: project-reset · docs/DECISIONS.md ADR-0054`
+- [ ] **Pin the SQL/TypeScript Ascendant Milestone ladders together with a test** —
+  `check_ascendant_milestones` (SQL) and `ASCENDANT_MILESTONES` (`src/lib/ascendantMilestones.ts`)
+  hand-list the same thresholds independently; nothing catches drift if a future resource is added
+  to one side and not the other (`src/test/migration-policy.test.ts` already parses migrations and
+  is the natural home for this check).
+  `↳ context: project-reset · docs/DECISIONS.md ADR-0054`
 - [ ] **Legendary class-specific quest-lines** — certain Legendary items, equippable only by a
   specific class, unlock a class-specific mission/quest line that further powers up that item once
   equipped. Flavor + a power ceiling for build-defining Legendaries. Raised during Transcendence

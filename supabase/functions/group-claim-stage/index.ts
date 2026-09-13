@@ -17,6 +17,7 @@ import {
 } from '../../../src/lib/blessings.ts'
 import { rollItemLoot } from '../../../src/lib/loot.ts'
 import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
+import { resolveCharAscendantBonuses, resolveFlatAscendantStatBonuses, resolveFlatAscendantBonus } from '../../../src/lib/ascendantShop.ts'
 
 // group-claim-stage: the dungeon/raid combat resolver (spec §5). Combatant-building is IDENTICAL to
 // mission-claim (character-intrinsic, not mission-specific) — deliberately not extracted into a
@@ -107,6 +108,18 @@ Deno.serve(async (req) => {
   const chars = (charsData ?? []) as CharRow[]
   if (chars.length !== party.length) return json({ error: 'Party is missing characters' }, 500)
 
+  // Echo Shop levels (ADR-0053) — this retires the old "group content doesn't fold in
+  // transcendence" workaround entirely: there is no more count-based bonus for it to skip, so
+  // dungeons/raids and missions are on equal footing again.
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('echo_shop, ascendant_shop, lifetime_stats')
+    .eq('player_id', playerId)
+    .maybeSingle()
+  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
+  const ascendantShop = (profile?.ascendant_shop ?? {}) as Record<string, number>
+  const lifetimeStats = (profile?.lifetime_stats ?? {}) as Record<string, number>
+
   const sanityType = kind === 'dungeon' ? 'dungeonDef' : 'raidDef'
   const keyField = kind === 'dungeon' ? 'dungeonKey' : 'raidKey'
   let groupDef: GroupDefRow
@@ -157,6 +170,8 @@ Deno.serve(async (req) => {
       extraBonuses: mergeBonuses(
         collectTraitBonuses(def.traits ?? [], traitCtx),
         resolveCapstoneBonuses(def.capstone, earnedCapstone, traitCtx),
+        resolveCharAscendantBonuses(ascendantShop, def.charKey),
+        resolveFlatAscendantStatBonuses(ascendantShop),
       ),
     })
     statsById[c.id] = stats
@@ -184,16 +199,6 @@ Deno.serve(async (req) => {
   const runId = `${playerId}:${kind}:${defKey}:${stageIndex}`
   const result = simulateCombat({ party: combatants, encounter: { enemies, timeLimitSeconds: stage.encounter.timeLimitSeconds }, seed: runId })
   const win = result.outcome === 'win'
-
-  // Echo Shop levels (ADR-0053) — this retires the old "group content doesn't fold in
-  // transcendence" workaround entirely: there is no more count-based bonus for it to skip, so
-  // dungeons/raids and missions are on equal footing again.
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('echo_shop')
-    .eq('player_id', playerId)
-    .maybeSingle()
-  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
 
   const mods = {
     marginBonus: marginBonus(result.survivingHpPct),
@@ -229,7 +234,7 @@ Deno.serve(async (req) => {
       const shopMult = isGold
         ? resolveShopBonus(shop, 'goldGain')
         : r.kind === 'resource'
-          ? resolveShopBonus(shop, 'resourceGain', r.code)
+          ? resolveShopBonus(shop, 'resourceGain', r.code) * resolveFlatAscendantBonus(ascendantShop, 'resourceGain')
           : 1
       const amount = Math.round(finalReward(r.amount, mods) * (isGold ? goldMult : 1) * shopMult)
       if (amount <= 0) continue
@@ -237,13 +242,22 @@ Deno.serve(async (req) => {
       bucket[r.code] = (bucket[r.code] ?? 0) + amount
     }
     const lootRng = makeRng(`${runId}:loot`)
-    loot = rollItemLoot(stage.loot ?? [], lootRng, { magicFind, luck })
+    loot = rollItemLoot(stage.loot ?? [], lootRng, { magicFind, luck, bias: resolveFlatAscendantBonus(ascendantShop, 'rarityBias') })
+  }
+
+  const lifetimeStatsDelta: Record<string, number> = {}
+  if (win && isLastStage) {
+    lifetimeStatsDelta[kind === 'dungeon' ? 'dungeonsCleared' : 'raidsCleared'] = 1
+    if (kind === 'raid' && !lifetimeStats[`raidCleared.${defKey}`]) {
+      lifetimeStatsDelta[`raidCleared.${defKey}`] = 1
+    }
   }
 
   const { error: claimErr } = await admin.rpc('claim_group_stage', {
     p_player: playerId, p_kind: kind, p_def_key: defKey, p_won: win,
     p_char_updates: charUpdates, p_loot: loot, p_currencies: currencies, p_resources: resources,
     p_is_last_stage: isLastStage,
+    p_lifetime_stats: lifetimeStatsDelta,
   })
   if (claimErr) {
     console.error('claim_group_stage failed', claimErr)

@@ -30,13 +30,14 @@ Deno.serve(async (req) => {
 
   const { data: profile, error: profileErr } = await admin
     .from('profiles')
-    .select('infirmary_level')
+    .select('infirmary_level, ascendant_shop')
     .eq('player_id', playerId)
     .maybeSingle()
   if (profileErr || !profile) {
     console.error('profile lookup failed', profileErr)
     return json({ error: 'Could not load profile' }, 500)
   }
+  const ascendantShop = (profile.ascendant_shop ?? {}) as Record<string, number>
   const currentLevel = profile.infirmary_level
   if (currentLevel >= INFIRMARY.MAX_LEVEL) {
     return json({ error: 'Infirmary is already at max level' }, 409)
@@ -74,7 +75,7 @@ Deno.serve(async (req) => {
     const chars = charsData as CharRowForHp[]
     let statsById: Record<string, Record<string, number>>
     try {
-      statsById = await statsByCharacter(chars, {})
+      statsById = await statsByCharacter(chars, {}, ascendantShop)
     } catch (e) {
       console.error('Sanity fetch failed', e)
       return json({ error: 'Could not load character content' }, 502)
