@@ -95,6 +95,19 @@ describe('rollRarity with bias', () => {
     expect(rollRarity(weights, rng, 1)).toBe('Common')
     expect(rollRarity(weights, rng, 3)).toBe('Rare')
   })
+
+  it('never multiplies an unrecognized rarity string by bias, even though it sorts as "lowest"', () => {
+    // 'Mythic' isn't in RARITY_ORDER (a typo'd/unrecognized rarity), so indexOf returns -1 and it
+    // always sorts as "lowest" -> exempt from bias, same as a real lowest-tier rarity would be.
+    // With symmetric 50/50 base weights, the biased total (50 + 50*5 = 300) is IDENTICAL whether
+    // 'Mythic' is correctly left unbiased (50, with 'Rare' biased to 250) or incorrectly biased
+    // instead (250, with 'Rare' left at 50) -- so a single rng value can discriminate the two.
+    // r = rng() * 300 = 100 sails past 'Mythic's correct, unbiased bucket [0,50) into 'Rare's
+    // [50,300); had 'Mythic' been incorrectly biased instead, that same r=100 would have landed
+    // inside 'Mythic's inflated bucket [0,250) and returned 'Mythic'.
+    const weights = [{ rarity: 'Mythic', weight: 50 }, { rarity: 'Rare', weight: 50 }]
+    expect(rollRarity(weights, () => 1 / 3, 5)).toBe('Rare')
+  })
 })
 
 describe('rollItemLoot with bias', () => {

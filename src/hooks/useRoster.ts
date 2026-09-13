@@ -19,6 +19,8 @@ import {
   type BlessingPicks,
   type CapstoneDef,
 } from '@/lib/blessings'
+import { resolveCharAscendantBonuses, resolveFlatAscendantStatBonuses } from '@/lib/ascendantShop'
+import { useProfile } from './useProfile'
 
 // Shared player-state reads + the composed roster. Used by every feature that needs "the player's
 // characters and what they're doing" — missions (dispatch/claim), infirmary (heal), gather (assign).
@@ -99,6 +101,7 @@ export function useRoster() {
   const gather = useGatherCharacterIds()
   const admissions = useInfirmaryAdmissions()
   const groupBusy = useGroupBusyCharacterIds()
+  const profile = useProfile()
 
   const roster = useMemo<RosterMember[]>(() => {
     if (!owned.data || !defs.data || !items.data) return []
@@ -107,6 +110,10 @@ export function useRoster() {
     const gathering = new Set(gather.data ?? [])
     const admitted = new Set((admissions.data ?? []).map((a) => a.player_character_id))
     const inGroupContent = new Set(groupBusy.data ?? [])
+    // Ascendant Power/Vitality (ADR-0054) — same source the server folds in at claim time
+    // (mission-claim, group-claim-stage); without this the roster's displayed max HP and the
+    // dispatch win-chance estimate would understate what the server actually simulates.
+    const ascendantShop = profile.data?.ascendantShop ?? {}
 
     return owned.data.flatMap((c) => {
       const def = defByKey.get(c.characterDefId)
@@ -123,6 +130,8 @@ export function useRoster() {
         extraBonuses: mergeBonuses(
           collectTraitBonuses(def.traits, {}), // always-on traits only (no context)
           resolveCapstoneBonuses(def.capstone, earnedCapstone, {}),
+          resolveCharAscendantBonuses(ascendantShop, c.characterDefId),
+          resolveFlatAscendantStatBonuses(ascendantShop),
         ),
       })
       return [{
@@ -159,7 +168,7 @@ export function useRoster() {
                 : null,
       }]
     })
-  }, [owned.data, defs.data, items.data, runs.data, gather.data, admissions.data, groupBusy.data])
+  }, [owned.data, defs.data, items.data, runs.data, gather.data, admissions.data, groupBusy.data, profile.data])
 
   return {
     roster,

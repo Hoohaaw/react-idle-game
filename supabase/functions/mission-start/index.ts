@@ -74,6 +74,18 @@ Deno.serve(async (req) => {
     return json({ error: 'Mission has no valid duration' }, 500)
   }
 
+  // Echo Shop + Ascendant Shop levels (ADR-0053/ADR-0054) — fetched up front so the same
+  // ascendantShop map feeds both the party's effective-stats lookup below and the mission-speed
+  // multiplier further down (keeps this function's Ascendant wiring consistent with charMaxHp.ts's
+  // other three callers — Task 8 — rather than silently excluding this one).
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('echo_shop, ascendant_shop')
+    .eq('player_id', playerId)
+    .maybeSingle()
+  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
+  const ascendantShop = (profile?.ascendant_shop ?? {}) as Record<string, number>
+
   // Party missionSpeedDecrease (traits/gear/blessings, ADR-0035) shortens the wait — summed
   // across members, capped 30% (src/lib/traits.ts). Stat lookup failure = unmodified duration
   // (the RPC still owns ownership/busy validation; this is a bonus, not a gate).
@@ -85,7 +97,7 @@ Deno.serve(async (req) => {
       .in('id', party as string[])
       .eq('player_id', playerId)
     if (partyRows && partyRows.length === party.length) {
-      const stats = await statsByCharacter(partyRows, { mapKey: def.map?.mapKey ?? null })
+      const stats = await statsByCharacter(partyRows, { mapKey: def.map?.mapKey ?? null }, ascendantShop)
       const mult = missionDurationMultiplier(partyRows.map((r) => stats[r.id]))
       durationSeconds = Math.max(1, Math.round(def.durationSeconds * mult))
     }
@@ -95,13 +107,6 @@ Deno.serve(async (req) => {
 
   // Echo Shop Mission Speed (ADR-0053) — a separate multiplier layered on top of the
   // trait/gear/blessing one above, applied last.
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('echo_shop, ascendant_shop')
-    .eq('player_id', playerId)
-    .maybeSingle()
-  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
-  const ascendantShop = (profile?.ascendant_shop ?? {}) as Record<string, number>
   durationSeconds = Math.max(1, Math.round(
     durationSeconds / resolveShopBonus(shop, 'missionSpeed') / resolveFlatAscendantBonus(ascendantShop, 'missionSpeed')
   ))
