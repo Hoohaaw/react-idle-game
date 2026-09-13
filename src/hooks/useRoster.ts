@@ -45,7 +45,7 @@ function useInfirmaryAdmissions() {
 function useGroupBusyCharacterIds() {
   return useQuery({ queryKey: ['groupBusyCharacterIds'], queryFn: fetchGroupBusyCharacterIds })
 }
-function useCharacterDefs() {
+export function useCharacterDefs() {
   return useQuery({ queryKey: ['characterDefs'], queryFn: fetchCharacterDefs })
 }
 
