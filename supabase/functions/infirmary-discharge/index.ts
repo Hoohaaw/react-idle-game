@@ -64,18 +64,19 @@ Deno.serve(async (req) => {
 
   const { data: profile, error: profileErr } = await admin
     .from('profiles')
-    .select('infirmary_level')
+    .select('infirmary_level, ascendant_shop')
     .eq('player_id', playerId)
     .maybeSingle()
   if (profileErr || !profile) {
     console.error('profile lookup failed', profileErr)
     return json({ error: 'Could not load profile' }, 500)
   }
+  const ascendantShop = (profile.ascendant_shop ?? {}) as Record<string, number>
 
   let maxHp: number
   let recoverySpeedPct: number
   try {
-    const stats = (await statsByCharacter([char], {}))[char.id]
+    const stats = (await statsByCharacter([char], {}, ascendantShop))[char.id]
     maxHp = Math.max(1, Math.round(stats.health ?? 0))
     recoverySpeedPct = stats.recoverySpeed ?? 0
   } catch (e) {

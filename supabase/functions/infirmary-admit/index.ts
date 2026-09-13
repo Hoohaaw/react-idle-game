@@ -52,24 +52,25 @@ Deno.serve(async (req) => {
   const char = charData as CharRowForHp & { current_hp: number | null }
   if (char.current_hp === null) return json({ error: 'Character is already at full health' }, 409)
 
-  let maxHp: number
-  try {
-    maxHp = (await maxHpByCharacter([char]))[char.id]
-  } catch (e) {
-    console.error('Sanity fetch failed', e)
-    return json({ error: 'Could not load character content' }, 502)
-  }
-  if (char.current_hp >= maxHp) return json({ error: 'Character is already at full health' }, 409)
-
   const { data: profile, error: profileErr } = await admin
     .from('profiles')
-    .select('infirmary_level')
+    .select('infirmary_level, ascendant_shop')
     .eq('player_id', playerId)
     .maybeSingle()
   if (profileErr || !profile) {
     console.error('profile lookup failed', profileErr)
     return json({ error: 'Could not load profile' }, 500)
   }
+  const ascendantShop = (profile.ascendant_shop ?? {}) as Record<string, number>
+
+  let maxHp: number
+  try {
+    maxHp = (await maxHpByCharacter([char], ascendantShop))[char.id]
+  } catch (e) {
+    console.error('Sanity fetch failed', e)
+    return json({ error: 'Could not load character content' }, 502)
+  }
+  if (char.current_hp >= maxHp) return json({ error: 'Character is already at full health' }, 409)
 
   const { data: admission, error: rpcErr } = await admin.rpc('admit_infirmary', {
     p_player: playerId,

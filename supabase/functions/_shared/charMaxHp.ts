@@ -18,6 +18,7 @@ import {
   type CapstoneDef,
   type BlessingPicks,
 } from '../../../src/lib/blessings.ts'
+import { resolveCharAscendantBonuses, resolveFlatAscendantStatBonuses } from '../../../src/lib/ascendantShop.ts'
 
 // Shared effective-stats fetcher for Edge Functions: stats are never stored (ADR-0002), so any
 // function that needs them recomputes the same way mission-claim builds combatants — Sanity
@@ -56,6 +57,7 @@ const ITEMDEFS_GROQ = `*[_type == "itemDef" && itemKey in $keys]{ itemKey, statB
 export async function statsByCharacter(
   chars: CharRowForHp[],
   ctx: TraitContext,
+  ascendantShop: Record<string, number> = {},
 ): Promise<Record<string, StatMap>> {
   const charKeys = [...new Set(chars.map((c) => c.character_def_id))]
   const charDefs = await sanityQuery<CharDefRow[]>(CHARDEFS_GROQ, { keys: charKeys })
@@ -87,6 +89,8 @@ export async function statsByCharacter(
       extraBonuses: mergeBonuses(
         collectTraitBonuses(def.traits ?? [], ctx),
         resolveCapstoneBonuses(def.capstone, capstoneEarned(c.level, picks), ctx),
+        resolveCharAscendantBonuses(ascendantShop, c.character_def_id),
+        resolveFlatAscendantStatBonuses(ascendantShop),
       ),
     })
   }
@@ -94,8 +98,8 @@ export async function statsByCharacter(
 }
 
 /** Max HP per character id (infirmary settling). Context-free: only always-on traits apply. */
-export async function maxHpByCharacter(chars: CharRowForHp[]): Promise<Record<string, number>> {
-  const stats = await statsByCharacter(chars, {})
+export async function maxHpByCharacter(chars: CharRowForHp[], ascendantShop: Record<string, number> = {}): Promise<Record<string, number>> {
+  const stats = await statsByCharacter(chars, {}, ascendantShop)
   return Object.fromEntries(
     chars.map((c) => [c.id, Math.max(1, Math.round(stats[c.id].health ?? 0))]),
   )
