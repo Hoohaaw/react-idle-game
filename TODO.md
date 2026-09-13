@@ -165,12 +165,12 @@ character sprite art. Older open items below may be stale — trust the mileston
   down. Two concurrent purchases at the same level can both underpay. Needs a coordinated fix
   across both RPCs (re-derive cost from the locked level server-side, don't trust `p_cost`).
   `↳ context: project-reset · docs/DECISIONS.md ADR-0054`
-- [ ] **Wire Ascendant stat bonuses into mission-start/gather-collect/client roster display** —
-  `resolveCharAscendantBonuses`/`resolveFlatAscendantStatBonuses` are applied in `mission-claim`
-  and `group-claim-stage` but not in `mission-start`, `gather-collect`, or the client-side
-  `useRoster()` effective-stats computation — so once a player buys Vitality, the roster's
-  displayed max HP, the infirmary projection, and the dispatch win-chance estimate all understate
-  what the server actually simulates at claim time.
+- [x] **Wire Ascendant stat bonuses into mission-start/gather-collect/client roster display**
+  (2026-09-13) — `resolveCharAscendantBonuses`/`resolveFlatAscendantStatBonuses` now flow through
+  `mission-start`, `gather-collect`, and `useRoster()`, matching `mission-claim`/`group-claim-stage`.
+  Only `useRoster()` has a currently-visible effect (displayed max HP, dispatch win-chance estimate);
+  the other two are consistency fixes since Power/Vitality don't touch `missionSpeedDecrease`/
+  `gatherSpeed`/`gatherYield`. Both Edge Functions redeployed and byte-verified. PR #104.
   `↳ context: project-reset · docs/DECISIONS.md ADR-0054`
 - [ ] **Pin the SQL/TypeScript Ascendant Milestone ladders together with a test** —
   `check_ascendant_milestones` (SQL) and `ASCENDANT_MILESTONES` (`src/lib/ascendantMilestones.ts`)
