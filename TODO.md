@@ -209,6 +209,24 @@ character sprite art. Older open items below may be stale — trust the mileston
 - [ ] **Utility role passive expression** — OPEN (ADR-0013 fork 6). Re-checked 2026-08-20: still
   unresolved, no evidence the design question was ever closed. Needs a decision, not just code.
   `↳ context: project-combat (ADR-0013 fork 6), project-undecided, project-roles`
+- [ ] **Mission win-chance is too binary — needs strategic depth** — players can currently swing a
+  mission's win chance from near-0% to near-100% without much meaningful choice along the way; want
+  deliberate strategy (gear, party composition, blessings, prep) that actually earns a
+  high-confidence mission rather than the current curve doing most of the work on its own. Needs its
+  own design + balance pass per `docs/BALANCE.md`'s playbook (before/after sweep evidence, a
+  discriminating regression test, an ADR) before any numbers change.
+  `↳ context: project-combat · src/lib/combat.ts, docs/BALANCE.md, docs/DECISIONS.md ADR-0015`
+- [ ] **Indefinite "hone your skills" mission type (first instance: Religion/Church)** — a new
+  mission archetype distinct from today's timed missions: send a character on an open-ended
+  assignment (e.g. Church, raising a "religious level") that accrues XP continuously for as long as
+  they're assigned, with no fixed end time; the player claims by manually stopping the assignment,
+  banking the accrued XP into whatever stat/level it's tied to. Shape closely mirrors the existing
+  gather-assignment pattern (continuous accrual, partial-tick carryover, claim-on-stop) rather than
+  the timed mission_runs pattern. Explicitly wanted as a *generalizable* pattern ("implement this in
+  more ways"), not a one-off Church feature — Religion is just the first instance. Needs a design
+  pass: what other indefinite assignments exist beyond Religion, what "level" each one banks into,
+  whether they share one table/RPC shape or each gets its own.
+  `↳ context: project-content · src/lib/gather.ts, supabase/migrations (gather_assignments pattern)`
 
 ## Content (Sanity)
 - [x] Mission / item / loot-table schemas — `missionDef`/`itemDef`/`lootDrop` real and deployed.
