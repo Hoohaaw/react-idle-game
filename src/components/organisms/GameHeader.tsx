@@ -18,6 +18,7 @@ const NAV = [
   { label: 'Recruits', to: '/recruits' },
   { label: 'Infirmary', to: '/infirmary' },
   { label: 'Mines', to: '/mines' },
+  { label: 'Skills', to: '/skills' },
   { label: 'Dungeons', to: '/dungeons' },
   { label: 'Raids', to: '/raids' },
   { label: 'Upgrading', to: '/upgrading' },
