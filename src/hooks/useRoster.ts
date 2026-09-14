@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMissionRuns } from '@/services/missions'
-import { fetchOwnedCharacters, fetchGatherCharacterIds, type EquippedItem } from '@/services/playerCharacters'
+import { fetchOwnedCharacters, fetchGatherCharacterIds, fetchSkillCharacterIds, type EquippedItem, type SkillProgress } from '@/services/playerCharacters'
 import { fetchAdmissions } from '@/services/infirmary'
 import { fetchGroupBusyCharacterIds } from '@/services/groupContent'
 import { fetchItemDefs } from '@/services/items'
@@ -40,6 +40,9 @@ export function useItemDefs() {
 }
 function useGatherCharacterIds() {
   return useQuery({ queryKey: ['gatherCharacterIds'], queryFn: fetchGatherCharacterIds })
+}
+function useSkillCharacterIds() {
+  return useQuery({ queryKey: ['skillCharacterIds'], queryFn: fetchSkillCharacterIds })
 }
 function useInfirmaryAdmissions() {
   return useQuery({ queryKey: ['infirmaryAdmissions'], queryFn: fetchAdmissions })
@@ -82,6 +85,9 @@ export type RosterMember = {
   }
   equipped: Record<string, EquippedItem>
   blessings: BlessingPicks
+  /** Per-skill level/XP (docs/superpowers/specs/2026-09-14-skill-assignments-design.md) — a
+   *  missing key means untrained ({level: 1, xp: 0}), same default the server uses. */
+  skills: Record<string, SkillProgress>
   /** Whether this character has earned their capstone (level 50 + row 4 picked, ADR-0045) — the
    *  roster's own `stats` already folds its bonus in context-free; fight-context callers re-derive
    *  it themselves via `statInputs.capstone` + this flag. */
@@ -90,7 +96,7 @@ export type RosterMember = {
    *  conditional flavors, an ability isn't trait-context-dependent, so it's resolved once here
    *  and carried as-is into the win-chance estimator's Combatant construction. */
   ability?: CombatAbility
-  busy: 'mission' | 'gathering' | 'infirmary' | 'group' | null
+  busy: 'mission' | 'gathering' | 'infirmary' | 'group' | 'skillTraining' | null
 }
 
 export function useRoster() {
@@ -101,6 +107,7 @@ export function useRoster() {
   const gather = useGatherCharacterIds()
   const admissions = useInfirmaryAdmissions()
   const groupBusy = useGroupBusyCharacterIds()
+  const skillBusy = useSkillCharacterIds()
   const profile = useProfile()
 
   const roster = useMemo<RosterMember[]>(() => {
@@ -110,6 +117,7 @@ export function useRoster() {
     const gathering = new Set(gather.data ?? [])
     const admitted = new Set((admissions.data ?? []).map((a) => a.player_character_id))
     const inGroupContent = new Set(groupBusy.data ?? [])
+    const training = new Set(skillBusy.data ?? [])
     // Ascendant Power/Vitality (ADR-0054) — same source the server folds in at claim time
     // (mission-claim, group-claim-stage); without this the roster's displayed max HP and the
     // dispatch win-chance estimate would understate what the server actually simulates.
@@ -155,6 +163,7 @@ export function useRoster() {
         },
         equipped: c.equipped,
         blessings: c.blessings,
+        skills: c.skills,
         capstoneEarned: earnedCapstone,
         ability: resolveCapstoneAbility(def.capstone, earnedCapstone),
         busy: gathering.has(c.id)
@@ -165,10 +174,12 @@ export function useRoster() {
               ? 'infirmary'
               : inGroupContent.has(c.id)
                 ? 'group'
-                : null,
+                : training.has(c.id)
+                  ? 'skillTraining'
+                  : null,
       }]
     })
-  }, [owned.data, defs.data, items.data, runs.data, gather.data, admissions.data, groupBusy.data, profile.data])
+  }, [owned.data, defs.data, items.data, runs.data, gather.data, admissions.data, groupBusy.data, skillBusy.data, profile.data])
 
   return {
     roster,

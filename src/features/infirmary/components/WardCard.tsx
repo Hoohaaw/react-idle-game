@@ -21,7 +21,7 @@ export function WardCard({ member, infirmaryLevel, bedFree, onAdmit, admitting }
   const current = member.currentHp ?? member.maxHp // null = full
   const damaged = member.currentHp !== null && member.currentHp < member.maxHp
   const admitted = member.busy === 'infirmary'
-  const busyElsewhere = member.busy === 'mission' || member.busy === 'gathering' || member.busy === 'group'
+  const busyElsewhere = member.busy === 'mission' || member.busy === 'gathering' || member.busy === 'group' || member.busy === 'skillTraining'
 
   let projection: string | null = null
   if (damaged && !admitted) {
@@ -45,7 +45,7 @@ export function WardCard({ member, infirmaryLevel, bedFree, onAdmit, admitting }
     : admitted
       ? 'In Infirmary'
       : busyElsewhere
-        ? member.busy === 'mission' ? 'On Mission' : member.busy === 'gathering' ? 'Gathering' : 'In dungeon/raid'
+        ? member.busy === 'mission' ? 'On Mission' : member.busy === 'gathering' ? 'Gathering' : member.busy === 'skillTraining' ? 'Training' : 'In dungeon/raid'
         : !damaged
           ? 'Full HP'
           : bedFree

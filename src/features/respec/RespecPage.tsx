@@ -13,7 +13,11 @@ import { useRespecBlessing } from './hooks'
 // one shot. All-or-nothing: row2/3/4 structurally require the previous row picked, so a partial
 // respec isn't offered. Deliberately no confirmation step — press-to-respec is the whole ask.
 
-const BUSY_REASON: Record<NonNullable<RosterMember['busy']>, string> = {
+// Partial, not Record: 'skillTraining' is deliberately excluded — respec_blessings is not
+// busy-checked against skill_assignments server-side (skill training has no stat effect, so
+// there's no exploit to block; see the skill-assignments plan's Global Constraints), so a
+// training character must stay respec-able here.
+const BUSY_REASON: Partial<Record<NonNullable<RosterMember['busy']>, string>> = {
   mission: 'Locked while on a mission.',
   gathering: 'Locked while gathering.',
   infirmary: 'Locked while in the infirmary.',
@@ -133,7 +137,7 @@ function DetailPanel({
   justDone: boolean
   onRespec: () => void
 }) {
-  const busyReason = member.busy ? BUSY_REASON[member.busy] : null
+  const busyReason = member.busy ? BUSY_REASON[member.busy] ?? null : null
   const picked = pickedRowCount(member.blessings)
   const canAfford = gold >= RESPEC_COST
 

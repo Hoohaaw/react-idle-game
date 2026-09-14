@@ -15,7 +15,11 @@ import type { GearSlotKey } from '@/lib/equipment'
 import { resolveGearSlots } from './lib'
 import { SlotPickerModal } from './components/SlotPickerModal'
 
-const BUSY_REASON: Record<NonNullable<RosterMember['busy']>, string> = {
+// Partial, not Record: 'skillTraining' is deliberately excluded — equip_item/unequip_item are
+// not busy-checked against skill_assignments server-side (skill training has no stat effect, so
+// there's no exploit to block; see the skill-assignments plan's Global Constraints), so a
+// training character's gear must stay editable here.
+const BUSY_REASON: Partial<Record<NonNullable<RosterMember['busy']>, string>> = {
   mission: 'Gear is locked while on a mission.',
   gathering: 'Gear is locked while gathering.',
   infirmary: 'Gear is locked while in the infirmary.',
@@ -85,7 +89,7 @@ export default function TeamPage() {
             gear={{
               slots: resolveGearSlots(openMember.equipped, itemDefs.data),
               onSlotClick: setPickerSlot,
-              disabledReason: openMember.busy ? BUSY_REASON[openMember.busy] : null,
+              disabledReason: openMember.busy ? BUSY_REASON[openMember.busy] ?? null : null,
             }}
             statBreakdown={effectiveStatBreakdown({
               level: openMember.level,

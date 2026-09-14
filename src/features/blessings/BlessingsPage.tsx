@@ -15,7 +15,11 @@ import { useChooseBlessing } from './hooks'
 // every 10 levels; a capstone earned (not chosen) once all 4 are picked. Replaces the old 7-row
 // WoW-Classic-style mock (no backend, hardcoded party + tree).
 
-const BUSY_REASON: Record<NonNullable<RosterMember['busy']>, string> = {
+// Partial, not Record: 'skillTraining' is deliberately excluded — choose_blessing is not
+// busy-checked against skill_assignments server-side (skill training has no stat effect, so
+// there's no exploit to block; see the skill-assignments plan's Global Constraints), so a
+// training character must stay pickable here.
+const BUSY_REASON: Partial<Record<NonNullable<RosterMember['busy']>, string>> = {
   mission: 'Blessings are locked while on a mission.',
   gathering: 'Blessings are locked while gathering.',
   infirmary: 'Blessings are locked while in the infirmary.',
@@ -118,7 +122,7 @@ function TreePanel({
   def: GameCharacter
   choose: ReturnType<typeof useChooseBlessing>
 }) {
-  const busyReason = member.busy ? BUSY_REASON[member.busy] : null
+  const busyReason = member.busy ? BUSY_REASON[member.busy] ?? null : null
   const rowByNumber = new Map(def.blessingTree.map((r) => [r.row, r]))
 
   return (
