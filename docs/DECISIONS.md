@@ -2685,3 +2685,95 @@ unlock gate, no wipe RPC.
   into `mission-start`/`gather-collect`/the client-side roster display, so those show pre-Ascendant
   numbers; no test yet pins the SQL (`check_ascendant_milestones`) and TypeScript
   (`ASCENDANT_MILESTONES`) ladder definitions in sync against future drift.
+
+## ADR-0055 — Achievements: a cosmetic badge system, no reward, no lock
+
+**Date:** 2026-09-14 · **Status:** Accepted (Alex)
+
+**Context.** `TODO.md` tracked an open item for an achievements/badge system, distinct from the
+reward-granting Ascendant Milestones (ADR-0054). Brainstormed and scoped as: purely cosmetic (no
+currency/stat payout — a deliberate cut from Milestones, made explicitly to avoid needing that
+system's double-award-race defenses at all), covering both threshold ladders over existing
+`lifetime_stats` counters and one-off "moment" achievements for events nothing tracked yet
+(equipping a Legendary item, earning a blessing capstone, reaching the level cap), plus a minimal
+login/days-played counter — the one genuinely new write path in the whole feature.
+
+**Decision.**
+- **Achievements grant nothing — no currency, no stat, no unlock — by design.** This is what lets
+  the system architecturally mirror the Ascendant Milestone pattern (a shared, generic SQL check
+  function; a permanent claimed-map) while explicitly **not** needing that pattern's `for update`
+  row-locking discipline. CLAUDE.md's row-locking rule ("award/credit logic must lock the row it
+  reads, in the same read") exists specifically to stop a race from double-granting a *reward*.
+  Achievements grant nothing, so two concurrent calls both setting the same claimed-map key `true`
+  is a harmless idempotent collision, not a bug. `check_achievements` (mirroring
+  `check_ascendant_milestones`'s exact shape) takes its caller's already-fetched state as plain
+  arguments and never queries the database or takes a lock of its own — it inherits whatever lock
+  (if any) its caller already holds for its own unrelated reasons. **This is the one deliberate,
+  scoped exception to the row-locking rule** — a future achievement-like system that *does* want to
+  grant something needs the full Milestone-style locking, not this one's shortcut.
+- **Three kinds of tracked value, all permanent** (survive both Reset and Transcend, same as
+  `lifetime_stats`): existing `lifetime_stats` counters (missions/dungeons/raids cleared, gold,
+  each resource — free, no new tracking); three new one-off counters
+  (`profiles.achievement_counters`: `legendaryItemsEquipped`, `capstonesEarned`,
+  `charactersReachedLevelCap`), each bumped at the one or two RPCs that can trigger it; a new
+  `days_played`/`last_login_date` pair, bumped by the new `record_login` RPC.
+- **`fullRoster` (unlock all 19 characters) needs no new tracking at all** — `unlocked_characters`
+  already survives Transcend (confirmed by reading `transcend_player`'s own comment before this
+  shipped), so it's a plain threshold on the live count.
+- **The one-off counters are deliberately imprecise where precision doesn't matter.** "Legendary
+  Collector" counts equip *events*, not distinct item defs; the level-cap block fires on every
+  claim where a character is *at or above* the cap, not only on the 49→50 transition — so a capped
+  character re-bumps `charactersReachedLevelCap`/`capstonesEarned` on every subsequent claim, not
+  once. This is intentional, not a bug: it's what makes both achievements *retroactive* for
+  characters already capped/blessed before this shipped (a transition-only check would have
+  permanently stranded them), and since both back single-threshold-of-1 badges never displayed as
+  raw numbers to the client, the inflated counter value has no observable effect once claimed.
+
+**Consequences.**
+- New `profiles` columns: `achievements`, `achievement_counters` (jsonb), `ascendant_shards_earned_total`,
+  `days_played` (integer), `last_login_date` (date). New RPCs: `check_achievements`, `record_login`.
+  `claim_mission`, `collect_gather`, `claim_group_stage`, `transcend_player` each gained a call to
+  `check_achievements` alongside their existing Milestone check; `equip_item` and `choose_blessing`
+  each gained a one-off counter bump, no `check_achievements` call (neither touches anything the
+  achievement check reads).
+- New `/achievements` page (`src/features/achievements/`), a badge grid grouped by category;
+  `src/lib/achievements.ts`'s `ACHIEVEMENT_DEFS` reuses `ASCENDANT_MILESTONES`'s own threshold
+  arrays for the Combat/Economy ladders via import, not retyped numbers, so the two registries
+  (this one and the SQL side, which still hand-lists the same numbers — Postgres can't import
+  TypeScript) can only drift if someone edits one and forgets the other, not silently.
+- `record_login`'s day-boundary check originally used bare `current_date`, which resolves in the
+  session's `TimeZone` setting rather than guaranteed UTC — correct on the hosted project today
+  (confirmed via `show timezone;`) but fragile by construction against every other UTC promise in
+  this feature (the column comment, the function's own header, the client's
+  `toISOString().slice(0,10)` throttle). Pinned explicitly to `(now() at time zone 'UTC')::date`
+  during the final whole-branch review, matching the precedent already used elsewhere in this repo
+  for a daily/weekly boundary (`group_runs`' lockout logic).
+- Two integration gaps were caught only at branch-reconciliation time, not by any single task's own
+  review, because no task's scope was the natural place to update either file: `database.types.ts`
+  needed the 5 new columns + 2 new RPC signatures (hand-merged, not a raw regeneration, to preserve
+  `craft_runs`/`group_runs`'s `Insert: never`/`Update: never` ADR-0003 guards a regeneration would
+  silently drop — the same regeneration risk ADR-0054 hit); `src/services/profile.test.ts`
+  hard-coded the exact `fetchProfile()` select-string and return shape in three assertions, broken
+  by the new fields. Both fixed directly once the full suite surfaced them.
+- Two agent-tooling failures surfaced mid-execution, unrelated to the plan's own correctness: a
+  `test-writer` agent's own scope refuses to write production source files, which blocked the one
+  task needing a combined test+implementation TDD cycle (worked around by finishing the
+  implementation with a general-purpose agent instead); a hard account-level rate limit killed a
+  later implementer mid-task while it was attempting a live-browser verification step beyond what
+  its brief actually required — the controller finished the already-correctly-started file directly
+  and independently re-verified every claim rather than trusting the dead agent's partial work.
+- Two retroactivity gaps the design didn't fully close: `ascendant_shards_earned_total` starts at
+  `0`, not seeded from a player's already-earned `ascendant_shards` balance, so existing Shards
+  earned before this shipped don't count toward "Shard Hoarder"; a player already wearing a
+  Legendary item when this shipped won't earn "Legendary Collector" until they re-equip one (only
+  new equip *events* are counted). Both are one-line backfill decisions nobody made a call on —
+  flagged, not fixed, pending a product decision.
+- Follow-ups: `AchievementBadge`'s per-badge description text (spec §4f calls for "icon, name,
+  description"; `AchievementLadder` has no `description` field yet — a content-authoring gap, not
+  a code gap); `COUNTER_BACKED_KEYS` (the three counter-backed one-offs the client can't preview)
+  is duplicated verbatim in `src/lib/achievements.ts` and `AchievementsPage.tsx` — a
+  `counterBacked?: true` field on `AchievementLadder` would remove the duplication; a live
+  signed-in browser check of the `/achievements` page was never completed (hosted Supabase auth
+  rate-limited two separate throwaway-account attempts) — compensated by an independent reviewer's
+  full static trace of all 21 achievements against representative profile states, judged sufficient
+  to accept for merge but still worth the real ~30-second check as due diligence.

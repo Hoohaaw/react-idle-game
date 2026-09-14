@@ -23,6 +23,9 @@ type Row = {
   ascendant_shop?: unknown
   ascendant_milestones?: unknown
   transcend_count?: number
+  achievements?: unknown
+  ascendant_shards_earned_total?: number
+  days_played?: number
 }
 
 function mockProfile(result: { data: Row | null; error: unknown }) {
@@ -53,6 +56,9 @@ describe('fetchProfile', () => {
         ascendant_shop: { critChance: 2 },
         ascendant_milestones: { 'goldEarned.0': true },
         transcend_count: 1,
+        achievements: { 'missionsCleared.0': true },
+        ascendant_shards_earned_total: 15,
+        days_played: 7,
       },
       error: null,
     })
@@ -73,6 +79,9 @@ describe('fetchProfile', () => {
       ascendantShop: { critChance: 2 },
       ascendantMilestones: { 'goldEarned.0': true },
       transcendCount: 1,
+      achievements: { 'missionsCleared.0': true },
+      ascendantShardsEarnedTotal: 15,
+      daysPlayed: 7,
     })
   })
 
@@ -95,6 +104,9 @@ describe('fetchProfile', () => {
       ascendantShop: {},
       ascendantMilestones: {},
       transcendCount: 0,
+      achievements: {},
+      ascendantShardsEarnedTotal: 0,
+      daysPlayed: 0,
     })
   })
 
@@ -115,7 +127,7 @@ describe('fetchProfile', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('profiles')
     expect(select).toHaveBeenCalledWith(
-      'currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count',
+      'currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played',
     )
   })
 })
