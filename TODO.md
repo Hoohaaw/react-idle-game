@@ -178,12 +178,14 @@ character sprite art. Older open items below may be stale — trust the mileston
   to one side and not the other (`src/test/migration-policy.test.ts` already parses migrations and
   is the natural home for this check).
   `↳ context: project-reset · docs/DECISIONS.md ADR-0054`
-- [ ] **Achievements system** — a badge/accomplishment tracker for players, distinct from the
-  reward-granting Ascendant Milestones (which award Shards). Needs its own design: what counts as
-  an achievement, whether it's purely cosmetic or has its own payout, and a UI surface. The
-  `lifetime_stats` column + `LIFETIME_STAT_DEFS` registry and the `ASCENDANT_MILESTONES` pattern
-  (threshold ladders, permanent-claim tracking) are natural building blocks to reuse or extend.
-  `↳ context: project-reset · src/lib/lifetimeStats.ts, src/lib/ascendantMilestones.ts`
+- [x] **Achievements system** (ADR-0055, 2026-09-14) — a purely cosmetic badge system: threshold
+  ladders reusing `ASCENDANT_MILESTONES`'s own numbers plus one-off "moment" badges (Legendary
+  equip, blessing capstone, level cap, full roster, first Reset/Transcend, Shard Hoarder, Days
+  Played). No reward payout — a deliberate cut that lets `check_achievements` skip the row-locking
+  discipline `check_ascendant_milestones` needs. New `/achievements` page. Two retroactivity gaps
+  (pre-existing Shard balances, already-equipped Legendaries) flagged as open product decisions,
+  not fixed.
+  `↳ context: project-reset · docs/DECISIONS.md ADR-0055, src/lib/achievements.ts, src/features/achievements/`
 - [ ] **Lifetime stats page** — a page showing the player's full `lifetime_stats` (missions/
   dungeons/raids cleared, gold earned, resources gathered, mission time sent, etc.), not just the
   Ascendant Milestone progress subset already shown in the Transcend tab's `MilestoneProgressList`.
