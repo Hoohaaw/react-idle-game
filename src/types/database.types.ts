@@ -200,14 +200,19 @@ export type Database = {
       }
       profiles: {
         Row: {
+          achievement_counters: Json
+          achievements: Json
           ascendant_milestones: Json
           ascendant_shards: number
+          ascendant_shards_earned_total: number
           ascendant_shop: Json
           created_at: string
           currencies: Json
+          days_played: number
           echo_shop: Json
           echoes: number
           infirmary_level: number
+          last_login_date: string | null
           lifetime_stats: Json
           map_progress: Json
           player_id: string
@@ -217,14 +222,19 @@ export type Database = {
           unlocked_characters: Json
         }
         Insert: {
+          achievement_counters?: Json
+          achievements?: Json
           ascendant_milestones?: Json
           ascendant_shards?: number
+          ascendant_shards_earned_total?: number
           ascendant_shop?: Json
           created_at?: string
           currencies?: Json
+          days_played?: number
           echo_shop?: Json
           echoes?: number
           infirmary_level?: number
+          last_login_date?: string | null
           lifetime_stats?: Json
           map_progress?: Json
           player_id: string
@@ -234,14 +244,19 @@ export type Database = {
           unlocked_characters?: Json
         }
         Update: {
+          achievement_counters?: Json
+          achievements?: Json
           ascendant_milestones?: Json
           ascendant_shards?: number
+          ascendant_shards_earned_total?: number
           ascendant_shop?: Json
           created_at?: string
           currencies?: Json
+          days_played?: number
           echo_shop?: Json
           echoes?: number
           infirmary_level?: number
+          last_login_date?: string | null
           lifetime_stats?: Json
           map_progress?: Json
           player_id?: string
@@ -272,6 +287,19 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      check_achievements: {
+        Args: {
+          p_achievement_counters: Json
+          p_claimed: Json
+          p_days_played: number
+          p_lifetime_stats: Json
+          p_reset_count: number
+          p_shards_earned_total: number
+          p_transcend_count: number
+          p_unlocked_character_count: number
+        }
+        Returns: Json
       }
       check_ascendant_milestones: {
         Args: {
@@ -365,6 +393,7 @@ export type Database = {
         Args: { p_cost: number; p_node_key: string; p_player: string }
         Returns: Json
       }
+      record_login: { Args: { p_player: string }; Returns: Json }
       recruit_character: {
         Args: {
           p_char_key: string
