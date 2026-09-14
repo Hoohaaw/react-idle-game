@@ -31,13 +31,21 @@ export type PlayerProfile = {
   ascendantMilestones: Record<string, boolean>
   /** How many times the player has Transcended. Never wiped. */
   transcendCount: number
+  /** "<achievementKey>.<i>" -> true for every permanently-claimed achievement badge (spec
+   *  2026-09-13). Cosmetic only — never wiped. */
+  achievements: Record<string, boolean>
+  /** Cumulative Ascendant Shards ever earned, distinct from ascendantShards (the spendable
+   *  balance, which decreases on purchases). Feeds the "Shard Hoarder" achievement. Never wiped. */
+  ascendantShardsEarnedTotal: number
+  /** Count of distinct UTC calendar days record_login has run. Feeds "Days Played". Never wiped. */
+  daysPlayed: number
 }
 
 export async function fetchProfile(): Promise<PlayerProfile> {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count',
+      'currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played',
     )
     .maybeSingle()
   if (error) throw error
@@ -55,5 +63,8 @@ export async function fetchProfile(): Promise<PlayerProfile> {
     ascendantShop: (data?.ascendant_shop ?? {}) as Record<string, number>,
     ascendantMilestones: (data?.ascendant_milestones ?? {}) as Record<string, boolean>,
     transcendCount: data?.transcend_count ?? 0,
+    achievements: (data?.achievements ?? {}) as Record<string, boolean>,
+    ascendantShardsEarnedTotal: data?.ascendant_shards_earned_total ?? 0,
+    daysPlayed: data?.days_played ?? 0,
   }
 }
