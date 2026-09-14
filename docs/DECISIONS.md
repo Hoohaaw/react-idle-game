@@ -2777,3 +2777,103 @@ login/days-played counter — the one genuinely new write path in the whole feat
   rate-limited two separate throwaway-account attempts) — compensated by an independent reviewer's
   full static trace of all 21 achievements against representative profile states, judged sufficient
   to accept for merge but still worth the real ~30-second check as due diligence.
+
+## ADR-0056 — Indefinite skill assignments: Religion/Church, the first of a generalizable pattern
+
+**Date:** 2026-09-14 · **Status:** Accepted (Alex)
+
+**Context.** `TODO.md` tracked an open item for an "indefinite mission type" distinct from both
+timed missions and node-scarce gathering: send a character somewhere (first instance: Church) to
+train a skill (Religion) with no fixed end; XP accrues continuously while assigned, and the player
+collects periodically or stops ("cashes out") whenever they choose, banking it into a level
+independent of the character's own combat level. Explicitly scoped as a generalizable pattern, not
+a one-off Church feature — a second skill is expected to be a one-line registry entry.
+
+**Decision.**
+- **A skill's level/XP is a genuinely separate track per character**, stored as
+  `player_characters.skills` (`{ "<skillKey>": {"level", "xp"} }`), reusing `leveling.ts`'s
+  existing capped-at-50 curve verbatim rather than inventing a second one. A level-50 combat
+  character can still train skills; skill training never touches blessings, `LEVEL_CAP` gating, or
+  combat balance.
+- **No stat/power effect in this pass, deliberately.** Skill levels are meant to matter for
+  character power eventually, but the mapping (flat bonus? threshold unlock? which stat?) is real
+  balance-design work of its own (`src/lib/stats.ts`, the `docs/BALANCE.md` playbook) and was
+  explicitly deferred rather than invented un-asked. The data already stores what a future
+  stat-effect pass would read — no migration needed to wire it up later.
+- **No per-skill-node scarcity, unlike mining.** `skill_assignments` has `unique
+  (player_character_id)` only (a character trains at most one skill at a time) — no unique
+  constraint on `skill_key`, so any number of characters may train the same skill concurrently,
+  since the XP is per-character, not a shared pool. `SkillsPage` reflects this: each registry entry
+  renders every current trainee, not a single-slot card.
+- **`collect_skill` has no `select ... for update`, the same deliberate exception ADR-0055's
+  `check_achievements` established** — and for the same reason (no reward/payout, spec §3), but the
+  actual safety argument here is narrower and worth stating precisely, since the final whole-branch
+  review pressed on it: the write is `skills = jsonb_set(skills, [key], {level, xp})` where
+  `level`/`xp` are a **pure function of state read earlier in the same Edge Function call**
+  (`last_collected_at` and the character's current `skills[key]`), both read before either of two
+  racing collectors commits. Two concurrent collectors racing against the *same* prior state compute
+  *identical* new values, so the unlocked overwrite is genuinely idempotent — not merely harmless
+  because "nothing is granted," but because the two possible writers agree. That premise breaks if
+  the read of `player_characters.skills` fails and silently falls back to `{level: 1, xp: 0}` (see
+  Consequences) — the fix below closes exactly that gap, restoring the exception's own justification
+  rather than abandoning it for a lock.
+- **`equip_item`/`unequip_item`/`choose_blessing`/`respec_blessings` were deliberately NOT given a
+  `skill_assignments` busy-check**, unlike the four "start a new exclusive activity" RPCs
+  (`start_mission`, `start_gather`, `start_group_stage`, `admit_infirmary`) which were. Those four
+  gear/blessing RPCs check the busy-set for a different reason — preventing a mid-combat-dungeon-
+  stage exploit — and skill training has no stat effect (previous point), so there is no analogous
+  exploit to guard against. The client mirrors this exactly (`TeamPage`/`BlessingsPage`/
+  `RespecPage`'s per-page "locked reason" maps treat `skillTraining` as non-blocking, matching what
+  the server actually permits) rather than presenting a UI restriction the server doesn't enforce.
+
+**Consequences.**
+- New `skill_assignments` table + `player_characters.skills` column; new RPCs `start_skill`/
+  `collect_skill`; new Edge Functions `skill-start`/`skill-collect`; new `src/lib/skills.ts`
+  registry (`SKILL_DEFS` — one entry, `religion`/Church) reusing `gather.ts`'s `accrue()` and
+  `leveling.ts`'s `applyXp`/`xpToNext`/`LEVEL_CAP` verbatim, so there is exactly one accrual
+  function and one leveling curve in the whole codebase, not a second copy for skills; new
+  `/skills` page rendering the registry generically (adding skill #2 is a `SKILL_DEFS` entry, no
+  other code change).
+- **The busy-slot mutual-exclusion set grew to five members** (`mission_runs`, `gather_assignments`,
+  `infirmary_admissions`, `group_runs`, `skill_assignments`), and every RPC that starts one of
+  those five, or ends the player's whole account (`transcend_player`, `reset_player`), needs to
+  check the character isn't already in one of the other four. The plan that shipped this framed the
+  busy-set by category ("RPCs that *start* a new exclusive activity") rather than by grepping every
+  table's actual referencing sites, and that framing made `transcend_player`/`reset_player` — which
+  check the same five-activity busy-set for a *sixth* reason, "don't let the player wipe an
+  in-progress activity out from under themselves" — invisible to the plan, to all eleven
+  per-task reviews, and to the implementers who followed the plan faithfully. The final
+  whole-branch review caught it: without the check, Transcending or Resetting while a character was
+  training silently discarded that character's accrued-but-uncollected skill XP via the
+  `skill_assignments` row's cascade-delete, exactly the loss this guard exists to prevent for every
+  other continuous activity. Closed in the same migration this ADR ships with, mirroring
+  `gather_assignments`' existing join-through-`player_characters` shape in both functions. Lesson
+  for the next table that joins this set: enumerate real referencing call sites, not categories.
+- **`skill-collect` originally discarded the error from the read whose result it then
+  unconditionally overwrites** (`player_characters.skills`) — a transient read failure fell back to
+  `{level: 1, xp: 0}` exactly as if the character had never trained, and `collect_skill` would then
+  write that fallback back as truth, silently erasing real progress. Also caught only at the final
+  whole-branch review (no per-task review had reason to suspect a swallowed error three fields
+  deep in a read it wasn't the focus of). Fixed by checking that read's error the same way the
+  function already checks its other two (`loadErr`, `rpcErr`).
+- **A trainee at the skill's level cap has no UI signal.** `xpToNext(level) === Infinity` is
+  handled correctly for the level *bar* (Task 10 always did this right), but nothing stopped the
+  live "+N xp" pending badge from climbing forever past the cap while `applyXp` silently discards
+  the XP server-side on the next collect — a real dead end with no feedback, not a data-loss risk.
+  Fixed in the same pass: the badge and the Collect button both hide once a skill is capped.
+- **Two things flagged, not fixed, same as ADR-0055's own retroactivity gaps**: (a) live signed-in
+  browser verification of `/skills` was never performed — no browser-automation tool was available
+  to any dispatched task, compensated by thorough manual code/type tracing at every task and an
+  independent full data-flow trace at the final review, but a real ~1-minute check is still owed;
+  (b) the `start_skill`/`collect_skill` RPCs and the four-function busy-check sweep were verified
+  by code review and successful SQL application only — `player_characters` has 0 rows in the
+  hosted project, so no live RPC call has ever actually exercised them. Both are disclosed gaps for
+  a future session to close, not judgment calls made either way.
+- Minor, parked: `skill_assignments`' `skills jsonb not null default '{}'` lacks the `::jsonb` cast
+  every sibling migration uses (functionally identical, cosmetic, inherited from the plan's own
+  text); `BlessingsPage`/`RespecPage`'s roster-rail avatar still shows a "busy" ring for a
+  skill-training character even though that page's action isn't blocked for them (selection itself
+  was never gated by it, so purely cosmetic); the dungeon/raid party picker displays the raw
+  `busy` enum value verbatim as a label (pre-existing behavior for every busy state, `skillTraining`
+  is just the first camelCase one to make it visible); no player-guide entry for Church/Religion yet
+  (`src/pages/gameStatsContent.ts`) — content-authoring, not a code gap.

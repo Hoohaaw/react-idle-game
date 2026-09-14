@@ -58,12 +58,16 @@ Deno.serve(async (req) => {
   const skill = SKILL_BY_KEY[assignment.skill_key]
   if (!skill) return json({ error: 'Unknown skill' }, 500)
 
-  const { data: charRow } = await admin
+  const { data: charRow, error: charErr } = await admin
     .from('player_characters')
     .select('skills')
     .eq('id', assignment.player_character_id)
     .eq('player_id', playerId)
     .maybeSingle()
+  if (charErr) {
+    console.error('character lookup failed', charErr)
+    return json({ error: 'Could not load character' }, 500)
+  }
   const skills = (charRow?.skills ?? {}) as Record<string, { level: number; xp: number }>
   const current = skills[assignment.skill_key] ?? { level: 1, xp: 0 }
 

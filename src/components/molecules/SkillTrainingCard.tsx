@@ -34,7 +34,8 @@ export function SkillTrainingCard({
   const remainingMs = intervalMs - into
 
   const needed = xpToNext(level)
-  const levelPct = needed === Infinity ? 100 : (xp / needed) * 100
+  const atCap = needed === Infinity
+  const levelPct = atCap ? 100 : (xp / needed) * 100
 
   return (
     <div style={{
@@ -52,12 +53,12 @@ export function SkillTrainingCard({
           border: '1px solid rgba(74,140,63,0.6)',
           background: 'linear-gradient(180deg, rgba(74,140,63,0.18) 0%, rgba(74,140,63,0.06) 100%)',
           color: 'var(--color-success)', fontSize: 12, fontWeight: 'bold',
-        }}>+{pending} xp</span>
+        }}>{atCap ? 'MAX' : `+${pending} xp`}</span>
       </div>
 
       <div style={{ padding: '9px 11px' }}>
         <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 6 }}>
-          Level {level}{needed === Infinity ? ' (MAX)' : ''}
+          Level {level}{atCap ? ' (MAX)' : ''}
         </p>
         <div style={{ marginBottom: 8 }}>
           <ProgressBar value={levelPct} label="" />
@@ -73,7 +74,7 @@ export function SkillTrainingCard({
         <ProgressBar value={tickPct} label="" color="#8c2020" />
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-          {onCollect && <PrimaryButton onClick={onCollect}>Collect</PrimaryButton>}
+          {onCollect && !atCap && <PrimaryButton onClick={onCollect}>Collect</PrimaryButton>}
           {onStop && <DangerButton onClick={onStop}>Stop & Cash Out</DangerButton>}
         </div>
       </div>

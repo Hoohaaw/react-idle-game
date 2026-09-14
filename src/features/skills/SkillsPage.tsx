@@ -59,40 +59,44 @@ export default function SkillsPage() {
 
   return (
     <div>
-      {SKILL_DEFS.map((skill) => {
-        const trainees = assignments.filter((a) => a.skill_key === skill.skillKey)
-        return (
-          <section key={skill.skillKey} style={{ marginBottom: '36px' }}>
-            <SectionTitle>{skill.destination} — {skill.label}</SectionTitle>
+      {assignmentsQ.isLoading ? (
+        <p style={NOTE}>Loading skills…</p>
+      ) : (
+        SKILL_DEFS.map((skill) => {
+          const trainees = assignments.filter((a) => a.skill_key === skill.skillKey)
+          return (
+            <section key={skill.skillKey} style={{ marginBottom: '36px' }}>
+              <SectionTitle>{skill.destination} — {skill.label}</SectionTitle>
 
-            {trainees.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', marginBottom: '14px' }}>
-                {trainees.map((a) => {
-                  const char = roster.find((m) => m.id === a.player_character_id)
-                  const progress = char?.skills[skill.skillKey] ?? { level: 1, xp: 0 }
-                  return (
-                    <SkillTrainingCard
-                      key={`${a.id}-${a.last_collected_at}`}
-                      trainee={char?.name ?? 'Trainee'}
-                      level={progress.level}
-                      xp={progress.xp}
-                      intervalSec={skill.intervalSec}
-                      xpPerTick={skill.xpPerTick}
-                      lastCollectedAt={a.last_collected_at}
-                      onCollect={() => collectS.mutate({ assignmentId: a.id })}
-                      onStop={() => collectS.mutate({ assignmentId: a.id, stop: true })}
-                    />
-                  )
-                })}
-              </div>
-            ) : (
-              <p style={NOTE}>No one is currently training here.</p>
-            )}
+              {trainees.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', marginBottom: '14px' }}>
+                  {trainees.map((a) => {
+                    const char = roster.find((m) => m.id === a.player_character_id)
+                    const progress = char?.skills[skill.skillKey] ?? { level: 1, xp: 0 }
+                    return (
+                      <SkillTrainingCard
+                        key={`${a.id}-${a.last_collected_at}`}
+                        trainee={char?.name ?? 'Trainee'}
+                        level={progress.level}
+                        xp={progress.xp}
+                        intervalSec={skill.intervalSec}
+                        xpPerTick={skill.xpPerTick}
+                        lastCollectedAt={a.last_collected_at}
+                        onCollect={() => collectS.mutate({ assignmentId: a.id })}
+                        onStop={() => collectS.mutate({ assignmentId: a.id, stop: true })}
+                      />
+                    )
+                  })}
+                </div>
+              ) : (
+                <p style={NOTE}>No one is currently training here.</p>
+              )}
 
-            <PrimaryButton onClick={() => setAssigningSkill(skill.skillKey)}>Assign a Character</PrimaryButton>
-          </section>
-        )
-      })}
+              <PrimaryButton onClick={() => setAssigningSkill(skill.skillKey)}>Assign a Character</PrimaryButton>
+            </section>
+          )
+        })
+      )}
 
       <Modal open={assigningSkill !== null} onClose={closeAssign}>
         <div style={{
