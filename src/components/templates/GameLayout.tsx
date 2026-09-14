@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { GameHeader } from '../organisms/GameHeader'
-import { useRecordLogin } from '@/features/achievements/hooks'
+import { useRecordLogin } from '@/hooks/useRecordLogin'
 
 const LAST_RECORDED_KEY = 'achievements:lastRecordedLoginDate'
 
