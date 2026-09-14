@@ -31,10 +31,10 @@ export function AchievementBadge({ ladder, value, earnedTiers }: {
       </span>
       <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
         {isFullyEarned
-          ? 'Maxed'
+          ? (totalTiers > 1 ? 'Maxed' : 'Earned')
           : totalTiers > 1
             ? `Tier ${earnedTiers + 1} / ${totalTiers}`
-            : earnedTiers > 0 ? 'Earned' : 'Locked'}
+            : 'Locked'}
       </span>
       {!isFullyEarned && nextThreshold !== null && value !== null && (
         <div style={{ width: '100%', height: 4, background: 'var(--color-bg-deep)', borderRadius: 2 }}>
