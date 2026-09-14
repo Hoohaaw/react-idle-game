@@ -24,6 +24,7 @@ const UpgradesPage = lazy(() => import('./pages/UpgradesPage'))
 const PrestigePage = lazy(() => import('@/features/reset').then((m) => ({ default: m.PrestigePage })))
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
 const GameStatsPage = lazy(() => import('./pages/GameStatsPage'))
+const AchievementsPage = lazy(() => import('@/features/achievements').then((m) => ({ default: m.AchievementsPage })))
 
 function PageLoading() {
   return (
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/reset" element={<PrestigePage />} />
             <Route path="/statistics" element={<StatisticsPage />} />
             <Route path="/game-stats" element={<GameStatsPage />} />
+            <Route path="/achievements" element={<AchievementsPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/missions" replace />} />
