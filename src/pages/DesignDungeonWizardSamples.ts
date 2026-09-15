@@ -16,6 +16,19 @@ export type WizardStage = {
   loot: WizardLoot[]
 }
 
+export const LOSS_SCREENS = {
+  'party-wiped': {
+    title: 'Party Wiped', accent: '#e0635c', border: '#8a2e29', borderSoft: '#5c1f1c',
+    headline: 'Your party has fallen — no rewards',
+    body: 'Every hero was struck down before the enemies were. Nothing was earned, and downed heroes must be stabilized at the Infirmary before they can fight again. The stage stays where it is — try again with a stronger or different party.',
+  },
+  timeout: {
+    title: 'Out of Time', accent: '#d89a4f', border: '#8a5e29', borderSoft: '#5c3f1c',
+    headline: 'The clock ran out — no rewards',
+    body: 'The stage dragged on too long with enemies still standing, and that counts as a loss — nothing was earned. Your party survived but carries its wounds. Bring more damage, or heroes this stage cannot resist.',
+  },
+} as const
+
 export const DUNGEON = {
   name: 'Emberdeep Vault',
   description: 'A sunken forge where the old smiths still hammer, long after the fire went out beneath them.',

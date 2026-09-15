@@ -432,6 +432,8 @@ export default function DesignPage() {
           <DesignDungeonWizard currentStageIndex={0} />
           <DesignDungeonWizard currentStageIndex={3} stageEndsAt={new Date(DEMO_T0 + 45_000).toISOString()} />
           <DesignDungeonWizard currentStageIndex={5} stageEndsAt={new Date(DEMO_T0 - 5_000).toISOString()} />
+          <DesignDungeonWizard currentStageIndex={5} outcome="loss" reason="party-wiped" />
+          <DesignDungeonWizard currentStageIndex={3} outcome="loss" reason="timeout" />
           <DesignDungeonWizard currentStageIndex={6} />
         </div>
       </Section>

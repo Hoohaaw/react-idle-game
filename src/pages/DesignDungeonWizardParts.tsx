@@ -8,6 +8,21 @@ import type { WizardLoot, WizardChar } from './DesignDungeonWizardSamples'
 // Split out of DesignDungeonWizard.tsx to keep that file under the ~200-line target — same split
 // DesignMissionDispatchWideParts.tsx uses for the mission-dispatch prototype this one adapts.
 
+export function TrailDot({ kind, status }: { kind: 'trash' | 'boss'; status: 'cleared' | 'current' | 'locked' }) {
+  const boss = kind === 'boss'
+  return (
+    <div style={{
+      width: boss ? 22 : 16, height: boss ? 22 : 16, borderRadius: boss ? 5 : '50%', flexShrink: 0,
+      border: `2px solid ${boss ? '#8a2e29' : 'var(--color-gold-mid)'}`,
+      background: status === 'current'
+        ? (boss ? '#c23c34' : 'var(--color-gold-light)')
+        : status === 'cleared' ? (boss ? '#5c1f1c' : 'var(--color-gold-dark)') : 'transparent',
+      boxShadow: status === 'current' ? '0 0 8px rgba(240,208,96,0.7)' : 'none',
+      opacity: status === 'locked' ? 0.4 : 1,
+    }} />
+  )
+}
+
 export function InfoStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="atom-heavy" style={{
