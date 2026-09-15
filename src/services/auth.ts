@@ -25,6 +25,13 @@ export async function signUp({ email, password, username }: SignUpCredentials) {
     }
     throw error
   }
+  // Supabase returns 200 with no error and an empty `identities` array (not an error code) when
+  // the email already belongs to a confirmed account — anti-enumeration behavior, so it can't say
+  // "email taken" at the API level. Without this check the caller treats it as a normal signup and
+  // shows "check your email", but no email is actually sent.
+  if (data.user && data.user.identities?.length === 0) {
+    throw new Error('An account with that email already exists. Try signing in instead.')
+  }
   return data
 }
 
