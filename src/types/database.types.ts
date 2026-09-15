@@ -436,11 +436,11 @@ export type Database = {
         Returns: Json
       }
       purchase_ascendant_shop_node: {
-        Args: { p_cost: number; p_node_key: string; p_player: string }
+        Args: { p_node_key: string; p_player: string }
         Returns: Json
       }
       purchase_echo_shop_node: {
-        Args: { p_cost: number; p_node_key: string; p_player: string }
+        Args: { p_node_key: string; p_player: string }
         Returns: Json
       }
       record_login: { Args: { p_player: string }; Returns: Json }

@@ -1,14 +1,13 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
-import { ECHO_SHOP_NODES, nodeCost } from '../../../src/lib/echoShop.ts'
+import { ECHO_SHOP_NODES } from '../../../src/lib/echoShop.ts'
 
 // echo-shop-purchase: buy the next level of one Echo Shop node (ADR-0053). The cost is resolved
-// authoritatively here from the CODE registry (no Sanity round-trip — the shop is mechanical
-// content, not Sanity-authored) using the player's CURRENT level for that node; the client is
-// never trusted for the price (ADR-0003). A concurrent purchase in another tab can make this
-// read stale — the RPC still applies the level increment atomically under its own row lock
-// regardless, so the level is always correct; only the exact price of a rare simultaneous
-// double-buy could be off by one growth step, which only affects the same player's own wallet.
+// authoritatively INSIDE the RPC now (supabase/migrations/20260915150000_lock_shop_purchase_price.sql),
+// under the same row lock that reads the current level — a client-computed price read here,
+// before the lock, would let two concurrent purchases both validate against the same
+// correct-at-the-time price and both succeed off one price check (ADR-0003). This function only
+// checks the node key exists in the CODE registry (early 400 on garbage input) and forwards it.
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -36,25 +35,10 @@ Deno.serve(async (req) => {
   if (typeof nodeKey !== 'string' || !ECHO_SHOP_NODES[nodeKey]) {
     return json({ error: 'Unknown shop node' }, 400)
   }
-  const node = ECHO_SHOP_NODES[nodeKey]
-
-  const { data: profile, error: profileErr } = await admin
-    .from('profiles')
-    .select('echo_shop')
-    .eq('player_id', playerId)
-    .maybeSingle()
-  if (profileErr) {
-    console.error('echo-shop-purchase: profile lookup failed', profileErr)
-    return json({ error: 'Could not load shop levels' }, 500)
-  }
-  const shop = (profile?.echo_shop ?? {}) as Record<string, number>
-  const currentLevel = shop[nodeKey] ?? 0
-  const cost = nodeCost(node, currentLevel)
 
   const { data: result, error: rpcErr } = await admin.rpc('purchase_echo_shop_node', {
     p_player: playerId,
     p_node_key: nodeKey,
-    p_cost: cost,
   })
   if (rpcErr) {
     console.error('echo-shop-purchase: purchase_echo_shop_node failed', rpcErr)
