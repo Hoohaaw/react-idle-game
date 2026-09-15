@@ -18,9 +18,9 @@ describe('FLAT_ASCENDANT_NODES', () => {
 
 describe('flatNodeCost', () => {
   it('grows by costGrowth per level, floored', () => {
-    const node = FLAT_ASCENDANT_NODES.missionSpeed // costBase 200, costGrowth 1.35
-    expect(flatNodeCost(node, 0)).toBe(200)
-    expect(flatNodeCost(node, 1)).toBe(270) // floor(200 * 1.35)
+    const node = FLAT_ASCENDANT_NODES.missionSpeed // costBase 1, costGrowth 1.35
+    expect(flatNodeCost(node, 0)).toBe(1)
+    expect(flatNodeCost(node, 1)).toBe(1) // floor(1 * 1.35)
   })
 })
 
@@ -52,8 +52,8 @@ describe('charNodeKey / charNodeCost', () => {
     expect(charNodeKey('lyra-swift', 'vitality')).toBe('lyra-swift.vitality')
   })
   it('costs the same regardless of character', () => {
-    expect(charNodeCost(0)).toBe(500)
-    expect(charNodeCost(1)).toBe(750) // floor(500 * 1.5)
+    expect(charNodeCost(0)).toBe(1)
+    expect(charNodeCost(1)).toBe(1) // floor(1 * 1.5)
   })
 })
 
