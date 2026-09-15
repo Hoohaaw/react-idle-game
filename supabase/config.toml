@@ -426,6 +426,14 @@ verify_jwt = true
 [functions.blessing-respec]
 verify_jwt = true
 
+# username-available: pre-signup username-availability check for the register form. The ONE
+# deliberate exception to verify_jwt = true in this project — it runs before any account/session
+# exists, so there is nothing to verify. It only returns a boolean (see the function's own header
+# comment for why this is safe to leave open) and every other function in this project stays
+# authenticated.
+[functions.username-available]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
