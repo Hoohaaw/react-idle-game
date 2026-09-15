@@ -25,7 +25,7 @@ import { GameHeader } from '../components/organisms/GameHeader'
 import type { MissionDrops } from '../types/loot'
 import { LootTable } from '../components/organisms/LootTable'
 import { MissionDispatch, ClaimReward, SAMPLE_CLAIM_LOSS, SAMPLE_CLAIM_WIPE, MissionCard, ActiveMissionCard } from '@/features/missions'
-import { StageWizard, SAMPLE_WIZARD_STAGES } from '@/features/groupContent'
+import { DesignDungeonWizard } from './DesignDungeonWizard'
 import { Modal } from '../components/organisms/Modal'
 import { MineCard } from '../components/molecules/MineCard'
 import { ActiveGatherCard } from '../components/molecules/ActiveGatherCard'
@@ -426,14 +426,14 @@ export default function DesignPage() {
         </Row>
       </Section>
 
-      {/* ── DUNGEON/RAID STAGE WIZARD (prototype) ── */}
-      <Section title="Dungeon/Raid Stage Wizard (Prototype)">
-        <Row>
-          <StageWizard stages={SAMPLE_WIZARD_STAGES} currentStageIndex={0} onSend={() => {}} />
-          <StageWizard stages={SAMPLE_WIZARD_STAGES} currentStageIndex={3} stageEndsAt={new Date(DEMO_T0 + 45_000).toISOString()} />
-          <StageWizard stages={SAMPLE_WIZARD_STAGES} currentStageIndex={5} stageEndsAt={new Date(DEMO_T0 - 5_000).toISOString()} onClaim={() => {}} />
-          <StageWizard stages={SAMPLE_WIZARD_STAGES} currentStageIndex={6} onSend={() => {}} />
-        </Row>
+      {/* ── DUNGEON/RAID STAGE WIZARD — WIDE REDESIGN (prototype) ── */}
+      <Section title="Dungeon/Raid Stage Wizard — Wide Redesign (Prototype)">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <DesignDungeonWizard currentStageIndex={0} />
+          <DesignDungeonWizard currentStageIndex={3} stageEndsAt={new Date(DEMO_T0 + 45_000).toISOString()} />
+          <DesignDungeonWizard currentStageIndex={5} stageEndsAt={new Date(DEMO_T0 - 5_000).toISOString()} />
+          <DesignDungeonWizard currentStageIndex={6} />
+        </div>
       </Section>
 
       {/* ── ACTIVE GATHERING FEED ────────────── */}
