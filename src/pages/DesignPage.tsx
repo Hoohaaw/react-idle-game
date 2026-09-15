@@ -25,6 +25,7 @@ import { GameHeader } from '../components/organisms/GameHeader'
 import type { MissionDrops } from '../types/loot'
 import { LootTable } from '../components/organisms/LootTable'
 import { MissionDispatch, ClaimReward, SAMPLE_CLAIM_LOSS, SAMPLE_CLAIM_WIPE, MissionCard, ActiveMissionCard } from '@/features/missions'
+import { StageWizard, SAMPLE_WIZARD_STAGES } from '@/features/groupContent'
 import { Modal } from '../components/organisms/Modal'
 import { MineCard } from '../components/molecules/MineCard'
 import { ActiveGatherCard } from '../components/molecules/ActiveGatherCard'
@@ -422,6 +423,16 @@ export default function DesignPage() {
           <MissionCard name="Goblin Outpost" stage={3} gold={100} xp={120} duration="3:00" dropCount={3} onSend={() => setModal('dispatch')} />
           <ActiveMissionCard name="Frozen Pass" partySize={2} startedAt={DEMO_T0 - 45_000} endsAt={DEMO_T0 + 45_000} />
           <ActiveMissionCard name="Goblin Outpost" partySize={3} startedAt={DEMO_T0 - 30_000} endsAt={DEMO_T0} onClaim={() => setModal('claim')} />
+        </Row>
+      </Section>
+
+      {/* ── DUNGEON/RAID STAGE WIZARD (prototype) ── */}
+      <Section title="Dungeon/Raid Stage Wizard (Prototype)">
+        <Row>
+          <StageWizard stages={SAMPLE_WIZARD_STAGES} currentStageIndex={0} onSend={() => {}} />
+          <StageWizard stages={SAMPLE_WIZARD_STAGES} currentStageIndex={3} stageEndsAt={new Date(DEMO_T0 + 45_000).toISOString()} />
+          <StageWizard stages={SAMPLE_WIZARD_STAGES} currentStageIndex={5} stageEndsAt={new Date(DEMO_T0 - 5_000).toISOString()} onClaim={() => {}} />
+          <StageWizard stages={SAMPLE_WIZARD_STAGES} currentStageIndex={6} onSend={() => {}} />
         </Row>
       </Section>
 
