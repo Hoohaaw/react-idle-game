@@ -60,4 +60,13 @@ describe('signUp', () => {
 
     await expect(signUp({ email: 'edge@example.com', password: 'password123' })).resolves.toBe(data)
   })
+
+  it('does not throw the duplicate-email error when identities is undefined (field absent, not empty)', async () => {
+    const data = { user: { id: 'user-1', identities: undefined }, session: null }
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({ data, error: null } as unknown as Awaited<
+      ReturnType<typeof supabase.auth.signUp>
+    >)
+
+    await expect(signUp({ email: 'unknown-shape@example.com', password: 'password123' })).resolves.toBe(data)
+  })
 })
