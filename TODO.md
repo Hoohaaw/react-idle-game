@@ -274,6 +274,28 @@ character sprite art. Older open items below may be stale — trust the mileston
   assets are compressed. Alt text and mobile breakpoints weren't flagged as gaps but weren't
   verified either.
   `↳ context: index.html, public/`
+- [ ] **Deploy the username feature to the hosted Supabase project** (PR #119, branch
+  `feature/username-signup`) — code is written and tested locally but nothing is applied to the
+  hosted project because the `supabase` MCP wasn't authorized in that session. Once it's
+  authorized, do all of the following:
+  1. Apply `supabase/migrations/20260915120000_profiles_username.sql` (adds `profiles.username`,
+     backfills existing rows, updates `handle_new_user()`, adds the `username_available` RPC).
+  2. Deploy the `username-available` Edge Function (`supabase/functions/username-available/`) —
+     confirm `verify_jwt = false` actually took effect (it's the one deliberate exception in
+     `supabase/config.toml`; every other function requires a JWT).
+  3. Run `mcp__supabase__get_advisors` — this is a new column + a new SECURITY DEFINER function +
+     the project's first unauthenticated Edge Function, worth a real security/perf check.
+  4. Regenerate `src/types/database.types.ts` via `generate_typescript_types` and diff it against
+     the hand-written version already in the PR (should match — `username: string` on
+     `profiles`' Row/Insert, `username_available` in Functions — but diff before trusting it, per
+     this file's own `database.types.ts` regeneration warning above).
+  5. Byte-verify the deployed function against local disk (this repo's standing discipline for
+     every Edge Function change, since there's no automated test infra for them).
+  6. Manually exercise signup end-to-end against the hosted project: a fresh unique username
+     succeeds and the profile row gets it; a duplicate username (any case) is caught by the
+     pre-check with the friendly "already taken" message *before* `signUp` is even called; the
+     existing email-confirmation flow still works unchanged.
+  `↳ context: supabase/migrations/20260915120000_profiles_username.sql, supabase/functions/username-available/, src/services/auth.ts`
 
 ## Done
 - [x] First real character authored in Sanity: **Mordrek Graveborn** (Death Knight / tank) — base stats + per-level growth (str +8@10, hp +30@25 milestones) + a 5-node blessing tree (prereq chain + row-7 ultimate). Seeded via Sanity **CLI** (`sanity documents create`, the MCP is read-only here). Currently a **draft** — review/publish in the Studio.
