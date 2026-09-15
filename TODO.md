@@ -274,9 +274,16 @@ character sprite art. Older open items below may be stale — trust the mileston
   assets are compressed. Alt text and mobile breakpoints weren't flagged as gaps but weren't
   verified either.
   `↳ context: index.html, public/`
-- [ ] **Deploy the username feature to the hosted Supabase project** (PR #119, branch
-  `feature/username-signup`) — Supabase MCP authorized 2026-09-15; steps 1-5 done and verified
-  that session, step 6 still needs a human at the keyboard:
+- [x] **Deploy the username feature to the hosted Supabase project** (PR #119, merged 2026-09-15) —
+  Supabase MCP authorized that session; steps 1-5 done and verified. Step 6 (real browser signup)
+  was exercised manually and caught a real bug: signing up with an email that already had a
+  confirmed account showed the same "check your email" success message as a real signup, with no
+  email ever sent (Supabase's anti-enumeration `identities: []` response wasn't being checked).
+  Fixed + merged separately as **PR #120** (`fix/reject-duplicate-email-signup`,
+  `src/services/auth.ts`) — now throws "An account with that email already exists." Still not
+  manually re-verified: a **fresh, never-used email** end-to-end (confirmation email actually
+  arrives, `handle_new_user()` writes the username, sign-in works after confirming). What's below
+  is the original per-step record from the deploy session.
   1. [x] Applied `supabase/migrations/20260915120000_profiles_username.sql`. Verified live:
      `username_available` is `SECURITY DEFINER`, `search_path=""`, execute granted to
      `service_role` only (anon/authenticated confirmed `false` via `has_function_privilege`);
@@ -301,13 +308,10 @@ character sprite art. Older open items below may be stale — trust the mileston
   5. [x] Byte-verified: `get_edge_function` on the live deploy matches
      `supabase/functions/username-available/index.ts` + its `_shared/cors.ts` and
      `_shared/supabaseAdmin.ts` imports exactly.
-  6. [ ] **Still open — needs a human, not a curl call**: manually exercise signup end-to-end in
-     the actual browser UI. What's verified so far only covers the backend (RPC + Edge Function
-     respond correctly for an unauthenticated read); NOT yet verified: the register form's
-     friendly "already taken" message actually fires from the pre-check *before* `signUp` is
-     called, a real signup writes the username onto the new profile row via `handle_new_user()`,
-     and the existing email-confirmation flow still works unchanged. Needs a real browser pass,
-     ideally with both a fresh username and a same-name-different-case duplicate.
+  6. [x] Manually exercised in the browser. Found + fixed the already-registered-email gap (see
+     above, PR #120). **Still not covered by this pass**: a fresh never-used email's full happy
+     path (confirmation email arrives, `handle_new_user()` sets the username, sign-in works after
+     confirming) and the same-name-different-case duplicate-username pre-check UX.
   `↳ context: supabase/migrations/20260915120000_profiles_username.sql, supabase/functions/username-available/, src/services/auth.ts`
 
 ## Done
