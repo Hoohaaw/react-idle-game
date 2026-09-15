@@ -11,18 +11,24 @@ import { invokeError } from './_invoke'
 export type GroupKind = 'dungeon' | 'raid'
 export type GroupRun = Tables<'group_runs'>
 
+export type GroupStageView = {
+  kind: 'trash' | 'boss'
+  loot: { itemKey: string; name: string; slot: string }[]
+}
+
 export type GroupContentView = {
   dungeonKey?: string
   raidKey?: string
   name: string
   theme: School
   description?: string
-  stageCount: number
+  stages: GroupStageView[]
   mapGate?: string
 }
 
-const DUNGEONS_QUERY = `*[_type == "dungeonDef"]{ dungeonKey, name, theme, description, "stageCount": count(stages), "mapGate": mapGate->mapKey }`
-const RAIDS_QUERY = `*[_type == "raidDef"]{ raidKey, name, theme, description, "stageCount": count(stages), "mapGate": mapGate->mapKey }`
+const STAGE_PROJECTION = `stages[]{ kind, "loot": loot[]{ "itemKey": item->itemKey, "name": item->name, "slot": item->slot } }`
+const DUNGEONS_QUERY = `*[_type == "dungeonDef"]{ dungeonKey, name, theme, description, ${STAGE_PROJECTION}, "mapGate": mapGate->mapKey }`
+const RAIDS_QUERY = `*[_type == "raidDef"]{ raidKey, name, theme, description, ${STAGE_PROJECTION}, "mapGate": mapGate->mapKey }`
 
 export async function fetchDungeons(): Promise<GroupContentView[]> {
   return sanity.fetch(DUNGEONS_QUERY)

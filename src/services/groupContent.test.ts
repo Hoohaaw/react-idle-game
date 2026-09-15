@@ -20,6 +20,8 @@ describe('fetchDungeons', () => {
     expect(sanity.fetch).toHaveBeenCalledTimes(1)
     const [query] = vi.mocked(sanity.fetch).mock.calls[0]
     expect(query).toContain('dungeonDef')
+    expect(query).toContain('kind')
+    expect(query).toContain('loot')
   })
 })
 

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { PrimaryButton } from '@/components/atoms/Button'
+import { Modal } from '@/components/organisms/Modal'
 import { useRoster } from '@/hooks/useRoster'
 import { useProfile } from '@/hooks/useProfile'
 import { GROUP_PARTY_CAP, GROUP_LOCKOUT, nextResetBoundary, isLockedOut as computeIsLockedOut, type GroupKind } from '@/lib/groupContent'
 import { useDungeons, useRaids, useGroupRuns, useStartGroupStage, useClaimGroupStage } from './hooks'
 import { GroupPartyPicker } from './components/GroupPartyPicker'
-import { StageProgress } from './components/StageProgress'
+import { StagePath } from './components/StagePath'
+import { GroupClaimReward } from './components/GroupClaimReward'
 
 // One page, two routes (/dungeons, /raids) — `kind` picks which content list and party cap apply.
 // Same page-composition pattern as MissionsPage: fetch content + runtime state, compose a picker.
@@ -56,45 +58,62 @@ export function GroupContentPage({ kind }: { kind: GroupKind }) {
       </div>
 
       {active && defKey && (
-        <div style={{ display: 'flex', gap: 24 }}>
-          {!gateCleared ? (
-            <p style={{ color: 'var(--color-text-muted)' }}>Locked — clear {active.mapGate ?? 'the gated map'} first.</p>
-          ) : (
-            <>
-              <div style={{ flex: 1 }}>
-                {run && (stageInFlight || canClaim || isLockedOut) && (
-                  <StageProgress run={run} stageCount={active.stageCount} lockoutBoundary={lockoutBoundary} isLockedOut={isLockedOut} />
-                )}
-                {canClaim && (
-                  <PrimaryButton onClick={() => claimStage.mutate({ kind, defKey })}>Claim</PrimaryButton>
-                )}
-                {claimStage.data && (
-                  <p style={{ color: claimStage.data.outcome === 'win' ? 'var(--color-success)' : '#e0635c', fontSize: 13 }}>
-                    {claimStage.data.outcome === 'win' ? 'Victory!' : 'Defeat — try again.'}
-                  </p>
-                )}
-                {!isLockedOut && !stageInFlight && !canClaim && (
-                  <PrimaryButton disabled={party.length === 0 || startStage.isPending}
-                    onClick={() => startStage.mutate({ kind, defKey, party }, { onSuccess: () => setParty([]) })}>
-                    {startStage.isPending ? 'Sending…' : `Send Party (${party.length})`}
-                  </PrimaryButton>
-                )}
-                {startStage.error && (
-                  <p style={{ color: '#e0635c', fontSize: 11 }}>{(startStage.error as Error).message}</p>
-                )}
-                {claimStage.error && (
-                  <p style={{ color: '#e0635c', fontSize: 11 }}>{(claimStage.error as Error).message}</p>
-                )}
-              </div>
-              {!isLockedOut && !stageInFlight && !canClaim && (
-                <div style={{ flex: 1 }}>
-                  <GroupPartyPicker roster={roster} cap={cap} selected={party} onToggle={toggle} traitCtx={{ mapKey: null, enemyArchetypes: [], enemySchools: [] }} />
-                </div>
-              )}
-            </>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {gateCleared && !isLockedOut && !stageInFlight && !canClaim && (
+            <StagePath stages={active.stages} variant="preview" />
           )}
+          <div style={{ display: 'flex', gap: 24 }}>
+            {!gateCleared ? (
+              <p style={{ color: 'var(--color-text-muted)' }}>Locked — clear {active.mapGate ?? 'the gated map'} first.</p>
+            ) : (
+              <>
+                <div style={{ flex: 1 }}>
+                  {run && (stageInFlight || canClaim || isLockedOut) && (
+                    <StagePath
+                      stages={active.stages}
+                      variant="active"
+                      currentStageIndex={run?.current_stage_index}
+                      stageEndsAt={run?.stage_ends_at}
+                      isLockedOut={isLockedOut}
+                      lockoutBoundary={lockoutBoundary}
+                    />
+                  )}
+                  {canClaim && (
+                    <PrimaryButton onClick={() => claimStage.mutate({ kind, defKey })}>Claim</PrimaryButton>
+                  )}
+                  {!isLockedOut && !stageInFlight && !canClaim && (
+                    <PrimaryButton disabled={party.length === 0 || startStage.isPending}
+                      onClick={() => startStage.mutate({ kind, defKey, party }, { onSuccess: () => setParty([]) })}>
+                      {startStage.isPending ? 'Sending…' : `Send Party (${party.length})`}
+                    </PrimaryButton>
+                  )}
+                  {startStage.error && (
+                    <p style={{ color: '#e0635c', fontSize: 11 }}>{(startStage.error as Error).message}</p>
+                  )}
+                  {claimStage.error && (
+                    <p style={{ color: '#e0635c', fontSize: 11 }}>{(claimStage.error as Error).message}</p>
+                  )}
+                </div>
+                {!isLockedOut && !stageInFlight && !canClaim && (
+                  <div style={{ flex: 1 }}>
+                    <GroupPartyPicker roster={roster} cap={cap} selected={party} onToggle={toggle} traitCtx={{ mapKey: null, enemyArchetypes: [], enemySchools: [] }} />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
+
+      <Modal open={claimStage.data != null} onClose={() => claimStage.reset()}>
+        {claimStage.data && (
+          <GroupClaimReward
+            result={claimStage.data}
+            stageLoot={active?.stages[claimStage.data.stageIndex]?.loot ?? []}
+            onDone={() => claimStage.reset()}
+          />
+        )}
+      </Modal>
     </div>
   )
 }
