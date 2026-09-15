@@ -27,6 +27,12 @@ describe('SKILL_DEFS', () => {
       skillKey: 'religion', label: 'Religion', destination: 'Church', intervalSec: 30, xpPerTick: 15,
     })
   })
+
+  it('includes the filler skills added to round out the page', () => {
+    expect(SKILL_BY_KEY.athletics.destination).toBe('Training Grounds')
+    expect(SKILL_BY_KEY.farming.destination).toBe('Farm')
+    expect(SKILL_BY_KEY.mining.destination).toBe('Quarry')
+  })
 })
 
 describe('accrue() + applyXp() reused for skill training', () => {

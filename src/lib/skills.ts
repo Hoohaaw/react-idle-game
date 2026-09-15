@@ -19,6 +19,9 @@ export type SkillDef = {
 
 export const SKILL_DEFS: SkillDef[] = [
   { skillKey: 'religion', label: 'Religion', destination: 'Church', intervalSec: 30, xpPerTick: 15 },
+  { skillKey: 'athletics', label: 'Athletics', destination: 'Training Grounds', intervalSec: 30, xpPerTick: 15 },
+  { skillKey: 'farming', label: 'Farming', destination: 'Farm', intervalSec: 30, xpPerTick: 15 },
+  { skillKey: 'mining', label: 'Mining', destination: 'Quarry', intervalSec: 30, xpPerTick: 15 },
 ]
 
 export const SKILL_BY_KEY: Record<string, SkillDef> = Object.fromEntries(
