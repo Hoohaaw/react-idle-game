@@ -25,6 +25,7 @@ import { GameHeader } from '../components/organisms/GameHeader'
 import type { MissionDrops } from '../types/loot'
 import { LootTable } from '../components/organisms/LootTable'
 import { MissionDispatch, ClaimReward, SAMPLE_CLAIM_LOSS, SAMPLE_CLAIM_WIPE, MissionCard, ActiveMissionCard } from '@/features/missions'
+import { DesignDungeonWizard } from './DesignDungeonWizard'
 import { Modal } from '../components/organisms/Modal'
 import { MineCard } from '../components/molecules/MineCard'
 import { ActiveGatherCard } from '../components/molecules/ActiveGatherCard'
@@ -423,6 +424,18 @@ export default function DesignPage() {
           <ActiveMissionCard name="Frozen Pass" partySize={2} startedAt={DEMO_T0 - 45_000} endsAt={DEMO_T0 + 45_000} />
           <ActiveMissionCard name="Goblin Outpost" partySize={3} startedAt={DEMO_T0 - 30_000} endsAt={DEMO_T0} onClaim={() => setModal('claim')} />
         </Row>
+      </Section>
+
+      {/* ── DUNGEON/RAID STAGE WIZARD — WIDE REDESIGN (prototype) ── */}
+      <Section title="Dungeon/Raid Stage Wizard — Wide Redesign (Prototype)">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <DesignDungeonWizard currentStageIndex={0} />
+          <DesignDungeonWizard currentStageIndex={3} stageEndsAt={new Date(DEMO_T0 + 45_000).toISOString()} />
+          <DesignDungeonWizard currentStageIndex={5} stageEndsAt={new Date(DEMO_T0 - 5_000).toISOString()} />
+          <DesignDungeonWizard currentStageIndex={5} outcome="loss" reason="party-wiped" />
+          <DesignDungeonWizard currentStageIndex={3} outcome="loss" reason="timeout" />
+          <DesignDungeonWizard currentStageIndex={6} />
+        </div>
       </Section>
 
       {/* ── ACTIVE GATHERING FEED ────────────── */}
