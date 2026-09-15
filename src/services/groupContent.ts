@@ -26,7 +26,11 @@ export type GroupContentView = {
   mapGate?: string
 }
 
-const STAGE_PROJECTION = `stages[]{ kind, "loot": loot[]{ "itemKey": item->itemKey, "name": item->name, "slot": item->slot } }`
+// coalesce(..., []): a stage with no loot authored has no `loot` array at all, and GROQ's
+// `loot[]{...}` projection over an absent field returns `null`, not `[]` — confirmed live for
+// every trash stage in both reference dungeons/raids today. Without the coalesce this violates
+// GroupStageView's `loot: {...}[]` (non-nullable) type at runtime.
+const STAGE_PROJECTION = `stages[]{ kind, "loot": coalesce(loot[]{ "itemKey": item->itemKey, "name": item->name, "slot": item->slot }, []) }`
 const DUNGEONS_QUERY = `*[_type == "dungeonDef"]{ dungeonKey, name, theme, description, ${STAGE_PROJECTION}, "mapGate": mapGate->mapKey }`
 const RAIDS_QUERY = `*[_type == "raidDef"]{ raidKey, name, theme, description, ${STAGE_PROJECTION}, "mapGate": mapGate->mapKey }`
 

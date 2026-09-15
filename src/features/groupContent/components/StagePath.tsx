@@ -28,7 +28,7 @@ function StageNode({ stage, index, status }: { stage: GroupStageView; index: num
         <span style={{ color: boss ? '#ff9090' : 'var(--color-text-gold)', fontSize: 13, fontWeight: 'bold' }}>
           {status === 'cleared' ? '✓' : index + 1}
         </span>
-        {stage.loot.length > 0 && (
+        {(stage.loot?.length ?? 0) > 0 && (
           <span style={{ position: 'absolute', top: -4, right: -4 }}>
             <IconSlot size={12} />
           </span>
