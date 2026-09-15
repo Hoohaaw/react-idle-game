@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 // server-side (Edge Functions / claim_mission) — the client only reads this (ADR-0003).
 
 export type PlayerProfile = {
+  /** Player-chosen display name, shown in the UI instead of email. */
+  username: string
   currencies: Record<string, number>
   resources: Record<string, number>
   /** How many times the player has done a soft Reset (ADR-0053). Display-only counter. */
@@ -45,11 +47,12 @@ export async function fetchProfile(): Promise<PlayerProfile> {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played',
+      'username, currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played',
     )
     .maybeSingle()
   if (error) throw error
   return {
+    username: data?.username ?? '',
     currencies: (data?.currencies ?? {}) as Record<string, number>,
     resources: (data?.resources ?? {}) as Record<string, number>,
     resetCount: data?.reset_count ?? 0,

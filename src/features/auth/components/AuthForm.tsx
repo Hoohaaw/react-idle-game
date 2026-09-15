@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { PrimaryButton } from '@/components/atoms/Button'
 import { Alert } from '@/components/atoms/Alert'
-import { signIn, signUp } from '@/services/auth'
+import { signIn, signUp, checkUsernameAvailable } from '@/services/auth'
 
 // One form for both modes — login and register differ only in which service call they make and a
 // register-only "confirm your email" outcome. The store's auth listener handles a successful sign-in,
@@ -31,6 +31,7 @@ const labelStyle: React.CSSProperties = {
 }
 
 export function AuthForm({ mode }: { mode: Mode }) {
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -43,7 +44,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setBusy(true)
     try {
       if (mode === 'register') {
-        const data = await signUp({ email, password })
+        if (!(await checkUsernameAvailable(username))) {
+          setError('That username is already taken.')
+          return
+        }
+        const data = await signUp({ email, password, username })
         // No session => email confirmation is required; signing in happens after the user confirms.
         if (!data.session) setConfirmSent(true)
       } else {
@@ -66,6 +71,24 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {mode === 'register' && (
+        <div>
+          <label htmlFor="auth-username" style={labelStyle}>Username</label>
+          <input
+            id="auth-username"
+            type="text"
+            autoComplete="username"
+            required
+            minLength={3}
+            maxLength={20}
+            pattern="[A-Za-z0-9_]{3,20}"
+            title="3-20 characters: letters, numbers, and underscores only"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            style={inputStyle}
+          />
+        </div>
+      )}
       <div>
         <label htmlFor="auth-email" style={labelStyle}>Email</label>
         <input

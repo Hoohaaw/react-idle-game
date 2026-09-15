@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { fetchProfile } from './profile'
 
 type Row = {
+  username?: string
   currencies: unknown
   resources: unknown
   reset_count: number
@@ -43,6 +44,7 @@ describe('fetchProfile', () => {
   it('maps the wallet row to typed currencies/resources/echoes/echoShop/lifetimeStats/resetCount/ascendantShards/ascendantShop/ascendantMilestones/transcendCount', async () => {
     mockProfile({
       data: {
+        username: 'ashfall_rider',
         currencies: { gold: 1420 },
         resources: { Iron: 5, Wood: 30 },
         reset_count: 2,
@@ -66,6 +68,7 @@ describe('fetchProfile', () => {
     const result = await fetchProfile()
 
     expect(result).toEqual({
+      username: 'ashfall_rider',
       currencies: { gold: 1420 },
       resources: { Iron: 5, Wood: 30 },
       resetCount: 2,
@@ -91,6 +94,7 @@ describe('fetchProfile', () => {
     const result = await fetchProfile()
 
     expect(result).toEqual({
+      username: '',
       currencies: {},
       resources: {},
       resetCount: 0,
@@ -127,7 +131,7 @@ describe('fetchProfile', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('profiles')
     expect(select).toHaveBeenCalledWith(
-      'currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played',
+      'username, currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played',
     )
   })
 })

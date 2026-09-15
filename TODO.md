@@ -274,6 +274,41 @@ character sprite art. Older open items below may be stale — trust the mileston
   assets are compressed. Alt text and mobile breakpoints weren't flagged as gaps but weren't
   verified either.
   `↳ context: index.html, public/`
+- [ ] **Deploy the username feature to the hosted Supabase project** (PR #119, branch
+  `feature/username-signup`) — Supabase MCP authorized 2026-09-15; steps 1-5 done and verified
+  that session, step 6 still needs a human at the keyboard:
+  1. [x] Applied `supabase/migrations/20260915120000_profiles_username.sql`. Verified live:
+     `username_available` is `SECURITY DEFINER`, `search_path=""`, execute granted to
+     `service_role` only (anon/authenticated confirmed `false` via `has_function_privilege`);
+     `profiles.username` is `NOT NULL text`; the format check constraint is live.
+  2. [x] Deployed the `username-available` Edge Function with `verify_jwt: false`. Confirmed live
+     end-to-end with an unauthenticated `curl` (no Authorization header) —
+     `{"available":true}` / HTTP 200 — so the gateway-level exception actually took effect, not
+     just the config flag.
+  3. [x] Ran `get_advisors` (security + performance). No new findings from this feature (function
+     search_path is correctly set, unlike the two pre-existing flagged functions
+     `check_ascendant_milestones`/`check_achievements`). All findings are pre-existing and
+     unrelated (leaked-password-protection, unindexed FKs on other tables, one RLS initplan
+     warning on `group_runs`) — out of scope here, not fixed.
+  4. [x] Regenerated types and diffed rather than overwriting. **No file change needed** —
+     `src/types/database.types.ts` already had `username: string` on `profiles` and
+     `username_available` in Functions, hand-written ahead of deploy, and it already matched the
+     regenerated shape. Did NOT write the regenerated output over it: regeneration still reverts
+     `craft_runs`/`group_runs` `Insert: never`/`Update: never` (ADR-0003 guard) back to full
+     writable shapes, and separately reflects unrelated schema drift (a `p_lifetime_stats` param
+     on `claim_group_stage`, a `skills` field on `recruit_character`'s return) that predates this
+     PR and is out of scope for it.
+  5. [x] Byte-verified: `get_edge_function` on the live deploy matches
+     `supabase/functions/username-available/index.ts` + its `_shared/cors.ts` and
+     `_shared/supabaseAdmin.ts` imports exactly.
+  6. [ ] **Still open — needs a human, not a curl call**: manually exercise signup end-to-end in
+     the actual browser UI. What's verified so far only covers the backend (RPC + Edge Function
+     respond correctly for an unauthenticated read); NOT yet verified: the register form's
+     friendly "already taken" message actually fires from the pre-check *before* `signUp` is
+     called, a real signup writes the username onto the new profile row via `handle_new_user()`,
+     and the existing email-confirmation flow still works unchanged. Needs a real browser pass,
+     ideally with both a fresh username and a same-name-different-case duplicate.
+  `↳ context: supabase/migrations/20260915120000_profiles_username.sql, supabase/functions/username-available/, src/services/auth.ts`
 
 ## Done
 - [x] First real character authored in Sanity: **Mordrek Graveborn** (Death Knight / tank) — base stats + per-level growth (str +8@10, hp +30@25 milestones) + a 5-node blessing tree (prereq chain + row-7 ultimate). Seeded via Sanity **CLI** (`sanity documents create`, the MCP is read-only here). Currently a **draft** — review/publish in the Studio.
