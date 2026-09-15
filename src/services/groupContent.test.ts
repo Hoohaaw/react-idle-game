@@ -14,14 +14,52 @@ describe('fetchDungeons', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('queries Sanity for dungeonDef documents', async () => {
-    vi.mocked(sanity.fetch).mockResolvedValue([{ dungeonKey: 'emberdeep-vault', name: 'Emberdeep Vault', theme: 'fire' }] as never)
+    vi.mocked(sanity.fetch).mockResolvedValue([{ dungeonKey: 'emberdeep-vault', name: 'Emberdeep Vault', theme: 'fire', stages: [] }] as never)
     const result = await fetchDungeons()
-    expect(result).toEqual([{ dungeonKey: 'emberdeep-vault', name: 'Emberdeep Vault', theme: 'fire' }])
+    expect(result).toEqual([{ dungeonKey: 'emberdeep-vault', name: 'Emberdeep Vault', theme: 'fire', stages: [] }])
     expect(sanity.fetch).toHaveBeenCalledTimes(1)
     const [query] = vi.mocked(sanity.fetch).mock.calls[0]
     expect(query).toContain('dungeonDef')
     expect(query).toContain('kind')
     expect(query).toContain('loot')
+  })
+
+  it('maps a stage with loot into display-ready rarity chances, defaulting name/slot when unauthored', async () => {
+    vi.mocked(sanity.fetch).mockResolvedValue([{
+      dungeonKey: 'emberdeep-vault', name: 'Emberdeep Vault', theme: 'fire',
+      stages: [
+        { kind: 'trash', durationSeconds: 90, baseXp: 40, loot: null },
+        {
+          kind: 'boss', durationSeconds: 180, baseXp: 120,
+          loot: [
+            { dropChance: 40, itemKey: 'cinderfang-rod', name: 'Cinderfang Rod', slot: 'Weapon', rarityWeights: [{ rarity: 'Rare', weight: 3 }, { rarity: 'Epic', weight: 1 }] },
+            { dropChance: 20, itemKey: null },
+            { dropChance: 10 },
+          ],
+        },
+      ],
+    }] as never)
+
+    const result = await fetchDungeons()
+
+    expect(result[0].stages[0]).toEqual({ kind: 'trash', durationSeconds: 90, baseXp: 40, loot: [] })
+    expect(result[0].stages[1].loot).toEqual([
+      { itemKey: 'cinderfang-rod', name: 'Cinderfang Rod', slot: 'Weapon', chances: [{ rarity: 'Rare', chance: 30 }, { rarity: 'Epic', chance: 10 }] },
+    ])
+  })
+
+  it('falls back name/slot to itemKey/empty string when unauthored', async () => {
+    vi.mocked(sanity.fetch).mockResolvedValue([{
+      dungeonKey: 'emberdeep-vault', name: 'Emberdeep Vault', theme: 'fire',
+      stages: [{ kind: 'trash', loot: [{ dropChance: 60, itemKey: 'charred-bone' }] }],
+    }] as never)
+
+    const result = await fetchDungeons()
+
+    expect(result[0].stages[0]).toEqual({
+      kind: 'trash', durationSeconds: 0, baseXp: 0,
+      loot: [{ itemKey: 'charred-bone', name: 'charred-bone', slot: '', chances: [{ rarity: 'Common', chance: 60 }] }],
+    })
   })
 })
 

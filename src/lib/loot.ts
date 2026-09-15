@@ -12,6 +12,20 @@ export type LootLine = {
 }
 export type RolledLoot = { item_def_id: string; rarity: string; quantity: number }
 
+/** chance = P(this item drops at this rarity), % — display-only, not used by the roll itself. */
+export type LootRarityChance = { rarity: string; chance: number }
+
+// Turn a loot line's dropChance + rarity weights into a per-rarity display chance:
+//   chance(rarity) = dropChance × weight / Σweights.  Empty weights → the whole dropChance as Common.
+// Shared by missions and groupContent (dungeons/raids) — both turn an authored loot line into
+// display-ready rarity-chance pills the same way.
+export function rarityChances(dropChance: number, weights?: RarityWeight[]): LootRarityChance[] {
+  const list = (weights ?? []).filter((w) => (w.weight ?? 0) > 0)
+  if (list.length === 0) return [{ rarity: 'Common', chance: dropChance }]
+  const total = list.reduce((s, w) => s + w.weight, 0)
+  return list.map((w) => ({ rarity: w.rarity, chance: Math.round((dropChance * w.weight) / total) }))
+}
+
 // Canonical rarity ordering, lowest to highest — matches src/lib/stats.ts's RARITY_MULT key
 // order. Array POSITION in an authored rarityWeights list is NOT a reliable "lowest tier" signal
 // (confirmed by reading loot.test.ts's own fixtures: they list Legendary before Rare in one case)
