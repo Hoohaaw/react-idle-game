@@ -1,13 +1,15 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { characterDefExists } from '../_shared/sanity.ts'
-import { FLAT_ASCENDANT_NODES, flatNodeCost, charNodeCost, type FlatAscendantKind } from '../../../src/lib/ascendantShop.ts'
+import { FLAT_ASCENDANT_NODES } from '../../../src/lib/ascendantShop.ts'
 
 // ascendant-shop-purchase: buy the next level of one Ascendant Shop node (ADR-0023). The cost is
-// resolved authoritatively here — a flat node's cost comes straight from the CODE registry (no
-// Sanity round-trip), a per-character node's cost is the same for every character (only the level
-// varies) but the charKey itself is validated against Sanity, since it isn't enumerable from a
-// static list the way flat nodes are.
+// resolved authoritatively INSIDE the RPC now (supabase/migrations/20260915150000_lock_shop_purchase_price.sql),
+// under the same row lock that reads the current level — a client-computed price read here,
+// before the lock, would let two concurrent purchases both validate against the same
+// correct-at-the-time price and both succeed off one price check (ADR-0003). This function still
+// branches flat-vs-char node to validate a per-character node's charKey against Sanity (that
+// can't move into SQL — it's an external content lookup); the price itself is resolved server-side.
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -36,22 +38,7 @@ Deno.serve(async (req) => {
     return json({ error: 'nodeKey is required' }, 400)
   }
 
-  const { data: profile, error: profileErr } = await admin
-    .from('profiles')
-    .select('ascendant_shop')
-    .eq('player_id', playerId)
-    .maybeSingle()
-  if (profileErr) {
-    console.error('ascendant-shop-purchase: profile lookup failed', profileErr)
-    return json({ error: 'Could not load shop levels' }, 500)
-  }
-  const shop = (profile?.ascendant_shop ?? {}) as Record<string, number>
-  const currentLevel = shop[nodeKey] ?? 0
-
-  let cost: number
-  if (nodeKey in FLAT_ASCENDANT_NODES) {
-    cost = flatNodeCost(FLAT_ASCENDANT_NODES[nodeKey as FlatAscendantKind], currentLevel)
-  } else {
+  if (!(nodeKey in FLAT_ASCENDANT_NODES)) {
     const dot = nodeKey.lastIndexOf('.')
     const charKey = dot > 0 ? nodeKey.slice(0, dot) : ''
     const kind = dot > 0 ? nodeKey.slice(dot + 1) : ''
@@ -66,13 +53,11 @@ Deno.serve(async (req) => {
       return json({ error: 'Could not validate character' }, 502)
     }
     if (!exists) return json({ error: 'Unknown character' }, 400)
-    cost = charNodeCost(currentLevel)
   }
 
   const { data: result, error: rpcErr } = await admin.rpc('purchase_ascendant_shop_node', {
     p_player: playerId,
     p_node_key: nodeKey,
-    p_cost: cost,
   })
   if (rpcErr) {
     console.error('ascendant-shop-purchase: purchase_ascendant_shop_node failed', rpcErr)

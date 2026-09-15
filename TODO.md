@@ -158,13 +158,13 @@ character sprite art. Older open items below may be stale — trust the mileston
   economy nodes + rarity bias), the all-raids-cleared unlock gate, and protected character slots
   (a new Echo Shop node). Second tab in the `PrestigePage` shell, gated on eligibility.
   `↳ context: project-reset · docs/DECISIONS.md ADR-0054, docs/superpowers/specs/2026-09-12-transcendence-ascendant-shards-design.md`
-- [ ] **Ascendant/Echo Shop purchase price race** — `purchase_ascendant_shop_node` and
-  `purchase_echo_shop_node` both compute the node's cost in TypeScript from an unlocked read, then
-  apply it under a lock that validates only the balance, not the price — same shape as the
-  milestone double-award race fixed twice during Transcendence's launch (see ADR-0054), one layer
-  down. Two concurrent purchases at the same level can both underpay. Needs a coordinated fix
-  across both RPCs (re-derive cost from the locked level server-side, don't trust `p_cost`).
-  `↳ context: project-reset · docs/DECISIONS.md ADR-0054`
+- [x] **Ascendant/Echo Shop purchase price race** (2026-09-15) — fixed: both RPCs now recompute
+  cost server-side under the same `for update` lock that reads the current level, ported from
+  `src/lib/echoShop.ts`/`src/lib/ascendantShop.ts`'s `floor(costBase * costGrowth ** level)`
+  formula into SQL (`double precision` math, not `numeric`, to keep parity with the client's
+  JS-computed display price). `p_cost` dropped from both signatures entirely — a client-supplied
+  price is no longer accepted at all. `supabase/migrations/20260915150000_lock_shop_purchase_price.sql`.
+  `↳ context: project-reset · docs/DECISIONS.md ADR-0054, ADR-0057`
 - [x] **Wire Ascendant stat bonuses into mission-start/gather-collect/client roster display**
   (2026-09-13) — `resolveCharAscendantBonuses`/`resolveFlatAscendantStatBonuses` now flow through
   `mission-start`, `gather-collect`, and `useRoster()`, matching `mission-claim`/`group-claim-stage`.

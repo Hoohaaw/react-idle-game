@@ -2877,3 +2877,52 @@ a one-off Church feature — a second skill is expected to be a one-line registr
   `busy` enum value verbatim as a label (pre-existing behavior for every busy state, `skillTraining`
   is just the first camelCase one to make it visible); no player-guide entry for Church/Religion yet
   (`src/pages/gameStatsContent.ts`) — content-authoring, not a code gap.
+
+## ADR-0057 — Echo/Ascendant Shop purchase price race, closed
+
+**Date:** 2026-09-15 · **Status:** Accepted (Alex)
+
+**Context.** Flagged as a follow-up in ADR-0054's Consequences: `purchase_echo_shop_node` and
+`purchase_ascendant_shop_node` both locked the profile row (`select ... for update`) before
+checking balance and applying the purchase, but the PRICE checked against was a caller-supplied
+`p_cost`, computed by the calling Edge Function from an unlocked read taken *before* the RPC call.
+Two concurrent purchases at the same node level both compute the same correct-at-the-time price,
+both pass the balance check sequentially under the lock, both succeed — the level increments twice
+for one purchase's worth of currency. Same shape as the milestone double-award race ADR-0054 fixed
+twice during its own launch, one layer down: there the AWARD wasn't locked, here it's the PRICE.
+
+**Decision.**
+- **Both RPCs recompute cost server-side, under the same row lock that reads the current level** —
+  `p_cost` is dropped from both signatures entirely (a client-computed price is never accepted, per
+  ADR-0003), replaced by a SQL port of the pricing formula both shops already use:
+  `floor(costBase * costGrowth ** currentLevel)`, ported from `src/lib/echoShop.ts`/
+  `src/lib/ascendantShop.ts` into a small `case`/`elsif` bucket per node kind (each shop has only
+  2-3 distinct `(costBase, costGrowth)` pairs; the per-resource and per-character node spaces are
+  matched by key suffix/prefix pattern, not enumerated, so a new resource or character needs zero
+  SQL changes — the registry-driven promise (ADR-0004) survives the port).
+- **`double precision`, not `numeric`, for the cost arithmetic** — Postgres `double precision` and
+  JS numbers are both IEEE-754 doubles, so the server-computed price stays as close as floating
+  point allows to what the client UI displays (computed by the same `nodeCost`/`flatNodeCost`/
+  `charNodeCost` functions, in TypeScript, for the "next upgrade cost" label). `numeric`'s exact
+  decimal arithmetic would silently diverge from JS's binary-float rounding at some levels,
+  correctly charging the right price while showing the wrong one beforehand.
+- The old 3-arg signatures are dropped (`drop function if exists ...(uuid, text, integer)`) and
+  replaced with 2-arg versions in the same migration transaction — no window where the function is
+  missing. The two Edge Functions (`echo-shop-purchase`, `ascendant-shop-purchase`) lost their
+  now-dead pre-lock cost computation; they still validate the node key (echo: against the CODE
+  registry; ascendant per-character nodes: against Sanity via `characterDefExists`, an external
+  lookup that can't move into SQL) before forwarding to the RPC.
+
+**Consequences.**
+- `supabase/migrations/20260915150000_lock_shop_purchase_price.sql`; `src/types/database.types.ts`
+  hand-edited to match the new 2-arg `Args` shape (regenerate-and-diff still owed once this is
+  applied to the hosted project, per this repo's standing `generate_typescript_types` caveat).
+- No client-facing change: `purchaseEchoShopNode(nodeKey)`/`purchaseAscendantShopNode(nodeKey)`
+  (`src/services/reset.ts`/`transcend.ts`) already only ever sent `nodeKey`, never a cost — the
+  vulnerability was entirely server-side, between the Edge Function's stale pre-lock read and the
+  RPC's price-blind lock.
+- Closes the ADR-0054 follow-up and the matching `TODO.md` item. `check_ascendant_milestones`
+  (the sibling race ADR-0054 fixed) and this pair are now the two known instances of "lock the read,
+  not just the write" in this codebase's award/pricing RPCs — no other RPC is currently known to
+  share the shape, but the CLAUDE.md rule this and ADR-0054 both fed exists precisely so the next
+  one is caught by design review rather than rediscovered live.
