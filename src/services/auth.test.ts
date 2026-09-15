@@ -25,7 +25,7 @@ describe('signUp', () => {
       ReturnType<typeof supabase.auth.signUp>
     >)
 
-    await expect(signUp({ email: 'new@example.com', password: 'password123' })).resolves.toBe(data)
+    await expect(signUp({ email: 'new@example.com', password: 'password123', username: 'newplayer' })).resolves.toBe(data)
   })
 
   it('throws a friendly error when identities is empty (duplicate confirmed email)', async () => {
@@ -37,7 +37,7 @@ describe('signUp', () => {
       ReturnType<typeof supabase.auth.signUp>
     >)
 
-    await expect(signUp({ email: 'taken@example.com', password: 'password123' })).rejects.toThrow(
+    await expect(signUp({ email: 'taken@example.com', password: 'password123', username: 'newplayer' })).rejects.toThrow(
       'An account with that email already exists. Try signing in instead.',
     )
   })
@@ -49,7 +49,7 @@ describe('signUp', () => {
       error: authError,
     } as unknown as Awaited<ReturnType<typeof supabase.auth.signUp>>)
 
-    await expect(signUp({ email: 'weak@example.com', password: '123' })).rejects.toEqual(authError)
+    await expect(signUp({ email: 'weak@example.com', password: '123', username: 'newplayer' })).rejects.toEqual(authError)
   })
 
   it('does not throw the duplicate-email error when data.user is null', async () => {
@@ -58,7 +58,7 @@ describe('signUp', () => {
       ReturnType<typeof supabase.auth.signUp>
     >)
 
-    await expect(signUp({ email: 'edge@example.com', password: 'password123' })).resolves.toBe(data)
+    await expect(signUp({ email: 'edge@example.com', password: 'password123', username: 'newplayer' })).resolves.toBe(data)
   })
 
   it('does not throw the duplicate-email error when identities is undefined (field absent, not empty)', async () => {
@@ -67,6 +67,6 @@ describe('signUp', () => {
       ReturnType<typeof supabase.auth.signUp>
     >)
 
-    await expect(signUp({ email: 'unknown-shape@example.com', password: 'password123' })).resolves.toBe(data)
+    await expect(signUp({ email: 'unknown-shape@example.com', password: 'password123', username: 'newplayer' })).resolves.toBe(data)
   })
 })

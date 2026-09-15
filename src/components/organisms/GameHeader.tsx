@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom'
 import { ResourceChip } from '../atoms/ResourceChip'
 import { CoinDisplay } from '../atoms/CoinDisplay'
 import { IconSlot } from '../atoms/IconSlot'
-import { useAuthStore } from '@/stores/authStore'
 import { signOut } from '@/services/auth'
 import { useProfile } from '@/hooks/useProfile'
 import { CURRENCY_KEYS } from '@/lib/currencies'
@@ -40,11 +39,11 @@ function HeaderDivider() {
 }
 
 function UserMenu() {
-  const email = useAuthStore((s) => s.user?.email)
+  const { data: profile } = useProfile()
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
-      {email && (
-        <span style={{ color: 'var(--color-text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{email}</span>
+      {profile?.username && (
+        <span style={{ color: 'var(--color-text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{profile.username}</span>
       )}
       <button
         type="button"

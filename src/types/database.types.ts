@@ -223,6 +223,7 @@ export type Database = {
           resources: Json
           transcend_count: number
           unlocked_characters: Json
+          username: string
         }
         Insert: {
           achievement_counters?: Json
@@ -245,6 +246,7 @@ export type Database = {
           resources?: Json
           transcend_count?: number
           unlocked_characters?: Json
+          username: string
         }
         Update: {
           achievement_counters?: Json
@@ -267,6 +269,7 @@ export type Database = {
           resources?: Json
           transcend_count?: number
           unlocked_characters?: Json
+          username?: string
         }
         Relationships: []
       }
@@ -602,6 +605,10 @@ export type Database = {
       upgrade_items: {
         Args: { p_ops: Json; p_player: string }
         Returns: undefined
+      }
+      username_available: {
+        Args: { p_username: string }
+        Returns: boolean
       }
     }
     Enums: {
