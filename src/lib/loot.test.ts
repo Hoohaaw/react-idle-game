@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rollRarity, rollItemLoot } from './loot'
+import { rollRarity, rollItemLoot, rarityChances } from './loot'
 
 function fixedRng(...values: number[]): () => number {
   let i = 0
@@ -107,6 +107,22 @@ describe('rollRarity with bias', () => {
     // inside 'Mythic's inflated bucket [0,250) and returned 'Mythic'.
     const weights = [{ rarity: 'Mythic', weight: 50 }, { rarity: 'Rare', weight: 50 }]
     expect(rollRarity(weights, () => 1 / 3, 5)).toBe('Rare')
+  })
+})
+
+describe('rarityChances', () => {
+  it('splits dropChance proportionally across weights', () => {
+    const result = rarityChances(40, [{ rarity: 'Rare', weight: 3 }, { rarity: 'Epic', weight: 1 }])
+    expect(result).toEqual([{ rarity: 'Rare', chance: 30 }, { rarity: 'Epic', chance: 10 }])
+  })
+
+  it('falls back to Common with the full dropChance when weights are empty or undefined', () => {
+    expect(rarityChances(60)).toEqual([{ rarity: 'Common', chance: 60 }])
+    expect(rarityChances(60, [])).toEqual([{ rarity: 'Common', chance: 60 }])
+  })
+
+  it('a single weight gets the entire dropChance', () => {
+    expect(rarityChances(25, [{ rarity: 'Legendary', weight: 5 }])).toEqual([{ rarity: 'Legendary', chance: 25 }])
   })
 })
 

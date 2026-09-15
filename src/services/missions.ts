@@ -3,6 +3,7 @@ import { sanity } from './sanity'
 import type { School } from '@/lib/schools'
 import type { Tables } from '@/types/database.types'
 import { invokeError } from './_invoke'
+import { rarityChances, type LootRarityChance } from '@/lib/loot'
 
 // The Missions data layer:
 //  - AUTHORED content (missions + their loot tables) is read from Sanity (drafts perspective).
@@ -11,7 +12,7 @@ import { invokeError } from './_invoke'
 
 // ---- Authored missions (Sanity) ---------------------------------------------------------------
 
-export type LootRarityChance = { rarity: string; chance: number } // chance = P(this item drops at this rarity), %
+export type { LootRarityChance }
 export type MissionLootView = { itemKey: string; name: string; slot: string; chances: LootRarityChance[] }
 export type MissionEnemyView = {
   name: string
@@ -91,15 +92,6 @@ type RawMission = {
     resistances?: { school: School; value: number }[]
     stats?: MissionEnemyView['stats'] & { health?: number; attack?: number; speed?: number }
   }[]
-}
-
-// Turn a loot line's dropChance + rarity weights into a per-rarity display chance:
-//   chance(rarity) = dropChance × weight / Σweights.  Empty weights → the whole dropChance as Common.
-function rarityChances(dropChance: number, weights?: { rarity: string; weight: number }[]): LootRarityChance[] {
-  const list = (weights ?? []).filter((w) => (w.weight ?? 0) > 0)
-  if (list.length === 0) return [{ rarity: 'Common', chance: dropChance }]
-  const total = list.reduce((s, w) => s + w.weight, 0)
-  return list.map((w) => ({ rarity: w.rarity, chance: Math.round((dropChance * w.weight) / total) }))
 }
 
 export async function fetchMissions(): Promise<GameMission[]> {
