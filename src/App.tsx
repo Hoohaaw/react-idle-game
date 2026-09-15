@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { GameLayout } from './components/templates/GameLayout'
 import { RequireAuth } from '@/features/auth'
 
@@ -26,6 +26,7 @@ const PrestigePage = lazy(() => import('@/features/reset').then((m) => ({ defaul
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
 const GameStatsPage = lazy(() => import('./pages/GameStatsPage'))
 const AchievementsPage = lazy(() => import('@/features/achievements').then((m) => ({ default: m.AchievementsPage })))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 function PageLoading() {
   return (
@@ -65,9 +66,8 @@ export default function App() {
             <Route path="/statistics" element={<StatisticsPage />} />
             <Route path="/game-stats" element={<GameStatsPage />} />
             <Route path="/achievements" element={<AchievementsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
-
-          <Route path="*" element={<Navigate to="/missions" replace />} />
         </Route>
       </Routes>
     </Suspense>
