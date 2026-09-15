@@ -15,6 +15,7 @@ export async function fetchRecruitedDefIds(): Promise<string[]> {
 // blessing & equip maps for computing effective stats, and persisted current_hp). JSONB columns come
 // back as `Json`; we narrow them to the shapes the stat engine expects.
 export type EquippedItem = { itemDefId: string; rarity: string }
+export type SkillProgress = { level: number; xp: number }
 export type OwnedCharacter = {
   id: string
   characterDefId: string
@@ -23,12 +24,13 @@ export type OwnedCharacter = {
   blessings: BlessingPicks
   equipped: Record<string, EquippedItem>
   currentHp: number | null
+  skills: Record<string, SkillProgress>
 }
 
 export async function fetchOwnedCharacters(): Promise<OwnedCharacter[]> {
   const { data, error } = await supabase
     .from('player_characters')
-    .select('id, character_def_id, level, xp, blessings, equipped, current_hp')
+    .select('id, character_def_id, level, xp, blessings, equipped, current_hp, skills')
   if (error) throw error
   return data.map((row) => ({
     id: row.id,
@@ -38,6 +40,7 @@ export async function fetchOwnedCharacters(): Promise<OwnedCharacter[]> {
     blessings: (row.blessings ?? {}) as BlessingPicks,
     equipped: (row.equipped ?? {}) as Record<string, EquippedItem>,
     currentHp: row.current_hp,
+    skills: (row.skills ?? {}) as Record<string, SkillProgress>,
   }))
 }
 
@@ -45,6 +48,14 @@ export async function fetchOwnedCharacters(): Promise<OwnedCharacter[]> {
 // mission_runs feed the roster already loads.
 export async function fetchGatherCharacterIds(): Promise<string[]> {
   const { data, error } = await supabase.from('gather_assignments').select('player_character_id')
+  if (error) throw error
+  return data.map((row) => row.player_character_id)
+}
+
+// Character ids currently training a skill (busy, can't be dispatched) — same "busy roster" role
+// as fetchGatherCharacterIds.
+export async function fetchSkillCharacterIds(): Promise<string[]> {
+  const { data, error } = await supabase.from('skill_assignments').select('player_character_id')
   if (error) throw error
   return data.map((row) => row.player_character_id)
 }

@@ -145,6 +145,7 @@ export type Database = {
           id: string
           level: number
           player_id: string
+          skills: Json
           xp: number
         }
         Insert: {
@@ -156,6 +157,7 @@ export type Database = {
           id?: string
           level?: number
           player_id: string
+          skills?: Json
           xp?: number
         }
         Update: {
@@ -167,6 +169,7 @@ export type Database = {
           id?: string
           level?: number
           player_id?: string
+          skills?: Json
           xp?: number
         }
         Relationships: []
@@ -267,6 +270,38 @@ export type Database = {
         }
         Relationships: []
       }
+      skill_assignments: {
+        Row: {
+          id: string
+          last_collected_at: string
+          player_character_id: string
+          player_id: string
+          skill_key: string
+        }
+        Insert: {
+          id?: string
+          last_collected_at?: string
+          player_character_id: string
+          player_id: string
+          skill_key: string
+        }
+        Update: {
+          id?: string
+          last_collected_at?: string
+          player_character_id?: string
+          player_id?: string
+          skill_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_assignments_player_character_id_fkey"
+            columns: ["player_character_id"]
+            isOneToOne: true
+            referencedRelation: "player_characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -366,6 +401,18 @@ export type Database = {
           p_newly_unlocked?: string[]
           p_player: string
           p_resource: string
+          p_stop: boolean
+        }
+        Returns: Json
+      }
+      collect_skill: {
+        Args: {
+          p_assignment_id: string
+          p_new_last_collected_at: string
+          p_new_level: number
+          p_new_xp: number
+          p_player: string
+          p_skill_key: string
           p_stop: boolean
         }
         Returns: Json
@@ -514,6 +561,22 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "mission_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      start_skill: {
+        Args: { p_char: string; p_player: string; p_skill_key: string }
+        Returns: {
+          id: string
+          last_collected_at: string
+          player_character_id: string
+          player_id: string
+          skill_key: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "skill_assignments"
           isOneToOne: true
           isSetofReturn: false
         }

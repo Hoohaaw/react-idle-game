@@ -218,17 +218,14 @@ character sprite art. Older open items below may be stale — trust the mileston
   own design + balance pass per `docs/BALANCE.md`'s playbook (before/after sweep evidence, a
   discriminating regression test, an ADR) before any numbers change.
   `↳ context: project-combat · src/lib/combat.ts, docs/BALANCE.md, docs/DECISIONS.md ADR-0015`
-- [ ] **Indefinite "hone your skills" mission type (first instance: Religion/Church)** — a new
-  mission archetype distinct from today's timed missions: send a character on an open-ended
-  assignment (e.g. Church, raising a "religious level") that accrues XP continuously for as long as
-  they're assigned, with no fixed end time; the player claims by manually stopping the assignment,
-  banking the accrued XP into whatever stat/level it's tied to. Shape closely mirrors the existing
-  gather-assignment pattern (continuous accrual, partial-tick carryover, claim-on-stop) rather than
-  the timed mission_runs pattern. Explicitly wanted as a *generalizable* pattern ("implement this in
-  more ways"), not a one-off Church feature — Religion is just the first instance. Needs a design
-  pass: what other indefinite assignments exist beyond Religion, what "level" each one banks into,
-  whether they share one table/RPC shape or each gets its own.
-  `↳ context: project-content · src/lib/gather.ts, supabase/migrations (gather_assignments pattern)`
+- [x] **Indefinite "hone your skills" mission type (first instance: Religion/Church)** — shipped
+  (ADR-0056): a character can be sent to train a skill (Religion, at Church) indefinitely, XP
+  accrues continuously while assigned, the player collects or stops ("cashes out") whenever they
+  choose, banking it into a per-character skill level independent of combat level. Generalizable —
+  `src/lib/skills.ts`'s `SKILL_DEFS` registry, `src/features/skills/`. Skill levels have no effect
+  on character power yet (deliberately deferred, see ADR-0056); a second skill type is a one-line
+  registry entry.
+  `↳ context: project-content · src/lib/skills.ts, src/features/skills/, docs/DECISIONS.md ADR-0056`
 
 ## Content (Sanity)
 - [x] Mission / item / loot-table schemas — `missionDef`/`itemDef`/`lootDrop` real and deployed.

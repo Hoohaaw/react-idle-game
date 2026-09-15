@@ -11,6 +11,7 @@ const DesignPage = lazy(() => import('./pages/DesignPage'))
 const MissionsPage = lazy(() => import('@/features/missions').then((m) => ({ default: m.MissionsPage })))
 const InfirmaryPage = lazy(() => import('@/features/infirmary').then((m) => ({ default: m.InfirmaryPage })))
 const GatherPage = lazy(() => import('@/features/gather').then((m) => ({ default: m.GatherPage })))
+const SkillsPage = lazy(() => import('@/features/skills').then((m) => ({ default: m.SkillsPage })))
 const TeamPage = lazy(() => import('@/features/team').then((m) => ({ default: m.TeamPage })))
 const RecruitsPage = lazy(() => import('@/features/recruits').then((m) => ({ default: m.RecruitsPage })))
 const BlessingsPage = lazy(() => import('@/features/blessings').then((m) => ({ default: m.BlessingsPage })))
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="/team" element={<TeamPage />} />
             <Route path="/recruits" element={<RecruitsPage />} />
             <Route path="/mines" element={<GatherPage />} />
+            <Route path="/skills" element={<SkillsPage />} />
             <Route path="/dungeons" element={<GroupContentPage kind="dungeon" />} />
             <Route path="/raids" element={<GroupContentPage kind="raid" />} />
             <Route path="/upgrading" element={<UpgradingPage />} />
