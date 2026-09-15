@@ -259,6 +259,21 @@ character sprite art. Older open items below may be stale — trust the mileston
 ## Housekeeping / polish
 - [x] Rename the project in `package.json` — now `The-Idle-Game` (working title; final game name still open)
 - [x] Code-split the app bundle — route-level `React.lazy` in `App.tsx`; entry chunk 921 kB → 488 kB, warning gone
+- [x] **Launch-checklist basics** (2026-09-15) — `<title>`/meta description in `index.html`
+  (placeholder copy, real branding still open), `public/robots.txt`, and a real `/*` 404 route
+  (`src/pages/NotFoundPage.tsx`, rendered inside `GameLayout` so the header stays) replacing the
+  old silent redirect-to-`/missions`. Audited against a generic pre-launch checklist; CTA-above-
+  fold / sticky mobile CTA / thank-you page judged not applicable — this is an auth-gated SPA with
+  no marketing funnel or checkout, not a landing site.
+  `↳ context: src/App.tsx, index.html`
+- [ ] **Launch checklist — still open** — from the same audit: `sitemap.xml`; a real favicon set
+  (currently one `favicon.svg` only — no `apple-touch-icon`, sized PNGs, or manifest); an Open
+  Graph image + `og:*`/`twitter:*` meta tags; terms & conditions / privacy policy pages; a cookie
+  banner (relevant once real users sign up with email via Supabase auth — GDPR-adjacent); an
+  analytics tool; a real contact address in the app/legal pages; and a pass confirming image
+  assets are compressed. Alt text and mobile breakpoints weren't flagged as gaps but weren't
+  verified either.
+  `↳ context: index.html, public/`
 
 ## Done
 - [x] First real character authored in Sanity: **Mordrek Graveborn** (Death Knight / tank) — base stats + per-level growth (str +8@10, hp +30@25 milestones) + a 5-node blessing tree (prereq chain + row-7 ultimate). Seeded via Sanity **CLI** (`sanity documents create`, the MCP is read-only here). Currently a **draft** — review/publish in the Studio.
