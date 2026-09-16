@@ -225,7 +225,8 @@ character sprite art. Older open items below may be stale — trust the mileston
     generic-loop pattern as `claim_mission`/`collect_gather`, reusing the row already locked by the
     existing gold `for update` read (no extra lock needed). The `recruit` Edge Function passes
     `{ charactersRecruited: 1 }` unconditionally — recruiting always succeeds if the RPC doesn't
-    raise, no win/loss split needed.
+    raise, no win/loss split needed. `npx supabase test db` run locally (79/79 passing) before
+    merge, per this repo's migration-PR convention.
   - Roster: `charactersDowned` (infirmary admission count; `admit_infirmary` needs
     `p_lifetime_stats` added), total character levels gained across the roster's lifetime.
   - Skills: time trained or XP earned per skill (parallel to `missionSecondsSent`, currently no
