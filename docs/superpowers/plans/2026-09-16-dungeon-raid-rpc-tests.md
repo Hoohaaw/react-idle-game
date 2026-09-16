@@ -46,12 +46,13 @@ Postgres image), Docker Desktop (local stack).
 ### Task 0: Bootstrap the pgTAP toolchain
 
 **Files:**
-- Modify: `package.json` (add `supabase` as a `devDependency`)
+- Modify: `package.json` (`supabase` was already a `devDependency` on `master` — `^2.106.0` — this
+  bumps and exact-pins it to the version actually used and verified: `2.117.0`)
 - Create: `supabase/tests/database/` (directory)
 
 **Interfaces:** none — pure tooling setup.
 
-- [x] **Step 1: Install the Supabase CLI as a project dev dependency**
+- [x] **Step 1: Update the Supabase CLI dev dependency to an exact, verified version**
 
 ```bash
 npm install supabase --save-dev --save-exact

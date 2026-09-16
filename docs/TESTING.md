@@ -45,21 +45,27 @@ insert into public.player_characters (id, player_id, character_def_id, level)
 values ('<char-uuid>', '<uuid>', 'test_char', 15);
 ```
 
-**Critical isolation rule:** give every independent test *scenario* its own fresh player+character,
-even within the same file. The busy-checks (`mission_runs`/`gather_assignments`/
-`infirmary_admissions`/`group_runs`/`skill_assignments`) span the whole character, not one
-def_key — if scenario B reuses a character that scenario A's call left "busy" (e.g. a successful
-`start_group_stage` leaves the party non-empty), scenario B will fail with a busy-check exception
-that has nothing to do with what it's actually testing. This bit every RPC's test file during
-authoring; it's not hypothetical.
+**Critical isolation rule:** give a fresh player+character to every scenario that exercises a
+busy-check, or whose success would leave a character "busy" for a scenario after it. The
+busy-checks (`mission_runs`/`gather_assignments`/`infirmary_admissions`/`group_runs`/
+`skill_assignments`) span the whole character, not one def_key — if scenario B reuses a character
+that scenario A's call left busy (e.g. a successful `start_group_stage` leaves the party
+non-empty), scenario B fails with a busy-check exception that has nothing to do with what it's
+actually testing. This bit `start_group_stage.sql` during authoring; it's not hypothetical. It's
+fine to reuse one fixture across a deliberate chain of validation-only calls that all throw before
+touching state (e.g. equip_item.sql's early invalid-slot/invalid-rarity/level-gate checks), or
+across an intentional sequential build-up against the same run/character — the rule is specifically
+about not letting one scenario's *successful* busy-producing call bleed into an unrelated one.
 
 **Assertion helpers actually used in this repo's test files** (see `supabase/tests/database/*.sql`
 for real examples): `plan(n)` / `finish()` bookend every file; `throws_ok($$ sql $$)` (1-arg, any
 exception) or `throws_ok($$ sql $$, 'exact message')` (3-arg with a description, exact match — no
 plain 2-arg "any exception + custom description" overload exists, the 2nd arg is always treated as
-an expected message/errcode); `lives_ok($$ sql $$, 'description')` for calls that must NOT throw;
-`is(actual, expected, 'description')` for single values; `results_eq($$ query $$, $$ values (...) $$,
-'description')` for multi-column/multi-row comparisons.
+an expected message/errcode); `is(actual, expected, 'description')` for single values;
+`results_eq($$ query $$, $$ values (...) $$, 'description')` for multi-column/multi-row
+comparisons. pgTAP also has `lives_ok(sql, description)` for asserting a call does NOT throw — not
+currently used in this repo (every success path here is checked via `is()`/`results_eq()` on the
+actual return value instead), but available if a future test needs it.
 
 **Full RPC coverage today:** `start_group_stage`, `claim_group_stage`, `equip_item`,
 `unequip_item`, `choose_blessing`, `respec_blessings` (ADR-0058). Extending this to other RPCs with

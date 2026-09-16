@@ -2981,9 +2981,10 @@ dungeon-raid-rpc-tests-design.md`.
   actually used, so the next person adding a test file doesn't have to rediscover them.
   `CLAUDE.md`'s "before committing" line gained one clause: PRs touching `supabase/migrations/`
   also run `npx supabase test db`.
-- The `supabase` CLI is now a project `devDependency` (`npm install supabase --save-dev
-  --save-exact`) rather than a machine-global tool — matches this repo's existing Node-based
-  tooling, needed no new package manager (Scoop/Homebrew) on the machine this shipped from.
+- The `supabase` CLI (already a project `devDependency` on `master`, `^2.106.0`, unused until now)
+  was bumped and exact-pinned to `2.117.0`, the version actually verified — matches this repo's
+  existing Node-based tooling, needed no new package manager (Scoop/Homebrew) on the machine this
+  shipped from.
 - The stale "no pgTAP/Deno test infra" language this gap left behind in `TODO.md`, ADR-0048's
   consequences, and the dungeons-and-raids spec §10 is updated to point here instead of repeating
   a now-closed gap.
