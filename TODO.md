@@ -253,15 +253,22 @@ character sprite art. Older open items below may be stale — trust the mileston
   - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
     every gold-spend site), `itemsCrafted` (`claim_craft` needs `p_lifetime_stats` added),
     `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
-  - [x] `charactersDowned` (2026-09-16, infirmary admission count) — `admit_infirmary` had no
-    separate grant-only migration the way `upgrade_items` did (checked the full history before
-    writing this one, specifically to avoid repeating that near-miss), so the drop/recreate for the
-    new 4th `p_lifetime_stats jsonb default '{}'::jsonb` param carried the existing revoke+grant
-    pair forward correctly on the first attempt. The function's own `for update` lock is on
-    `player_characters`, a different table — doesn't cover the new `profiles.lifetime_stats`
-    update, but none is needed there either, same reasoning as `claim_craft`/`upgrade_items`.
-    `infirmary-admit` passes `{ charactersDowned: 1 }` unconditionally. Full `npx vitest run`
-    (507/507) and `npx supabase test db` (79/79) both run locally before opening the PR.
+  - [x] `charactersDowned` (2026-09-16) — `admit_infirmary` had no separate grant-only migration
+    the way `upgrade_items` did (checked the full history before writing this one, specifically to
+    avoid repeating that near-miss), so the drop/recreate for the new 4th `p_lifetime_stats jsonb
+    default '{}'::jsonb` param carried the existing revoke+grant pair forward correctly on the
+    first attempt. The function's own `for update` lock is on `player_characters`, a different
+    table — doesn't cover the new `profiles.lifetime_stats` update, but none is needed there
+    either, same reasoning as `claim_craft`/`upgrade_items`. Review caught a real bug in the first
+    draft: `admit_infirmary` accepts BOTH wounded (damaged, HP > 0) and truly downed (0 HP)
+    characters through the same call (stabilizing is a post-admission compute-on-read phase, not a
+    separate RPC — see `src/lib/infirmary.ts`'s doc comment), but the first draft counted every
+    admission unconditionally under a label the rest of the codebase (`combat.ts`, `infirmary.ts`,
+    `ClaimReward.tsx`) reserves specifically for 0-HP characters. Fixed by gating the delta on
+    `current_hp === 0` at admission time in `infirmary-admit`, not by relabeling — "how many times
+    a hero hit 0 HP" is the more meaningful counter of the two, and the Edge Function already had
+    `current_hp` on hand before the RPC call. Full `npx vitest run` (507/507) and `npx supabase
+    test db` (79/79) both run locally, twice (before and after the fix).
   - Roster: `charactersRecruited` (survives Transcend wipes, unlike the current live roster count;
     `recruit_character` needs `p_lifetime_stats` added), total character levels gained across the
     roster's lifetime.
