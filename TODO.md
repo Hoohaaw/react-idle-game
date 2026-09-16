@@ -218,10 +218,16 @@ character sprite art. Older open items below may be stale — trust the mileston
   - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
     every gold-spend site), `itemsCrafted` (`claim_craft` needs `p_lifetime_stats` added),
     `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
-  - Roster: `charactersRecruited` (survives Transcend wipes, unlike the current live roster count;
-    `recruit_character` needs `p_lifetime_stats` added), `charactersDowned` (infirmary admission
-    count; `admit_infirmary` needs `p_lifetime_stats` added), total character levels gained across
-    the roster's lifetime.
+  - [x] Roster: `charactersRecruited` (2026-09-16, survives Transcend wipes, unlike the current
+    live roster count) — `recruit_character` didn't accept `p_lifetime_stats` yet, so this needed a
+    small migration (`20260916120000_recruit_character_lifetime_stats.sql`): drop the old 5-arg
+    signature, recreate with a 6th `p_lifetime_stats jsonb default '{}'::jsonb` param, same
+    generic-loop pattern as `claim_mission`/`collect_gather`, reusing the row already locked by the
+    existing gold `for update` read (no extra lock needed). The `recruit` Edge Function passes
+    `{ charactersRecruited: 1 }` unconditionally — recruiting always succeeds if the RPC doesn't
+    raise, no win/loss split needed.
+  - Roster: `charactersDowned` (infirmary admission count; `admit_infirmary` needs
+    `p_lifetime_stats` added), total character levels gained across the roster's lifetime.
   - Skills: time trained or XP earned per skill (parallel to `missionSecondsSent`, currently no
     time metric for the Church/Religion skill loop at all).
   - Gathering: `gatherSecondsSpent` (parallel to `missionSecondsSent` — mining has no time metric
