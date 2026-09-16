@@ -188,10 +188,15 @@ character sprite art. Older open items below may be stale — trust the mileston
   (pre-existing Shard balances, already-equipped Legendaries) flagged as open product decisions,
   not fixed.
   `↳ context: project-reset · docs/DECISIONS.md ADR-0055, src/lib/achievements.ts, src/features/achievements/`
-- [ ] **Lifetime stats page** — a page showing the player's full `lifetime_stats` (missions/
-  dungeons/raids cleared, gold earned, resources gathered, mission time sent, etc.), not just the
-  Ascendant Milestone progress subset already shown in the Transcend tab's `MilestoneProgressList`.
-  `↳ context: project-reset · src/lib/lifetimeStats.ts, src/features/reset/components/MilestoneProgressList.tsx`
+- [x] **Lifetime stats page** (2026-09-16) — filled in the `/statistics` route (was an empty
+  `PagePlaceholder`, nav link already existed) as a proper `src/features/statistics/` module: the
+  full `LIFETIME_STAT_DEFS` registry grouped under three headlines (Missions & Combat, Economy,
+  Resources Gathered), registry-driven so a new resource needs no edit here. Browser-verified
+  against a local Supabase account (zero-state and seeded non-zero values) — caught and fixed a
+  real bug in the process: `missionSecondsSent` reused `formatRemaining()`, whose `ms <= 0 →
+  "Ready"` branch is countdown-timer semantics, not "no time spent yet"; a fresh player's page
+  showed "Time spent on missions: Ready" until special-cased.
+  `↳ context: project-reset · src/features/statistics/, src/lib/lifetimeStats.ts`
 - [ ] **Legendary class-specific quest-lines** — certain Legendary items, equippable only by a
   specific class, unlock a class-specific mission/quest line that further powers up that item once
   equipped. Flavor + a power ceiling for build-defining Legendaries. Raised during Transcendence
