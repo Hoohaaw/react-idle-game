@@ -2310,11 +2310,13 @@ the decision that spec's implementation (this branch, PR #82) actually shipped.
 
 **Consequences.** Closes the TODO.md "Character acquisition economy" line (`project-undecided`
 dropped). Deferred to follow-up, tracked as open gaps rather than silently skipped:
-- **No test coverage for the `recruit_character` RPC/Edge Function path itself** — this repo has
-  no pgTAP/Deno test infra for SQL or Edge Functions at all, so RPC-level coverage needs that infra
-  built first, not invented ad hoc for this feature. (The client-side wrapper `recruitCharacter`
-  and the blind-surprise-critical `fetchRecruitCandidates` filter, `src/services/recruit.ts` and
-  `recruits.ts`, are now covered — `recruit.test.ts`, `recruits.test.ts`.)
+- **No test coverage for the `recruit_character` RPC/Edge Function path itself** — this repo had no
+  pgTAP/Deno test infra for SQL or Edge Functions at all when this shipped, so RPC-level coverage
+  needed that infra built first, not invented ad hoc for this feature. That infra now exists
+  (ADR-0058, pgTAP) — extending it to `recruit_character` is a small follow-up, not blocked
+  anymore. (The client-side wrapper `recruitCharacter` and the blind-surprise-critical
+  `fetchRecruitCandidates` filter, `src/services/recruit.ts` and `recruits.ts`, are covered —
+  `recruit.test.ts`, `recruits.test.ts`.)
 - **`database.types.ts` needs a full `supabase gen types` regen** once a DB connection is
   available — it was hand-patched for the two new `profiles` columns only; `recruit_character`'s
   signature and the extended `claim_mission`/`collect_gather` signatures aren't reflected.
@@ -2926,3 +2928,66 @@ twice during its own launch, one layer down: there the AWARD wasn't locked, here
   not just the write" in this codebase's award/pricing RPCs — no other RPC is currently known to
   share the shape, but the CLAUDE.md rule this and ADR-0054 both fed exists precisely so the next
   one is caught by design review rather than rediscovered live.
+
+## ADR-0058 — Dungeon/raid RPC test coverage: pgTAP, the first real SQL test infra
+
+**Date:** 2026-09-16 · **Status:** Accepted (Alex)
+
+**Context.** `TODO.md` flagged the dungeon/raid RPCs (`start_group_stage`, `claim_group_stage`,
+plus four existing RPCs — `equip_item`, `unequip_item`, `choose_blessing`, `respec_blessings` —
+rewritten in the same migration to add a `group_runs` busy-check) with zero automated test
+coverage: this repo's long-standing "no pgTAP/Deno test infra" gap (ADR-0048), on a bigger,
+more security-relevant surface than the gap was originally accepted for. ADR-0048 named pgTAP and
+Deno as candidates without deciding between them. Design: `docs/superpowers/specs/2026-09-16-
+dungeon-raid-rpc-tests-design.md`.
+
+**Decision.**
+- **pgTAP, via the Supabase CLI's local dev stack**, decides the ADR-0048 question. Chosen over a
+  Deno/Edge-Function-level suite because the real risk lives in the RPCs' SQL (locking,
+  busy-checks, state transitions) — the Edge Functions calling them are thin parse-and-forward
+  wrappers. pgTAP ships preinstalled in Supabase's local Postgres image; test files are plain
+  `.sql` under `supabase/tests/database/`, auto-discovered by `npx supabase test db`, each running
+  inside its own transaction (auto-rolled-back, no manual fixture cleanup).
+- **Not CI-gated** — matches how the existing 497-test Vitest suite already runs (a `CLAUDE.md`
+  pre-commit convention, not a GitHub Actions check; `.github/workflows/lint.yml` only runs
+  ESLint). Wiring Postgres/Docker into CI is a separate, larger decision this doesn't make.
+- **Scope: exactly the 6 RPCs above.** Older RPCs with the same gap (`recruit_character`,
+  `check_ascendant_milestones`, `check_achievements`) are out of scope — extending this infra to
+  them is now a small, separate follow-up rather than scope creep here.
+- **Sequential re-invocation, not multi-connection concurrency.** A pgTAP test file runs inside
+  one transaction, so it can't hold two genuinely simultaneous connections fighting over a lock.
+  What's tested instead: call an RPC, call it again in the same test, assert the second call sees
+  the first's already-committed state and is correctly rejected (the double-start/double-claim
+  guards) — proving the RPC reads fresh locked state and acts on it, the property that actually
+  broke twice in ADR-0054. Whether `for update` itself blocks a concurrent connection is a database
+  property, not application code, and is checked once, statically, for all 6 RPCs at once (see
+  below) rather than re-proven per RPC.
+- **Fixture isolation rule, learned the hard way while authoring these files**: every independent
+  test scenario needs its own fresh player+character. The busy-checks span the whole character,
+  not one run — a scenario reusing a character an earlier scenario's successful call left "busy"
+  fails with an unrelated busy-check exception. Recorded in `docs/TESTING.md` since it's not
+  obvious and will bite the next person who adds a test file otherwise.
+
+**Consequences.**
+- 7 files under `supabase/tests/database/`: one per RPC's own behavior, plus one shared file for
+  the `group_runs` busy-check pattern repeated near-identically across 4 of the 6 RPCs. 79 pgTAP
+  assertions total, all verified passing against a real local Postgres (not just written —
+  actually run) before this ADR was written.
+- `src/test/migration-policy.test.ts` (the existing static migration linter, ADR-adjacent but
+  predates any specific ADR) gained a fourth invariant: each of the 6 RPCs' latest definition
+  contains `for update`. Cheap, always-runs-with-`npm test`, complements pgTAP rather than
+  duplicating it (per the concurrency-scope decision above).
+- `docs/TESTING.md` (new): setup, the fixture/isolation pattern, and the assertion helpers
+  actually used, so the next person adding a test file doesn't have to rediscover them.
+  `CLAUDE.md`'s "before committing" line gained one clause: PRs touching `supabase/migrations/`
+  also run `npx supabase test db`.
+- The `supabase` CLI (already a project `devDependency` on `master`, `^2.106.0`, unused until now)
+  was bumped and exact-pinned to `2.117.0`, the version actually verified — matches this repo's
+  existing Node-based tooling, needed no new package manager (Scoop/Homebrew) on the machine this
+  shipped from.
+- The stale "no pgTAP/Deno test infra" language this gap left behind in `TODO.md`, ADR-0048's
+  consequences, and the dungeons-and-raids spec §10 is updated to point here instead of repeating
+  a now-closed gap.
+- Follow-up, not done here: extending this infra to `recruit_character`,
+  `check_ascendant_milestones`, `check_achievements` — same shape, smaller task now that the infra
+  exists.

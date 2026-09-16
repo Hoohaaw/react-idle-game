@@ -24,8 +24,11 @@ short-lived branch and merges back via a PR.
 4. **Open a PR to `master`**; let CI (lint) pass before merge. Don't push to `master` directly.
 5. **Delete the branch after merge.** Keep branches short-lived (days, not weeks).
 
-Before committing: `npm run lint`, `npm run build`, and `npm test` should all pass.
-The **Lint** GitHub Action (`.github/workflows/lint.yml`) runs ESLint on every push and PR.
+Before committing: `npm run lint`, `npm run build`, and `npm test` should all pass. PRs touching
+`supabase/migrations/` also run the pgTAP suite: `npx supabase test db` (see `docs/TESTING.md` for
+one-time setup). Neither `npm test` nor `supabase test db` are CI-gated — the **Lint** GitHub
+Action (`.github/workflows/lint.yml`) runs ESLint on every push and PR; the rest is a pre-commit
+discipline enforced by convention.
 
 ---
 

@@ -224,9 +224,10 @@ New feature module (`src/features/groupContent/` — one module, since the engin
 - `src/lib/groupContent.ts` (party-cap constants, lockout-boundary math, stage-sequence helpers)
   gets real unit tests — `test-writer` territory, one case per lockout boundary edge (just before /
   just after UTC midnight and Sunday UTC midnight).
-- `group-start-stage` / `group-claim-stage` get **no automated test coverage**, same accepted gap
-  `recruit_character` already has — this repo has no pgTAP/Deno test infra yet (TODO.md,
-  ADR-0048's consequences). Not silently skipped, just not newly invented here.
+- `group-start-stage` / `group-claim-stage` got **no automated test coverage at the time this spec
+  shipped** — this repo had no pgTAP/Deno test infra yet (TODO.md, ADR-0048's consequences). Not
+  silently skipped, just not newly invented here. Closed later: ADR-0058 built pgTAP infra and
+  covers `start_group_stage`/`claim_group_stage` directly.
 - The reference dungeon and raid content need a before/after balance sweep per §7, evidence
   committed under `scripts/balance/reports/` per `docs/BALANCE.md`'s own process.
 
