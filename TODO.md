@@ -222,7 +222,8 @@ character sprite art. Older open items below may be stale — trust the mileston
     generic-loop increment after the inventory insert. No new lock needed — each loop iteration's
     `update ... where player_id = p_player` is already atomic for a blind additive increment; the
     ADR-0054 `for update` rule is about read-then-decide reward logic (milestones), not this.
-    `craft-claim` passes `{ itemsCrafted: 1 }` unconditionally.
+    `craft-claim` passes `{ itemsCrafted: 1 }` unconditionally. `npx supabase test db` run locally
+    (79/79 passing) before merge.
   - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
     every gold-spend site), `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
   - [x] Roster: `charactersRecruited` (2026-09-16, survives Transcend wipes, unlike the current
