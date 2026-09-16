@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
     p_player: playerId,
     p_char: characterId,
     p_max_beds: bedsForLevel(profile.infirmary_level),
+    p_lifetime_stats: { charactersDowned: 1 },
   })
   if (rpcErr) {
     // The RPC raises 'admit_infirmary: <reason>' for every validation failure (owned/busy/beds).

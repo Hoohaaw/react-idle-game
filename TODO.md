@@ -251,18 +251,20 @@ character sprite art. Older open items below may be stale — trust the mileston
     the old 2-arg grant already satisfied it by name. Not fixed here, out of scope for this PR.)
     `npx supabase test db` run locally (79/79 passing).
   - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
-    every gold-spend site).
-  - [x] Roster: `charactersRecruited` (2026-09-16, survives Transcend wipes, unlike the current
-    live roster count) — `recruit_character` didn't accept `p_lifetime_stats` yet, so this needed a
-    small migration (`20260916120000_recruit_character_lifetime_stats.sql`): drop the old 5-arg
-    signature, recreate with a 6th `p_lifetime_stats jsonb default '{}'::jsonb` param, same
-    generic-loop pattern as `claim_mission`/`collect_gather`, reusing the row already locked by the
-    existing gold `for update` read (no extra lock needed). The `recruit` Edge Function passes
-    `{ charactersRecruited: 1 }` unconditionally — recruiting always succeeds if the RPC doesn't
-    raise, no win/loss split needed. `npx supabase test db` run locally (79/79 passing) before
-    merge, per this repo's migration-PR convention.
-  - Roster: `charactersDowned` (infirmary admission count; `admit_infirmary` needs
-    `p_lifetime_stats` added), total character levels gained across the roster's lifetime.
+    every gold-spend site), `itemsCrafted` (`claim_craft` needs `p_lifetime_stats` added),
+    `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
+  - [x] `charactersDowned` (2026-09-16, infirmary admission count) — `admit_infirmary` had no
+    separate grant-only migration the way `upgrade_items` did (checked the full history before
+    writing this one, specifically to avoid repeating that near-miss), so the drop/recreate for the
+    new 4th `p_lifetime_stats jsonb default '{}'::jsonb` param carried the existing revoke+grant
+    pair forward correctly on the first attempt. The function's own `for update` lock is on
+    `player_characters`, a different table — doesn't cover the new `profiles.lifetime_stats`
+    update, but none is needed there either, same reasoning as `claim_craft`/`upgrade_items`.
+    `infirmary-admit` passes `{ charactersDowned: 1 }` unconditionally. Full `npx vitest run`
+    (507/507) and `npx supabase test db` (79/79) both run locally before opening the PR.
+  - Roster: `charactersRecruited` (survives Transcend wipes, unlike the current live roster count;
+    `recruit_character` needs `p_lifetime_stats` added), total character levels gained across the
+    roster's lifetime.
   - Skills: time trained or XP earned per skill (parallel to `missionSecondsSent`, currently no
     time metric for the Church/Religion skill loop at all).
   - [x] Gathering: `gatherSecondsSpent` (2026-09-16, parallel to `missionSecondsSent`) —
