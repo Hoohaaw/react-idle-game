@@ -52,9 +52,17 @@ Deno.serve(async (req) => {
       consume_count: op.consumeCount,
     }))
 
+  // The RPC processes a batch where each op produces a variable number of upgraded items
+  // (consumeCount / 5) — unlike the other lifetime-stats RPCs, which always increment by a
+  // fixed amount per call, this function decides the total count and the RPC stays a dumb
+  // generic applier. Safe to compute pre-validation: the whole transaction rolls back on any
+  // raise exception, so an invalid op means nothing commits, including this delta.
+  const itemsUpgraded = ops.reduce((sum, op) => sum + Math.floor(op.consume_count / 5), 0)
+
   const { error: rpcErr } = await admin.rpc('upgrade_items', {
     p_player: playerId,
     p_ops:    ops,
+    p_lifetime_stats: { itemsUpgraded },
   })
   if (rpcErr) {
     const reason = rpcErr.message.replace(/^.*upgrade_items:\s*/, '')

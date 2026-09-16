@@ -224,8 +224,17 @@ character sprite art. Older open items below may be stale — trust the mileston
     ADR-0054 `for update` rule is about read-then-decide reward logic (milestones), not this.
     `craft-claim` passes `{ itemsCrafted: 1 }` unconditionally. `npx supabase test db` run locally
     (79/79 passing) before merge.
+  - [x] `itemsUpgraded` (2026-09-16) — `upgrade_items` processes a BATCH (`p_ops` array), and each
+    op produces a variable number of upgraded items (`consume_count / 5`), unlike every other
+    lifetime-stat RPC which always increments by a fixed amount per call. Kept the RPC a dumb
+    generic applier (same `p_lifetime_stats` loop as the others) by computing the total in the
+    `item-upgrade` Edge Function instead — it already has the full `ops` array. Migration drops the
+    old 2-arg signature, recreates with a 3rd `p_lifetime_stats jsonb default '{}'::jsonb`;
+    preserved the pre-existing (and unrelated) asymmetry where `upgrade_items` has a `revoke` but
+    no explicit `grant ... to service_role` line, rather than "fixing" it. `npx supabase test db`
+    run locally (79/79 passing).
   - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
-    every gold-spend site), `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
+    every gold-spend site).
   - [x] Roster: `charactersRecruited` (2026-09-16, survives Transcend wipes, unlike the current
     live roster count) — `recruit_character` didn't accept `p_lifetime_stats` yet, so this needed a
     small migration (`20260916120000_recruit_character_lifetime_stats.sql`): drop the old 5-arg
