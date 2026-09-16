@@ -210,12 +210,12 @@ character sprite art. Older open items below may be stale — trust the mileston
     convenience for the client-preview mirror, not security). Appended into the Economy section,
     labeled "Legendary items equipped" rather than "found" — the counter increments on every equip
     event, not distinct items discovered, so re-equipping the same Legendary inflates it.
-  - [ ] Combat/missions: `missionsFailed`/`partyWipes` (risk-taken counterpart to
-    `missionsCleared`) — zero migration needed, `claim_mission` already accepts arbitrary
-    `p_lifetime_stats` deltas; combat sim's `result.reason` is already
-    `'enemies-defeated' | 'party-wiped' | 'timeout'`, so `missionsFailed` = any loss,
-    `partyWipes` = `reason === 'party-wiped'` specifically.
-  - [ ] Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
+  - [x] `missionsFailed`/`partyWipes` (2026-09-16, risk-taken counterpart to `missionsCleared`) —
+    zero-migration: `claim_mission` already accepted arbitrary `p_lifetime_stats` deltas, so this
+    was purely a `mission-claim` Edge Function change. `missionsFailed` increments on any loss;
+    `partyWipes` increments only when the combat sim's `result.reason === 'party-wiped'` (as
+    opposed to `'timeout'`, a loss with survivors still standing).
+  - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
     every gold-spend site), `itemsCrafted` (`claim_craft` needs `p_lifetime_stats` added),
     `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
   - Roster: `charactersRecruited` (survives Transcend wipes, unlike the current live roster count;
