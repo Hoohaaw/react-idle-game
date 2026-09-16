@@ -268,7 +268,13 @@ character sprite art. Older open items below may be stale — trust the mileston
     `current_hp === 0` at admission time in `infirmary-admit`, not by relabeling — "how many times
     a hero hit 0 HP" is the more meaningful counter of the two, and the Edge Function already had
     `current_hp` on hand before the RPC call. Full `npx vitest run` (507/507) and `npx supabase
-    test db` (79/79) both run locally, twice (before and after the fix).
+    test db` (79/79) both run locally, twice (before and after the fix). Accepted tradeoff flagged
+    by review: the gate reads `current_hp` at the Edge Function's own unlocked pre-RPC fetch, not
+    under the RPC's `for update` lock — theoretically could diverge from the stored
+    `hp_at_admission` under a concurrent mutation to the same character between those two reads.
+    Not reachable in the normal serialized client flow and doesn't affect the authoritative stored
+    record; deliberately not special-cased into the RPC to keep it a dumb generic
+    `p_lifetime_stats` applier like the other 3 in this series.
   - Roster: `charactersRecruited` (survives Transcend wipes, unlike the current live roster count;
     `recruit_character` needs `p_lifetime_stats` added), total character levels gained across the
     roster's lifetime.
