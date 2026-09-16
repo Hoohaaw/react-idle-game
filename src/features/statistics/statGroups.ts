@@ -7,6 +7,8 @@ export type StatGroup = { title: string; stats: LifetimeStatDef[] }
 export function groupLifetimeStats(): StatGroup[] {
   const resources = LIFETIME_STAT_DEFS.filter((d) => d.key.startsWith('resourceGathered.'))
   const economy = LIFETIME_STAT_DEFS.filter((d) => d.key === 'goldEarned')
+  // Everything else defaults here — a new non-resource, non-gold stat lands in Missions & Combat
+  // with no signal it might belong elsewhere. Recheck this grouping when adding one.
   const combat = LIFETIME_STAT_DEFS.filter((d) => d.key !== 'goldEarned' && !d.key.startsWith('resourceGathered.'))
 
   return [
