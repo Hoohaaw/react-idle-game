@@ -8,7 +8,7 @@ import { join, resolve } from 'node:path'
 // service-layer tests couldn't catch it because they mock the Supabase client. This test reads
 // the migrations themselves, so the whole class is caught at `npm test` time with no database.
 //
-// Three invariants, all derived from the conventions the existing migrations already follow:
+// Four invariants, all derived from the conventions the existing migrations already follow:
 //   1. Every table with RLS enabled has `grant select ... to authenticated` (otherwise RLS
 //      without a grant = permission denied on read).
 //   2. No table grants INSERT/UPDATE/DELETE to authenticated — clients never write gameplay
@@ -18,6 +18,12 @@ import { join, resolve } from 'node:path'
 //      authenticated, so a missing revoke lets any signed-in user call the RPC via /rest/v1/rpc
 //      with an arbitrary p_player (see 20260705140000_mission_rpcs.sql's own warning). Trigger
 //      functions (`returns trigger`) are exempt — PostgREST cannot invoke them as RPCs at all.
+//   4. The dungeon/raid RPCs (start_group_stage, claim_group_stage, equip_item, unequip_item,
+//      choose_blessing, respec_blessings — the ones with real pgTAP behavioral coverage under
+//      supabase/tests/database/) each lock the row they read before acting on it (`for update`).
+//      This is the cheap half of "is the lock even there" — pgTAP's job is proving the RPC uses
+//      that locked read correctly (see docs/superpowers/specs/2026-09-16-dungeon-raid-rpc-tests-
+//      design.md §5), not re-proving the syntax is present, which a regex answers for free.
 
 // Vitest runs with the repo root as cwd (vite.config.ts's root); import.meta.url isn't a file: URL
 // under the jsdom environment, so resolve from cwd instead.
@@ -54,6 +60,21 @@ const serviceRoleGrantedFunctions = matches(
   /grant\s+execute\s+on\s+function\s+public\.(\w+)\s*\([^)]*\)\s+to\s+service_role/gi,
 )
 
+// name -> latest full body (last definition wins, same as functionReturnTypes above). Assumes the
+// single-`$$`-dollar-quoting style every function body in this repo already uses.
+const latestFunctionBody = new Map<string, string>()
+for (const m of sql.matchAll(/create\s+(?:or\s+replace\s+)?function\s+public\.(\w+)\s*\([^)]*\)[\s\S]*?as\s+\$\$([\s\S]*?)\$\$;/gi)) {
+  latestFunctionBody.set(m[1], m[2])
+}
+const LOCKED_RPCS = [
+  'start_group_stage',
+  'claim_group_stage',
+  'equip_item',
+  'unequip_item',
+  'choose_blessing',
+  'respec_blessings',
+]
+
 describe('migration security policy (ADR-0003)', () => {
   it('parses at least one RLS table and one RPC (guards against a regex silently matching nothing)', () => {
     expect(rlsTables.length).toBeGreaterThan(0)
@@ -77,5 +98,10 @@ describe('migration security policy (ADR-0003)', () => {
   it('every RPC is execute-granted to service_role', () => {
     const missing = rpcFunctions.filter((f) => !serviceRoleGrantedFunctions.includes(f))
     expect(missing, `RPCs with no \`grant execute ... to service_role\`: ${missing.join(', ')}`).toEqual([])
+  })
+
+  it('every dungeon/raid RPC locks the row it reads before acting on it (`for update`)', () => {
+    const missing = LOCKED_RPCS.filter((f) => !/for\s+update/i.test(latestFunctionBody.get(f) ?? ''))
+    expect(missing, `RPCs whose latest definition has no \`for update\`: ${missing.join(', ')}`).toEqual([])
   })
 })

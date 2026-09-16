@@ -39,14 +39,16 @@ character sprite art. Older open items below may be stale — trust the mileston
   full themed item sets are the deferred next wave, same split as maps (ADR-0034) vs. item
   authoring (ADR-0043/0044).
   `↳ context: project-dungeons-raids · docs/DECISIONS.md ADR-0050, studio/schemaTypes/dungeonDef.ts`
-- [ ] **Dungeon/raid server code has zero automated test coverage** — the accepted "no pgTAP/Deno
-  test infra" gap (same one `recruit_character` already carries) now also covers `group_runs` +
-  `start_group_stage`/`claim_group_stage` (new) and four EXISTING RPCs rewritten in the same
-  migration (`equip_item`, `unequip_item`, `choose_blessing`, `respec_blessings`, each gained a
-  `group_runs` busy-check). A bigger, more security-relevant surface than what the spec originally
-  accepted the gap for. Building real Edge Function/SQL test infra would close this — not just for
-  this feature, but for every future one that touches these RPCs.
-  `↳ context: project-dungeons-raids · supabase/migrations/20260908140000_group_runs.sql, docs/superpowers/specs/2026-09-08-dungeons-and-raids-design.md §10`
+- [x] **Dungeon/raid server code test coverage** (ADR-0058, 2026-09-16) — closed. Built this
+  repo's first real SQL test infra (pgTAP, local Supabase CLI stack) and wrote 79 verified-passing
+  assertions across 7 files covering `start_group_stage`, `claim_group_stage`, `equip_item`,
+  `unequip_item`, `choose_blessing`, `respec_blessings` — locking, busy-checks, state transitions,
+  the double-start/double-claim guards, daily/weekly lockout boundaries, loot/currency/lifetime-
+  stats application. `src/test/migration-policy.test.ts` also gained a static `for update` check
+  for all 6. Not CI-gated (matches how Vitest already runs here) — see `docs/TESTING.md`. Older
+  RPCs with the same historical gap (`recruit_character`, `check_ascendant_milestones`,
+  `check_achievements`) are a smaller separate follow-up now that the infra exists.
+  `↳ context: project-dungeons-raids · docs/DECISIONS.md ADR-0058, docs/TESTING.md, supabase/tests/database/`
 - [x] **itemDef authoring session** (ADR-0043/0044, 2026-07-15) — 23 itemDefs live (19 new + 4
   backfilled), all 10 slot types covered, rarity-scaled level-requirement gate shipped, 21
   mission loot tables rewired, `docs/ITEMS.md` written for replicating on future maps.
