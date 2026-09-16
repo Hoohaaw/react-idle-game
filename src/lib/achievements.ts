@@ -10,10 +10,12 @@
 // load-bearing, not incidental.
 //
 // Three of the "moment" achievements — Legendary Collector, Blessed, Max Level — are backed by
-// server-only counters (profiles.achievement_counters) never exposed to the client, so this
-// module cannot preview whether they've newly been crossed; it only knows whether they're already
-// in the `achievements` claimed-map (fetched via useProfile()). checkAchievements below simply
-// never evaluates them — there is nothing in CheckAchievementsInput to evaluate them against.
+// profiles.achievement_counters. That column IS exposed to the client now (src/services/profile.ts,
+// as PlayerProfile.achievementCounters — added to power a Statistics page display), but
+// checkAchievements below still can't preview whether they've newly been crossed: there is nothing
+// in CheckAchievementsInput to evaluate them against, so it only knows whether they're already in
+// the `achievements` claimed-map (fetched via useProfile()). checkAchievements simply never
+// evaluates them.
 
 import { ASCENDANT_MILESTONES } from './ascendantMilestones'
 import { RESOURCE_SOURCE } from './resources'

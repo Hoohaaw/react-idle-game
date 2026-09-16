@@ -200,14 +200,28 @@ character sprite art. Older open items below may be stale — trust the mileston
 - [ ] **Expand lifetime stats tracking** — brainstormed 2026-09-16, not yet built; each needs new
   server-side tracking (a write site in the relevant RPC/Edge Function) before it can join the
   `LIFETIME_STAT_DEFS` registry and show up on `/statistics`:
-  - Combat/missions: `missionsFailed`/`partyWipes` (risk-taken counterpart to `missionsCleared`),
-    `charactersDowned` (infirmary admission count), total stages cleared across all maps as one
-    headline number.
-  - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender), `itemsCrafted`,
-    `itemsUpgraded`, `legendaryItemsFound` (achievement_counters already tracks equips server-side
-    — same counter could feed this).
-  - Roster: `charactersRecruited` (survives Transcend wipes, unlike the current live roster count),
-    total character levels gained across the roster's lifetime.
+  - [x] Total stages cleared (2026-09-16) — no tracking needed at all: derived client-side as
+    `sum(profile.mapProgress)`, appended into the Missions & Combat section.
+  - [x] Legendary items equipped (2026-09-16) — reused the achievement system's existing
+    `achievement_counters.legendaryItemsEquipped` server-side counter instead of adding a second
+    one for the same thing. `profile.ts` now selects/exposes `achievement_counters`
+    (`achievementCounters` on `PlayerProfile`) — it existed in the DB but was deliberately never
+    read by the client before (see `achievements.ts`'s doc comment; the reason was implementation
+    convenience for the client-preview mirror, not security). Appended into the Economy section,
+    labeled "Legendary items equipped" rather than "found" — the counter increments on every equip
+    event, not distinct items discovered, so re-equipping the same Legendary inflates it.
+  - [ ] Combat/missions: `missionsFailed`/`partyWipes` (risk-taken counterpart to
+    `missionsCleared`) — zero migration needed, `claim_mission` already accepts arbitrary
+    `p_lifetime_stats` deltas; combat sim's `result.reason` is already
+    `'enemies-defeated' | 'party-wiped' | 'timeout'`, so `missionsFailed` = any loss,
+    `partyWipes` = `reason === 'party-wiped'` specifically.
+  - [ ] Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
+    every gold-spend site), `itemsCrafted` (`claim_craft` needs `p_lifetime_stats` added),
+    `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
+  - Roster: `charactersRecruited` (survives Transcend wipes, unlike the current live roster count;
+    `recruit_character` needs `p_lifetime_stats` added), `charactersDowned` (infirmary admission
+    count; `admit_infirmary` needs `p_lifetime_stats` added), total character levels gained across
+    the roster's lifetime.
   - Skills: time trained or XP earned per skill (parallel to `missionSecondsSent`, currently no
     time metric for the Church/Religion skill loop at all).
   - Gathering: `gatherSecondsSpent` (parallel to `missionSecondsSent` — mining has no time metric
