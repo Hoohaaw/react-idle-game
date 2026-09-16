@@ -268,11 +268,13 @@ character sprite art. Older open items below may be stale — trust the mileston
   - [x] Gathering: `gatherSecondsSpent` (2026-09-16, parallel to `missionSecondsSent`) —
     zero-migration: `collect_gather` already accepted arbitrary `p_lifetime_stats` deltas.
     `gather-collect` already computed `consumedSec`; tracked unconditionally (whenever any time was
-    consumed) rather than gated behind `gained > 0` like the resource delta, since a fast collect
-    can consume 0 ticks with zero yield but nonzero elapsed time. Falls into the "Missions & Combat"
-    catch-all group (same bucket `dungeonsCleared`/`raidsCleared` already share despite not being
-    solo missions either) rather than "Resources Gathered", to avoid touching that group's exact-
-    membership test for one stat — reconsider if more non-resource gathering stats join later.
+    consumed) rather than gated behind `gained > 0` like the resource delta — defensive against a
+    future fractional `yieldPerTick`, though with today's integer `MINE_DEFS` values the two gates
+    always agree in practice. Falls into the "Missions & Combat" catch-all group (same bucket
+    `dungeonsCleared`/`raidsCleared` already share despite not being solo missions either) rather
+    than "Resources Gathered", because `groupLifetimeStats()` classifies that group by the literal
+    `resourceGathered.` key prefix — reconsider (and extend that classifier) if more non-resource
+    gathering stats join later.
   - [x] Meta-progression (2026-09-16) — `resetCount`/`transcendCount`/`ascendantShardsEarnedTotal`
     already existed as their own `profiles` columns (not the `lifetime_stats` JSONB, so outside
     `groupLifetimeStats()`'s registry-driven grouping) and were already flowing through
