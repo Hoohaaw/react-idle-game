@@ -212,9 +212,11 @@ character sprite art. Older open items below may be stale — trust the mileston
     time metric for the Church/Religion skill loop at all).
   - Gathering: `gatherSecondsSpent` (parallel to `missionSecondsSent` — mining has no time metric
     despite being a whole separate loop).
-  - Meta-progression: `resetCount`/`transcendCount`/`ascendantShardsEarnedTotal` already exist as
-    their own `profiles` columns (not in the `lifetime_stats` JSONB) — worth surfacing on the same
-    `/statistics` page even though they're stored differently, since thematically they belong.
+  - [x] Meta-progression (2026-09-16) — `resetCount`/`transcendCount`/`ascendantShardsEarnedTotal`
+    already existed as their own `profiles` columns (not the `lifetime_stats` JSONB, so outside
+    `groupLifetimeStats()`'s registry-driven grouping) and were already flowing through
+    `useProfile()`. Zero backend work — added a 4th "Meta-progression" section straight in
+    `StatisticsPage.tsx`, assembled by hand rather than via the registry.
   - Bigger, separate idea: a personal-record/milestone framing (longest streak, best single
     mission haul) rather than raw totals — more bragging-rights than spreadsheet, but needs new
     tracking shapes, not just registry additions. Flagged as its own future design question, not
