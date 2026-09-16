@@ -39,6 +39,7 @@ function makeProfile(overrides: Partial<PlayerProfile> = {}): PlayerProfile {
     achievements: {},
     ascendantShardsEarnedTotal: 0,
     daysPlayed: 0,
+    achievementCounters: {},
     ...overrides,
   }
 }
@@ -81,5 +82,27 @@ describe('StatisticsPage', () => {
     expect(screen.getByText('Missions & Combat')).toBeInTheDocument()
     expect(screen.getByText('Economy')).toBeInTheDocument()
     expect(screen.getByText('Resources Gathered')).toBeInTheDocument()
+  })
+
+  it('renders stages cleared (summed from mapProgress) in Missions & Combat', async () => {
+    vi.mocked(fetchProfile).mockResolvedValue(
+      makeProfile({ mapProgress: { gravemarch: 7, embercrag: 3 } }),
+    )
+
+    renderWithClient()
+
+    await waitFor(() => expect(screen.getByText('Stages cleared')).toBeInTheDocument())
+    expect(screen.getByText('10')).toBeInTheDocument()
+  })
+
+  it('renders legendary items found (from achievementCounters) in Economy', async () => {
+    vi.mocked(fetchProfile).mockResolvedValue(
+      makeProfile({ achievementCounters: { legendaryItemsEquipped: 4 } }),
+    )
+
+    renderWithClient()
+
+    await waitFor(() => expect(screen.getByText('Legendary items found')).toBeInTheDocument())
+    expect(screen.getByText('4')).toBeInTheDocument()
   })
 })

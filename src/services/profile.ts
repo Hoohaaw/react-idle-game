@@ -41,13 +41,17 @@ export type PlayerProfile = {
   ascendantShardsEarnedTotal: number
   /** Count of distinct UTC calendar days record_login has run. Feeds "Days Played". Never wiped. */
   daysPlayed: number
+  /** Server-only "moment" achievement counters (spec 2026-09-13 §4b) — e.g.
+   *  `legendaryItemsEquipped`, `capstonesEarned`, `charactersReachedLevelCap`. Absent key = zero.
+   *  Never wiped. */
+  achievementCounters: Record<string, number>
 }
 
 export async function fetchProfile(): Promise<PlayerProfile> {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'username, currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played',
+      'username, currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played, achievement_counters',
     )
     .maybeSingle()
   if (error) throw error
@@ -69,5 +73,6 @@ export async function fetchProfile(): Promise<PlayerProfile> {
     achievements: (data?.achievements ?? {}) as Record<string, boolean>,
     ascendantShardsEarnedTotal: data?.ascendant_shards_earned_total ?? 0,
     daysPlayed: data?.days_played ?? 0,
+    achievementCounters: (data?.achievement_counters ?? {}) as Record<string, number>,
   }
 }
