@@ -24,6 +24,8 @@ export const LIFETIME_STAT_DEFS: LifetimeStatDef[] = [
   { key: 'goldEarned', label: 'Gold earned' },
   { key: 'missionSecondsSent', label: 'Time spent on missions' },
   { key: 'missionsCleared', label: 'Missions cleared' },
+  { key: 'missionsFailed', label: 'Missions failed' },
+  { key: 'partyWipes', label: 'Party wipes' },
   { key: 'dungeonsCleared', label: 'Dungeons cleared' },
   { key: 'raidsCleared', label: 'Raids cleared' },
   ...Object.keys(RESOURCE_SOURCE).map((resource) => ({
