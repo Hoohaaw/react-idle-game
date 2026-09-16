@@ -197,6 +197,29 @@ character sprite art. Older open items below may be stale — trust the mileston
   "Ready"` branch is countdown-timer semantics, not "no time spent yet"; a fresh player's page
   showed "Time spent on missions: Ready" until special-cased.
   `↳ context: project-reset · src/features/statistics/, src/lib/lifetimeStats.ts`
+- [ ] **Expand lifetime stats tracking** — brainstormed 2026-09-16, not yet built; each needs new
+  server-side tracking (a write site in the relevant RPC/Edge Function) before it can join the
+  `LIFETIME_STAT_DEFS` registry and show up on `/statistics`:
+  - Combat/missions: `missionsFailed`/`partyWipes` (risk-taken counterpart to `missionsCleared`),
+    `charactersDowned` (infirmary admission count), total stages cleared across all maps as one
+    headline number.
+  - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender), `itemsCrafted`,
+    `itemsUpgraded`, `legendaryItemsFound` (achievement_counters already tracks equips server-side
+    — same counter could feed this).
+  - Roster: `charactersRecruited` (survives Transcend wipes, unlike the current live roster count),
+    total character levels gained across the roster's lifetime.
+  - Skills: time trained or XP earned per skill (parallel to `missionSecondsSent`, currently no
+    time metric for the Church/Religion skill loop at all).
+  - Gathering: `gatherSecondsSpent` (parallel to `missionSecondsSent` — mining has no time metric
+    despite being a whole separate loop).
+  - Meta-progression: `resetCount`/`transcendCount`/`ascendantShardsEarnedTotal` already exist as
+    their own `profiles` columns (not in the `lifetime_stats` JSONB) — worth surfacing on the same
+    `/statistics` page even though they're stored differently, since thematically they belong.
+  - Bigger, separate idea: a personal-record/milestone framing (longest streak, best single
+    mission haul) rather than raw totals — more bragging-rights than spreadsheet, but needs new
+    tracking shapes, not just registry additions. Flagged as its own future design question, not
+    scoped here.
+  `↳ context: project-reset · src/lib/lifetimeStats.ts, src/features/statistics/`
 - [ ] **Legendary class-specific quest-lines** — certain Legendary items, equippable only by a
   specific class, unlock a class-specific mission/quest line that further powers up that item once
   equipped. Flavor + a power ceiling for build-defining Legendaries. Raised during Transcendence
