@@ -202,12 +202,14 @@ character sprite art. Older open items below may be stale — trust the mileston
   `LIFETIME_STAT_DEFS` registry and show up on `/statistics`:
   - [x] Total stages cleared (2026-09-16) — no tracking needed at all: derived client-side as
     `sum(profile.mapProgress)`, appended into the Missions & Combat section.
-  - [x] `legendaryItemsFound` (2026-09-16) — reused the achievement system's existing
+  - [x] Legendary items equipped (2026-09-16) — reused the achievement system's existing
     `achievement_counters.legendaryItemsEquipped` server-side counter instead of adding a second
     one for the same thing. `profile.ts` now selects/exposes `achievement_counters`
     (`achievementCounters` on `PlayerProfile`) — it existed in the DB but was deliberately never
     read by the client before (see `achievements.ts`'s doc comment; the reason was implementation
-    convenience for the client-preview mirror, not security). Appended into the Economy section.
+    convenience for the client-preview mirror, not security). Appended into the Economy section,
+    labeled "Legendary items equipped" rather than "found" — the counter increments on every equip
+    event, not distinct items discovered, so re-equipping the same Legendary inflates it.
   - [ ] Combat/missions: `missionsFailed`/`partyWipes` (risk-taken counterpart to
     `missionsCleared`) — zero migration needed, `claim_mission` already accepts arbitrary
     `p_lifetime_stats` deltas; combat sim's `result.reason` is already

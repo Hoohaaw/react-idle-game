@@ -44,17 +44,25 @@ export default function StatisticsPage() {
 
   // Two more stats that don't fit groupLifetimeStats()'s registry either — stagesCleared is
   // derived from mapProgress (highest stage per map, ADR-0034), not a counter at all; legendary
-  // items found reuses the achievement system's own server-tracked counter (achievements.ts:11-16
-  // — never exposed to the client before this) rather than duplicating a second counter for the
-  // same thing. Appended into their thematically-matching registry group by title.
+  // items equipped reuses the achievement system's own server-tracked counter (achievements.ts —
+  // never exposed to the client before this) rather than duplicating a second counter for the
+  // same thing. That counter increments on every equip event, not distinct items found (see
+  // 20260914100400_equip_item_legendary_counter.sql) — re-equipping the same legendary again
+  // (e.g. swapping gear between characters) bumps it again, so the label says "equipped", not
+  // "found", to stay accurate to what's actually counted. Appended into their thematically-
+  // matching registry group by title.
   const stagesCleared = Object.values(mapProgress).reduce((sum, stage) => sum + stage, 0)
-  const legendaryItemsFound = achievementCounters.legendaryItemsEquipped ?? 0
+  const legendaryItemsEquipped = achievementCounters.legendaryItemsEquipped ?? 0
   const derivedRowsByGroup: Record<string, { key: string; label: string; value: string }[]> = {
     'Missions & Combat': [
       { key: 'stagesCleared', label: 'Stages cleared', value: stagesCleared.toLocaleString() },
     ],
     Economy: [
-      { key: 'legendaryItemsFound', label: 'Legendary items found', value: legendaryItemsFound.toLocaleString() },
+      {
+        key: 'legendaryItemsEquipped',
+        label: 'Legendary items equipped',
+        value: legendaryItemsEquipped.toLocaleString(),
+      },
     ],
   }
 

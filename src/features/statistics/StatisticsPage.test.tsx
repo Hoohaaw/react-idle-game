@@ -95,14 +95,14 @@ describe('StatisticsPage', () => {
     expect(screen.getByText('10')).toBeInTheDocument()
   })
 
-  it('renders legendary items found (from achievementCounters) in Economy', async () => {
+  it('renders legendary items equipped (from achievementCounters) in Economy', async () => {
     vi.mocked(fetchProfile).mockResolvedValue(
       makeProfile({ achievementCounters: { legendaryItemsEquipped: 4 } }),
     )
 
     renderWithClient()
 
-    await waitFor(() => expect(screen.getByText('Legendary items found')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Legendary items equipped')).toBeInTheDocument())
     expect(screen.getByText('4')).toBeInTheDocument()
   })
 })
