@@ -72,6 +72,17 @@ describe('StatisticsPage', () => {
     expect(screen.getByText('1,000,000')).toBeInTheDocument()
   })
 
+  it('formats gatherSecondsSpent as a duration (not toLocaleString) like missionSecondsSent', async () => {
+    vi.mocked(fetchProfile).mockResolvedValue(
+      makeProfile({ lifetimeStats: { gatherSecondsSpent: 90 } }),
+    )
+
+    renderWithClient()
+
+    await waitFor(() => expect(screen.getByText('Time spent gathering')).toBeInTheDocument())
+    expect(screen.getByText('01:30')).toBeInTheDocument()
+  })
+
   it('still renders the registry-driven groups (Missions & Combat / Economy / Resources Gathered) alongside Meta-progression', async () => {
     vi.mocked(fetchProfile).mockResolvedValue(makeProfile())
 

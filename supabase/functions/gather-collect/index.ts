@@ -103,8 +103,12 @@ Deno.serve(async (req) => {
   const gained = Math.floor(baseGained * resolveShopBonus(shop, 'gatherRate', assignment.resource_id))
   const newLastCollectedAt = new Date(lastMs + consumedSec * 1000).toISOString()
 
-  const lifetimeStatsDelta: Record<string, number> =
-    gained > 0 ? { [`resourceGathered.${assignment.resource_id}`]: gained } : {}
+  // gatherSecondsSpent mirrors missionSecondsSent's "track elapsed time regardless of outcome"
+  // pattern (mission-claim/index.ts) — tracked whenever any time was actually consumed, independent
+  // of whether that time produced a nonzero yield (a fast collect can consume 0 ticks with gained=0).
+  const lifetimeStatsDelta: Record<string, number> = {}
+  if (gained > 0) lifetimeStatsDelta[`resourceGathered.${assignment.resource_id}`] = gained
+  if (consumedSec > 0) lifetimeStatsDelta.gatherSecondsSpent = consumedSec
 
   let newlyUnlockedCharKeys: string[] = []
   let candidateByKey = new Map<string, { name: string; role: string | null }>()
