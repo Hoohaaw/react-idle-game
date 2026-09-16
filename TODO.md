@@ -274,6 +274,13 @@ character sprite art. Older open items below may be stale — trust the mileston
   assets are compressed. Alt text and mobile breakpoints weren't flagged as gaps but weren't
   verified either.
   `↳ context: index.html, public/`
+- [ ] **Onboarding tutorials + highlighting for newly-unlocked content** — no in-app guidance today
+  when a player first unlocks something (a new map, a new feature/page like Blessings/Crafting/
+  Skills becoming reachable for the first time, a new character). Idea: a short tutorial/callout
+  and/or a visual highlight (badge, glow, "new") pointing at what just opened up, so players
+  discover systems instead of missing them. Raised 2026-09-16, not yet designed — needs its own
+  brainstorm (what counts as "newly unlocked", one mechanism or several, dismiss/replay behavior).
+  `↳ context: src/App.tsx (routes), src/features/`
 - [x] **Deploy the username feature to the hosted Supabase project** (PR #119, merged 2026-09-15) —
   Supabase MCP authorized that session; steps 1-5 done and verified. Step 6 (real browser signup)
   was exercised manually and caught a real bug: signing up with an email that already had a
