@@ -20,7 +20,20 @@ export default function StatisticsPage() {
     return <p style={{ color: 'var(--color-text-muted)' }}>Loading…</p>
   }
 
-  const { lifetimeStats } = profile.data
+  const { lifetimeStats, resetCount, transcendCount, ascendantShardsEarnedTotal } = profile.data
+
+  // Not part of LIFETIME_STAT_DEFS/lifetime_stats JSONB — these three are their own `profiles`
+  // columns (see src/services/profile.ts), so they're assembled here rather than through the
+  // registry-driven groupLifetimeStats().
+  const metaRows = [
+    { key: 'resetCount', label: 'Times Reset', value: resetCount.toLocaleString() },
+    { key: 'transcendCount', label: 'Times Transcended', value: transcendCount.toLocaleString() },
+    {
+      key: 'ascendantShardsEarnedTotal',
+      label: 'Ascendant Shards earned (lifetime)',
+      value: ascendantShardsEarnedTotal.toLocaleString(),
+    },
+  ]
 
   return (
     <div>
@@ -36,6 +49,7 @@ export default function StatisticsPage() {
           }))}
         />
       ))}
+      <StatGroupSection title="Meta-progression" rows={metaRows} />
     </div>
   )
 }
