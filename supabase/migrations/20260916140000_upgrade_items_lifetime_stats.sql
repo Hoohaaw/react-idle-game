@@ -105,5 +105,10 @@ begin
 end;
 $$;
 
--- Revoke direct-call access from all non-service roles (ADR-0003: Edge Function only).
+-- Revoke direct-call access from all non-service roles (ADR-0003: Edge Function only). The explicit
+-- service_role grant matters here specifically — 20260910100001_upgrade_items_service_role_grant.sql
+-- already had to add it once for the old 2-arg signature (this RPC was the one exception relying on
+-- Supabase's default privileges instead of an explicit grant); dropping the function for this new
+-- signature would silently lose that grant again if it weren't re-added here.
 revoke all on function public.upgrade_items(uuid, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.upgrade_items(uuid, jsonb, jsonb) to service_role;
