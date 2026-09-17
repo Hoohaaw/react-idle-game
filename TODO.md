@@ -250,8 +250,39 @@ character sprite art. Older open items below may be stale — trust the mileston
     be name-based, not signature-based — it would NOT actually have caught this regression, since
     the old 2-arg grant already satisfied it by name. Not fixed here, out of scope for this PR.)
     `npx supabase test db` run locally (79/79 passing).
-  - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
-    every gold-spend site).
+  - [ ] Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender). Audited
+    2026-09-17: exactly 3 write sites currently deduct `currencies.gold`, none touch
+    `p_lifetime_stats` for it yet:
+    - `recruit_character` already accepts `p_lifetime_stats` (PR #131) — just add
+      `goldSpent: goldCost` into the existing `p_lifetime_stats: { charactersRecruited: 1 }`
+      object in `supabase/functions/recruit/index.ts`. No migration needed.
+    - `upgrade_infirmary` (`supabase/migrations/20260707150000_infirmary.sql:165`, signature
+      `(p_player uuid, p_new_level int, p_cost_currencies jsonb, p_cost_resources jsonb,
+      p_settlements jsonb)`) has no `p_lifetime_stats` param — needs the drop/recreate pattern (6th
+      param). It already deducts `p_cost_currencies` generically (any currency key, not hardcoded
+      to gold) in a loop at line ~220; add the standard `p_lifetime_stats` increment loop right
+      after that deduction loop, no new lock needed (the row is already locked earlier via
+      `perform 1 from public.profiles ... for update` at line ~185). Edge Function
+      (`supabase/functions/infirmary-upgrade/index.ts:110`, cost object is
+      `UPGRADE_COSTS[level].currencies` from `src/lib/infirmary.ts`) should pass
+      `p_lifetime_stats: { goldSpent: cost.currencies.gold ?? 0 }` — only count `gold` even though
+      the RPC is currency-generic (future Wood/Copper/Iron-only upgrade tiers shouldn't inflate
+      this stat).
+    - `respec_blessings` (latest def in `supabase/migrations/20260908140000_group_runs.sql:564`,
+      signature `(p_player uuid, p_char uuid, p_cost numeric)`) has no `p_lifetime_stats` param —
+      needs the drop/recreate pattern (4th param). Already locks `profiles` via `for update` at the
+      gold-balance check (~line 620) before deducting at ~line 630 — reuse that lock. Edge Function
+      (`supabase/functions/blessing-respec/index.ts:44`; cost is the constant `RESPEC_COST = 500`
+      from `src/lib/blessings.ts:28`) should pass `p_lifetime_stats: { goldSpent: RESPEC_COST }`
+      unconditionally — respec always succeeds if the RPC doesn't raise.
+    Checked and ruled out (spend a JSONB-shaped cost but never `currencies.gold`):
+    `purchase_echo_shop_node`/`purchase_ascendant_shop_node`
+    (`supabase/migrations/20260915150000_lock_shop_purchase_price.sql`) spend `echoes`/
+    `ascendant_shards` respectively; `start_craft`
+    (`supabase/migrations/20260910110000_craft_runs.sql`) only spends `p_resource_reagents`/
+    `p_item_reagents` (resources + inventory items) — no currency reagent exists in the recipe
+    schema today. Before implementing, re-grep `supabase/migrations/` for `currencies->>'gold'`
+    and `set currencies = jsonb_set` in case a new gold-spend RPC was added since 2026-09-17.
   - [x] Roster: `charactersRecruited` (2026-09-16, survives Transcend wipes, unlike the current
     live roster count) — `recruit_character` didn't accept `p_lifetime_stats` yet, so this needed a
     small migration (`20260916120000_recruit_character_lifetime_stats.sql`): drop the old 5-arg
@@ -283,9 +314,50 @@ character sprite art. Older open items below may be stale — trust the mileston
     Not reachable in the normal serialized client flow and doesn't affect the authoritative stored
     record; deliberately not special-cased into the RPC to keep it a dumb generic
     `p_lifetime_stats` applier like the other 3 in this series.
-  - Roster: total character levels gained across the roster's lifetime.
-  - Skills: time trained or XP earned per skill (parallel to `missionSecondsSent`, currently no
-    time metric for the Church/Religion skill loop at all).
+  - [ ] Roster: total character levels gained across the roster's lifetime. Exactly 2 write sites,
+    both already compute a per-character before/after level and both already accept
+    `p_lifetime_stats` — Edge-Function-only, no migration needed:
+    - `supabase/functions/mission-claim/index.ts` — `charUpdates` (~line 328) maps each character
+      to `{ id, level, xp, current_hp }`; `c.level` is pre-claim, the local `level` (reassigned
+      only `if (win && endHp > 0 && baseXp > 0)` via `applyXp(c.level, c.xp, gained).level`) is
+      post-claim. Sum `level - c.level` across all `charUpdates` entries (0 for non-leveling
+      survivors and for a full loss) and add to the existing `lifetimeStatsDelta` object — only
+      include the key if the sum is `> 0`, matching the `if (goldGranted > 0)` guard already there.
+    - `supabase/functions/group-claim-stage/index.ts` — identical shape: `charUpdates` (~line 210),
+      `c.level` before vs. `level` after (via `applyXp` at ~line 217, same win-gate). Same
+      sum-and-guard treatment into its own `lifetimeStatsDelta`.
+    Explicitly OUT of scope: `supabase/functions/skill-collect/index.ts`'s `applyXp` call levels up
+    a per-character SKILL (`player_characters.skills`), a wholly separate leveling curve from
+    character level (see `src/lib/skills.ts`'s doc comment) — do not count skill level-ups here.
+    Suggested key: `{ key: 'charLevelsGained', label: 'Character levels gained' }` — not yet
+    reserved anywhere in code, pick a different name freely if preferred.
+  - [ ] Skills: time trained or XP earned per skill. `SKILL_DEFS` in `src/lib/skills.ts` already
+    has 4 skills (Religion/Athletics/Farming/Mining, not just Religion — the "second skill type is
+    a one-line registry entry" note elsewhere in this file is about a 5th). Single write site:
+    `supabase/functions/skill-collect/index.ts`, which already computes both `consumedSec` and
+    `gained` (XP) per collect via `accrue()` (~line 75) — the exact shape `gather-collect` used for
+    `gatherSecondsSpent`. The RPC it calls, `collect_skill` (locate its latest definition first —
+    grep `supabase/migrations/` for `create or replace function public.collect_skill`; not
+    identified as of this note), currently has NO `p_lifetime_stats` param — `skill-collect`'s own
+    top comment says so explicitly ("no lifetime-stats/acquisition tie-in ... skill training has no
+    mechanical effect yet"), confirming a deliberate prior scope cut, not an oversight. Needs the
+    drop/recreate pattern to add the param; check whether `collect_skill`'s body already locks
+    `profiles` before deciding if a fresh lock is needed (irrelevant either way per the `claim_craft`
+    precedent — a bare per-key `UPDATE ... WHERE player_id = p_player` is atomic regardless of a
+    pre-existing lock).
+    SHAPE DECISION NEEDED (not yet made): per-skill stats need dynamic per-skill keys, not one flat
+    counter — mirror `resourceGatheredKey()` (`src/lib/lifetimeStats.ts:19-21`) exactly: add a
+    `skillSecondsSpentKey(skillKey)` (and/or `skillXpEarnedKey(skillKey)`) helper returning
+    `` `skillSecondsSpent.${skillKey}` ``, then spread `SKILL_DEFS.map(...)` into
+    `LIFETIME_STAT_DEFS` the same way `RESOURCE_SOURCE` already is (see the
+    `...Object.keys(RESOURCE_SOURCE).map(...)` spread at the array's tail). Track time (parallels
+    `missionSecondsSent`/`gatherSecondsSpent` exactly, simplest) or XP (arguably redundant with the
+    skill's own level/xp already visible per-character) or both — genuinely undecided, a product
+    call not a technical one. Whichever is chosen, also decide `/statistics` grouping:
+    `groupLifetimeStats()` (`src/features/statistics/statGroups.ts`) has no "Skills" bucket today —
+    either add one (classify by the `skillSecondsSpent.`/`skillXpEarned.` prefix, same pattern as
+    `resourceGathered.`) or accept it landing in the "Missions & Combat" catch-all the way
+    `gatherSecondsSpent` did.
   - [x] Gathering: `gatherSecondsSpent` (2026-09-16, parallel to `missionSecondsSent`) —
     zero-migration: `collect_gather` already accepted arbitrary `p_lifetime_stats` deltas.
     `gather-collect` already computed `consumedSec`; tracked unconditionally (whenever any time was
@@ -306,6 +378,30 @@ character sprite art. Older open items below may be stale — trust the mileston
     tracking shapes, not just registry additions. Flagged as its own future design question, not
     scoped here.
   `↳ context: project-reset · src/lib/lifetimeStats.ts, src/features/statistics/`
+- [ ] **Hosted deploy pending: 4 lifetime-stats migrations + Edge Function redeploys**
+  (2026-09-16/17) — `missionsFailed`/`partyWipes` (PR #129), `gatherSecondsSpent` (PR #130),
+  `charactersRecruited` (PR #131), `itemsCrafted` (PR #132), `itemsUpgraded` (PR #133),
+  `charactersDowned` (PR #134) are all merged to `master` but NOT applied to the hosted Supabase
+  project (`nqaitmbwmuwpnpqatsfs`) — the Supabase MCP was unauthenticated for the back half of the
+  2026-09-16 session, so nothing since `20260915150000_lock_shop_purchase_price.sql` is live.
+  Steps:
+  1. Reconnect the Supabase MCP (`/mcp` or `claude mcp` in an interactive session).
+  2. Apply, in order (each drops+recreates the prior RPC signature, so order matters):
+     `20260916120000_recruit_character_lifetime_stats.sql`,
+     `20260916130000_claim_craft_lifetime_stats.sql`,
+     `20260916140000_upgrade_items_lifetime_stats.sql`,
+     `20260916150000_admit_infirmary_lifetime_stats.sql`. (`missionsFailed`/`partyWipes`/
+     `gatherSecondsSpent` needed zero migrations — Edge-Function-only changes.)
+  3. Redeploy the 6 touched Edge Functions: `recruit`, `craft-claim`, `item-upgrade`,
+     `infirmary-admit`, `mission-claim`, `gather-collect`.
+  4. Run `mcp__supabase__get_advisors` (security + performance) after applying — same step every
+     prior migration PR this session ran.
+  5. Byte-verify each redeployed function against its local source (same pattern used for the
+     username feature's step 5, further up this file).
+  6. Manually exercise at least one of each and confirm it shows up under `/statistics` with a
+     nonzero value: recruit a character, craft an item, upgrade an item, get a character downed and
+     admitted, lose a mission, gather with a fresh `last_collected_at`.
+  `↳ context: project-reset · supabase/migrations/20260916{120000,130000,140000,150000}_*.sql`
 - [ ] **Legendary class-specific quest-lines** — certain Legendary items, equippable only by a
   specific class, unlock a class-specific mission/quest line that further powers up that item once
   equipped. Flavor + a power ceiling for build-defining Legendaries. Raised during Transcendence
