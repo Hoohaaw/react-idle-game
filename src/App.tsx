@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { GameLayout } from './components/templates/GameLayout'
 import { RequireAuth } from '@/features/auth'
 
@@ -42,6 +42,10 @@ export default function App() {
       <Routes>
         {/* Design system showcase (dev only) — intentionally outside the auth guard */}
         <Route path="/design" element={<DesignPage />} />
+
+        {/* No page owns "/" itself — send it into the gated app, which shows sign-in when
+            signed out. Without this, a crawler or a bookmark to the bare domain hits no route. */}
+        <Route path="/" element={<Navigate to="/missions" replace />} />
 
         {/* Everything below requires a signed-in player (RequireAuth renders the AuthPage otherwise) */}
         <Route element={<RequireAuth />}>

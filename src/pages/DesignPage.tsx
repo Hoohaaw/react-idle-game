@@ -358,6 +358,39 @@ export default function DesignPage() {
         </Row>
       </Section>
 
+      {/* ── LAUNCH / META ASSETS (generated, review before real launch) ── */}
+      <Section title="Launch Assets — Favicon Set & OG Card">
+        <p style={{ color: 'var(--color-text-muted)', fontSize: 11, lineHeight: 1.6, marginBottom: 16, maxWidth: 560 }}>
+          Rasterized from <code>public/favicon.svg</code> via <code>scripts/generate-favicons.mjs</code> —
+          re-run that script after any logo change. Placeholder art direction, not final branding;
+          swap the source SVG and re-run if a different look is wanted.
+        </p>
+        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 20 }}>
+          {[
+            { src: '/favicon-16x16.png', size: 16, label: 'favicon 16' },
+            { src: '/favicon-32x32.png', size: 32, label: 'favicon 32' },
+            { src: '/apple-touch-icon.png', size: 60, label: 'apple-touch-icon (180)' },
+            { src: '/android-chrome-192x192.png', size: 80, label: 'android 192' },
+            { src: '/android-chrome-512x512.png', size: 100, label: 'android 512' },
+          ].map((icon) => (
+            <div key={icon.src} style={{ textAlign: 'center' }}>
+              <div style={{
+                width: icon.size, height: icon.size, backgroundImage:
+                  'linear-gradient(45deg, #2a2a2a 25%, transparent 25%), linear-gradient(-45deg, #2a2a2a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2a2a2a 75%), linear-gradient(-45deg, transparent 75%, #2a2a2a 75%)',
+                backgroundSize: '8px 8px', backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
+              }}>
+                <img src={icon.src} width={icon.size} height={icon.size} alt={icon.label} />
+              </div>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: 10, marginTop: 6 }}>{icon.label}</p>
+            </div>
+          ))}
+        </div>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>
+          Open Graph / Twitter card (1200×630)
+        </p>
+        <img src="/og-image.png" alt="Open Graph card preview" style={{ width: '100%', maxWidth: 600, borderRadius: 6, border: '1px solid var(--color-gold-dark)' }} />
+      </Section>
+
       <GroupHeading>Components</GroupHeading>
 
       {/* ── PANELS ────────────────────────────── */}
