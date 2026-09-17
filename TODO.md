@@ -265,8 +265,16 @@ character sprite art. Older open items below may be stale — trust the mileston
     `p_lifetime_stats` added), total character levels gained across the roster's lifetime.
   - Skills: time trained or XP earned per skill (parallel to `missionSecondsSent`, currently no
     time metric for the Church/Religion skill loop at all).
-  - Gathering: `gatherSecondsSpent` (parallel to `missionSecondsSent` — mining has no time metric
-    despite being a whole separate loop).
+  - [x] Gathering: `gatherSecondsSpent` (2026-09-16, parallel to `missionSecondsSent`) —
+    zero-migration: `collect_gather` already accepted arbitrary `p_lifetime_stats` deltas.
+    `gather-collect` already computed `consumedSec`; tracked unconditionally (whenever any time was
+    consumed) rather than gated behind `gained > 0` like the resource delta — defensive against a
+    future fractional `yieldPerTick`, though with today's integer `MINE_DEFS` values the two gates
+    always agree in practice. Falls into the "Missions & Combat" catch-all group (same bucket
+    `dungeonsCleared`/`raidsCleared` already share despite not being solo missions either) rather
+    than "Resources Gathered", because `groupLifetimeStats()` classifies that group by the literal
+    `resourceGathered.` key prefix — reconsider (and extend that classifier) if more non-resource
+    gathering stats join later.
   - [x] Meta-progression (2026-09-16) — `resetCount`/`transcendCount`/`ascendantShardsEarnedTotal`
     already existed as their own `profiles` columns (not the `lifetime_stats` JSONB, so outside
     `groupLifetimeStats()`'s registry-driven grouping) and were already flowing through

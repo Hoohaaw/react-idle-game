@@ -31,6 +31,7 @@ export const LIFETIME_STAT_DEFS: LifetimeStatDef[] = [
   { key: 'charactersRecruited', label: 'Characters recruited' },
   { key: 'itemsCrafted', label: 'Items crafted' },
   { key: 'itemsUpgraded', label: 'Items upgraded' },
+  { key: 'gatherSecondsSpent', label: 'Time spent gathering' },
   ...Object.keys(RESOURCE_SOURCE).map((resource) => ({
     key: resourceGatheredKey(resource),
     label: `${resource} gathered`,
