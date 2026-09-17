@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { GameLayout } from './components/templates/GameLayout'
+import { LegalLayout } from './components/templates/LegalLayout'
+import { CookieBanner } from './components/organisms/CookieBanner'
 import { RequireAuth } from '@/features/auth'
 
 // Route-level code splitting: every page loads as its own chunk on first visit, keeping the
@@ -8,6 +10,8 @@ import { RequireAuth } from '@/features/auth'
 // (import rules: outsiders import only @/features/<x>) and re-shaped to lazy's default-export
 // contract; unmigrated pages already default-export.
 const DesignPage = lazy(() => import('./pages/DesignPage'))
+const TermsPage = lazy(() => import('./pages/TermsPage'))
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
 const MissionsPage = lazy(() => import('@/features/missions').then((m) => ({ default: m.MissionsPage })))
 const InfirmaryPage = lazy(() => import('@/features/infirmary').then((m) => ({ default: m.InfirmaryPage })))
 const GatherPage = lazy(() => import('@/features/gather').then((m) => ({ default: m.GatherPage })))
@@ -38,42 +42,51 @@ function PageLoading() {
 
 export default function App() {
   return (
-    <Suspense fallback={<PageLoading />}>
-      <Routes>
-        {/* Design system showcase (dev only) — intentionally outside the auth guard */}
-        <Route path="/design" element={<DesignPage />} />
+    <>
+      <Suspense fallback={<PageLoading />}>
+        <Routes>
+          {/* Design system showcase (dev only) — intentionally outside the auth guard */}
+          <Route path="/design" element={<DesignPage />} />
 
-        {/* No page owns "/" itself — send it into the gated app, which shows sign-in when
-            signed out. Without this, a crawler or a bookmark to the bare domain hits no route. */}
-        <Route path="/" element={<Navigate to="/missions" replace />} />
+          {/* No page owns "/" itself — send it into the gated app, which shows sign-in when
+              signed out. Without this, a crawler or a bookmark to the bare domain hits no route. */}
+          <Route path="/" element={<Navigate to="/missions" replace />} />
 
-        {/* Everything below requires a signed-in player (RequireAuth renders the AuthPage otherwise) */}
-        <Route element={<RequireAuth />}>
-          {/* Game pages — share the global header via GameLayout */}
-          <Route element={<GameLayout />}>
-            <Route path="/missions" element={<MissionsPage />} />
-            <Route path="/infirmary" element={<InfirmaryPage />} />
-            <Route path="/team" element={<TeamPage />} />
-            <Route path="/recruits" element={<RecruitsPage />} />
-            <Route path="/mines" element={<GatherPage />} />
-            <Route path="/skills" element={<SkillsPage />} />
-            <Route path="/dungeons" element={<GroupContentPage kind="dungeon" />} />
-            <Route path="/raids" element={<GroupContentPage kind="raid" />} />
-            <Route path="/upgrading" element={<UpgradingPage />} />
-            <Route path="/shop" element={<ShopPage />} />
-            <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/crafting" element={<CraftingPage />} />
-            <Route path="/upgrades" element={<UpgradesPage />} />
-            <Route path="/blessings" element={<BlessingsPage />} />
-            <Route path="/respec" element={<RespecPage />} />
-            <Route path="/reset" element={<PrestigePage />} />
-            <Route path="/statistics" element={<StatisticsPage />} />
-            <Route path="/game-stats" element={<GameStatsPage />} />
-            <Route path="/achievements" element={<AchievementsPage />} />
-            <Route path="*" element={<NotFoundPage />} />
+          {/* Public — readable before signing up, not gated */}
+          <Route element={<LegalLayout />}>
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
           </Route>
-        </Route>
-      </Routes>
-    </Suspense>
+
+          {/* Everything below requires a signed-in player (RequireAuth renders the AuthPage otherwise) */}
+          <Route element={<RequireAuth />}>
+            {/* Game pages — share the global header via GameLayout */}
+            <Route element={<GameLayout />}>
+              <Route path="/missions" element={<MissionsPage />} />
+              <Route path="/infirmary" element={<InfirmaryPage />} />
+              <Route path="/team" element={<TeamPage />} />
+              <Route path="/recruits" element={<RecruitsPage />} />
+              <Route path="/mines" element={<GatherPage />} />
+              <Route path="/skills" element={<SkillsPage />} />
+              <Route path="/dungeons" element={<GroupContentPage kind="dungeon" />} />
+              <Route path="/raids" element={<GroupContentPage kind="raid" />} />
+              <Route path="/upgrading" element={<UpgradingPage />} />
+              <Route path="/shop" element={<ShopPage />} />
+              <Route path="/inventory" element={<InventoryPage />} />
+              <Route path="/crafting" element={<CraftingPage />} />
+              <Route path="/upgrades" element={<UpgradesPage />} />
+              <Route path="/blessings" element={<BlessingsPage />} />
+              <Route path="/respec" element={<RespecPage />} />
+              <Route path="/reset" element={<PrestigePage />} />
+              <Route path="/statistics" element={<StatisticsPage />} />
+              <Route path="/game-stats" element={<GameStatsPage />} />
+              <Route path="/achievements" element={<AchievementsPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Route>
+        </Routes>
+      </Suspense>
+      <CookieBanner />
+    </>
   )
 }
