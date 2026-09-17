@@ -479,14 +479,26 @@ character sprite art. Older open items below may be stale — trust the mileston
   fold / sticky mobile CTA / thank-you page judged not applicable — this is an auth-gated SPA with
   no marketing funnel or checkout, not a landing site.
   `↳ context: src/App.tsx, index.html`
-- [ ] **Launch checklist — still open** — from the same audit: `sitemap.xml`; a real favicon set
-  (currently one `favicon.svg` only — no `apple-touch-icon`, sized PNGs, or manifest); an Open
-  Graph image + `og:*`/`twitter:*` meta tags; terms & conditions / privacy policy pages; a cookie
-  banner (relevant once real users sign up with email via Supabase auth — GDPR-adjacent); an
-  analytics tool; a real contact address in the app/legal pages; and a pass confirming image
-  assets are compressed. Alt text and mobile breakpoints weren't flagged as gaps but weren't
-  verified either.
-  `↳ context: index.html, public/`
+- [x] **Launch checklist — mechanical items** (2026-09-17) — `public/sitemap.xml` (3 public URLs:
+  `/`, `/terms`, `/privacy` — placeholder domain, flagged inline), a real favicon set
+  (`apple-touch-icon`, sized PNGs, `site.webmanifest`, generated from `favicon.svg` via
+  `scripts/generate-favicons.mjs`), an Open Graph card + `og:*`/`twitter:*` meta tags, and
+  `robots.txt`'s `Sitemap:` directive. Image-compression item audited, not touched: the only
+  raster asset under `src/` (`assets/hero.png`, 13KB) isn't imported anywhere.
+  `↳ context: index.html, public/, scripts/generate-favicons.mjs, src/pages/DesignPage.tsx ("Launch Assets" section)`
+- [x] **Terms of Service / Privacy Policy pages + cookie notice** (2026-09-17) — `/terms` and
+  `/privacy` (public, outside `RequireAuth`), a starting boilerplate draft accurate to what the
+  app actually does (Supabase auth, no payments, no third-party analytics/tracking) but explicitly
+  flagged in-page as not lawyer-reviewed. `CookieBanner` discloses local-storage usage, dismissed
+  once via a localStorage flag, linked from both pages and from `AuthPage`'s register step.
+  `↳ context: src/pages/TermsPage.tsx, PrivacyPage.tsx, src/components/organisms/CookieBanner.tsx, src/components/templates/LegalLayout.tsx`
+- [ ] **Launch checklist — still open** — a real contact address (both legal pages currently say
+  `support@your-domain.example`, a placeholder); an analytics tool; a real production domain
+  (`your-domain.example` is a placeholder in `sitemap.xml`, `index.html`'s `og:url`/`og:image`,
+  and `robots.txt`'s `Sitemap:` line — grep for `your-domain.example` to find every occurrence once
+  a real one exists). Alt text and mobile breakpoints weren't flagged as gaps but weren't verified
+  either.
+  `↳ context: index.html, public/, src/pages/TermsPage.tsx, PrivacyPage.tsx`
 - [ ] **Onboarding tutorials + highlighting for newly-unlocked content** — no in-app guidance today
   when a player first unlocks something (a new map, a new feature/page like Blessings/Crafting/
   Skills becoming reachable for the first time, a new character). Idea: a short tutorial/callout
