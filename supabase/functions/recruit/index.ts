@@ -68,6 +68,7 @@ Deno.serve(async (req) => {
     p_char_key: characterDefId,
     p_gold_cost: goldCost,
     p_condition_exists: conditionExists,
+    p_lifetime_stats: { charactersRecruited: 1 },
   })
 
   if (rpcErr) {
