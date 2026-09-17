@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AuthForm } from './components/AuthForm'
 
 // Branded, centered auth screen shown to signed-out players. Toggles between login and register.
@@ -51,6 +52,14 @@ export function AuthPage() {
         </p>
 
         <AuthForm mode={mode} />
+
+        {mode === 'register' && (
+          <p style={{ textAlign: 'center', marginTop: 16, color: 'var(--color-text-muted)', fontSize: 11 }}>
+            By creating an account, you agree to our{' '}
+            <Link to="/terms" style={{ color: 'var(--color-gold-light)' }}>Terms</Link> and{' '}
+            <Link to="/privacy" style={{ color: 'var(--color-gold-light)' }}>Privacy Policy</Link>.
+          </p>
+        )}
 
         <p style={{ textAlign: 'center', marginTop: 20, color: 'var(--color-text-muted)', fontSize: 13 }}>
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
