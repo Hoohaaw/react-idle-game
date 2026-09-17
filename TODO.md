@@ -261,8 +261,29 @@ character sprite art. Older open items below may be stale — trust the mileston
     `{ charactersRecruited: 1 }` unconditionally — recruiting always succeeds if the RPC doesn't
     raise, no win/loss split needed. `npx supabase test db` run locally (79/79 passing) before
     merge, per this repo's migration-PR convention.
-  - Roster: `charactersDowned` (infirmary admission count; `admit_infirmary` needs
-    `p_lifetime_stats` added), total character levels gained across the roster's lifetime.
+  - [x] `charactersDowned` (2026-09-16) — `admit_infirmary` had no separate grant-only migration
+    the way `upgrade_items` did (checked the full history before writing this one, specifically to
+    avoid repeating that near-miss), so the drop/recreate for the new 4th `p_lifetime_stats jsonb
+    default '{}'::jsonb` param carried the existing revoke+grant pair forward correctly on the
+    first attempt. The function's own `for update` lock is on `player_characters`, a different
+    table — doesn't cover the new `profiles.lifetime_stats` update, but none is needed there
+    either, same reasoning as `claim_craft`/`upgrade_items`. Review caught a real bug in the first
+    draft: `admit_infirmary` accepts BOTH wounded (damaged, HP > 0) and truly downed (0 HP)
+    characters through the same call (stabilizing is a post-admission compute-on-read phase, not a
+    separate RPC — see `src/lib/infirmary.ts`'s doc comment), but the first draft counted every
+    admission unconditionally under a label the rest of the codebase (`combat.ts`, `infirmary.ts`,
+    `ClaimReward.tsx`) reserves specifically for 0-HP characters. Fixed by gating the delta on
+    `current_hp === 0` at admission time in `infirmary-admit`, not by relabeling — "how many times
+    a hero hit 0 HP" is the more meaningful counter of the two, and the Edge Function already had
+    `current_hp` on hand before the RPC call. Full `npx vitest run` (507/507) and `npx supabase
+    test db` (79/79) both run locally, twice (before and after the fix). Accepted tradeoff flagged
+    by review: the gate reads `current_hp` at the Edge Function's own unlocked pre-RPC fetch, not
+    under the RPC's `for update` lock — theoretically could diverge from the stored
+    `hp_at_admission` under a concurrent mutation to the same character between those two reads.
+    Not reachable in the normal serialized client flow and doesn't affect the authoritative stored
+    record; deliberately not special-cased into the RPC to keep it a dumb generic
+    `p_lifetime_stats` applier like the other 3 in this series.
+  - Roster: total character levels gained across the roster's lifetime.
   - Skills: time trained or XP earned per skill (parallel to `missionSecondsSent`, currently no
     time metric for the Church/Religion skill loop at all).
   - [x] Gathering: `gatherSecondsSpent` (2026-09-16, parallel to `missionSecondsSent`) —

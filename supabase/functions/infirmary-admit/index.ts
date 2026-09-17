@@ -72,10 +72,18 @@ Deno.serve(async (req) => {
   }
   if (char.current_hp >= maxHp) return json({ error: 'Character is already at full health' }, 409)
 
+  // charactersDowned tracks true downs (0 HP at admission) specifically — "downed" has a fixed
+  // meaning elsewhere in this codebase (combat.ts, infirmary.ts's own stabilize-phase doc comment,
+  // ClaimReward.tsx) distinct from merely "wounded" (damaged but > 0 HP), and admit_infirmary
+  // accepts both through this same call. Gating here, not renaming the stat, since "how many times
+  // a hero hit 0 HP" is the more meaningful lifetime counter of the two.
+  const lifetimeStats = char.current_hp === 0 ? { charactersDowned: 1 } : {}
+
   const { data: admission, error: rpcErr } = await admin.rpc('admit_infirmary', {
     p_player: playerId,
     p_char: characterId,
     p_max_beds: bedsForLevel(profile.infirmary_level),
+    p_lifetime_stats: lifetimeStats,
   })
   if (rpcErr) {
     // The RPC raises 'admit_infirmary: <reason>' for every validation failure (owned/busy/beds).
