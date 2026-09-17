@@ -1,0 +1,13 @@
+{
+  "name": "The Idle Game",
+  "short_name": "Idle Game",
+  "description": "Recruit heroes, send them on missions, clear dungeons and raids, and build your party in this browser-based idle RPG.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0305",
+  "theme_color": "#0f0305",
+  "icons": [
+    { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

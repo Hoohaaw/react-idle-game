@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Placeholder domain below — swap https://your-domain.example for the real production host once
+  one exists (see index.html's meta description note; same "placeholder copy, real branding still
+  open" situation). Only unauthenticated, crawlable routes are listed: everything under RequireAuth
+  (missions, team, etc. — see src/App.tsx) redirects to the sign-in screen for a crawler, so listing
+  them would just be noise. Add a URL here when a new public (non-gated) route is added.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://your-domain.example/</loc>
+  </url>
+</urlset>
