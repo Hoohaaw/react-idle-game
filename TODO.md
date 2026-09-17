@@ -493,12 +493,25 @@ character sprite art. Older open items below may be stale — trust the mileston
   once via a localStorage flag, linked from both pages and from `AuthPage`'s register step.
   `↳ context: src/pages/TermsPage.tsx, PrivacyPage.tsx, src/components/organisms/CookieBanner.tsx, src/components/templates/LegalLayout.tsx`
 - [ ] **Launch checklist — still open** — a real contact address (both legal pages currently say
-  `support@your-domain.example`, a placeholder); an analytics tool; a real production domain
-  (`your-domain.example` is a placeholder in `sitemap.xml`, `index.html`'s `og:url`/`og:image`,
-  and `robots.txt`'s `Sitemap:` line — grep for `your-domain.example` to find every occurrence once
-  a real one exists). Alt text and mobile breakpoints weren't flagged as gaps but weren't verified
-  either.
+  `support@your-domain.example`, a placeholder); a real production domain (`your-domain.example`
+  is a placeholder in `sitemap.xml`, `index.html`'s `og:url`/`og:image`, and `robots.txt`'s
+  `Sitemap:` line — grep for `your-domain.example` to find every occurrence once a real one
+  exists). Alt text and mobile breakpoints weren't flagged as gaps but weren't verified either.
   `↳ context: index.html, public/, src/pages/TermsPage.tsx, PrivacyPage.tsx`
+- [ ] **Analytics tool — Umami chosen, not wired up yet** (2026-09-17) — decided after comparing
+  against Google Analytics/Plausible/GoatCounter/PostHog: cookieless (no cookie-consent rework
+  needed), free tier (Umami Cloud — 3 sites / 100k events/month, or self-host later), and scoped
+  right for a no-ads hobby project (PostHog's session-recording/feature-flags is more than this
+  needs). Implementation notes for whoever picks this up: it's a single `<script>` tag (data-website-id
+  + Umami Cloud script src) — add to `index.html` next to the other launch-checklist meta tags. This
+  is a client-rendered SPA (`src/App.tsx`'s `react-router-dom` `Routes`), so route changes aren't
+  real page loads — Umami's auto-tracked pageview on script load won't fire again on navigation;
+  needs a manual `umami.track()` (or the tracked-page-view equivalent in Umami's current docs — verify
+  against their SPA integration guide, API may have moved since this was written) call wired into a
+  route-change listener (e.g. a small hook using `useLocation()` from `react-router-dom`, called once
+  near the top of `App.tsx` or inside `GameLayout`/`LegalLayout`). Also update `PrivacyPage.tsx`'s
+  "we don't run third-party analytics... scripts" line once this ships — it'll no longer be true.
+  `↳ context: index.html, src/App.tsx, src/pages/PrivacyPage.tsx`
 - [ ] **Onboarding tutorials + highlighting for newly-unlocked content** — no in-app guidance today
   when a player first unlocks something (a new map, a new feature/page like Blessings/Crafting/
   Skills becoming reachable for the first time, a new character). Idea: a short tutorial/callout
