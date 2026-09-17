@@ -336,15 +336,16 @@ character sprite art. Older open items below may be stale — trust the mileston
     a one-line registry entry" note elsewhere in this file is about a 5th). Single write site:
     `supabase/functions/skill-collect/index.ts`, which already computes both `consumedSec` and
     `gained` (XP) per collect via `accrue()` (~line 75) — the exact shape `gather-collect` used for
-    `gatherSecondsSpent`. The RPC it calls, `collect_skill` (locate its latest definition first —
-    grep `supabase/migrations/` for `create or replace function public.collect_skill`; not
-    identified as of this note), currently has NO `p_lifetime_stats` param — `skill-collect`'s own
-    top comment says so explicitly ("no lifetime-stats/acquisition tie-in ... skill training has no
-    mechanical effect yet"), confirming a deliberate prior scope cut, not an oversight. Needs the
-    drop/recreate pattern to add the param; check whether `collect_skill`'s body already locks
-    `profiles` before deciding if a fresh lock is needed (irrelevant either way per the `claim_craft`
-    precedent — a bare per-key `UPDATE ... WHERE player_id = p_player` is atomic regardless of a
-    pre-existing lock).
+    `gatherSecondsSpent`. The RPC it calls, `collect_skill`, is defined at
+    `supabase/migrations/20260914110100_skill_rpcs.sql:70`, signature `(p_player uuid,
+    p_assignment_id uuid, p_skill_key text, p_new_level int, p_new_xp int, p_new_last_collected_at
+    timestamptz, p_stop boolean)` — no `p_lifetime_stats` param. `skill-collect`'s own top comment
+    says so explicitly ("no lifetime-stats/acquisition tie-in ... skill training has no mechanical
+    effect yet"), confirming a deliberate prior scope cut, not an oversight. Needs the drop/recreate
+    pattern to add an 8th param; check whether `collect_skill`'s body already locks `profiles`
+    before deciding if a fresh lock is needed (irrelevant either way per the `claim_craft` precedent
+    — a bare per-key `UPDATE ... WHERE player_id = p_player` is atomic regardless of a pre-existing
+    lock).
     SHAPE DECISION NEEDED (not yet made): per-skill stats need dynamic per-skill keys, not one flat
     counter — mirror `resourceGatheredKey()` (`src/lib/lifetimeStats.ts:19-21`) exactly: add a
     `skillSecondsSpentKey(skillKey)` (and/or `skillXpEarnedKey(skillKey)`) helper returning
