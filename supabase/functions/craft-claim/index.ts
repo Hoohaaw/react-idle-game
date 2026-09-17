@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
     p_recipe_def_id: recipeDefId,
     p_result_item_def_id: def.resultItemKey,
     p_result_rarity: rarity,
+    p_lifetime_stats: { itemsCrafted: 1 },
   })
   if (claimErr) {
     console.error('craft-claim: claim_craft failed', claimErr)

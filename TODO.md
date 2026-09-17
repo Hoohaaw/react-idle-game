@@ -215,9 +215,17 @@ character sprite art. Older open items below may be stale — trust the mileston
     was purely a `mission-claim` Edge Function change. `missionsFailed` increments on any loss;
     `partyWipes` increments only when the combat sim's `result.reason === 'party-wiped'` (as
     opposed to `'timeout'`, a loss with survivors still standing).
+  - [x] `itemsCrafted` (2026-09-16) — `claim_craft` had no `p_lifetime_stats` param or any
+    pre-existing lock on `profiles` (crafting shipped without the acquisition-ledger integration
+    other RPCs got — same scope cut as group runs). Migration drops the old 4-arg signature,
+    recreates with a 5th `p_lifetime_stats jsonb default '{}'::jsonb`, adds the standard
+    generic-loop increment after the inventory insert. No new lock needed — each loop iteration's
+    `update ... where player_id = p_player` is already atomic for a blind additive increment; the
+    ADR-0054 `for update` rule is about read-then-decide reward logic (milestones), not this.
+    `craft-claim` passes `{ itemsCrafted: 1 }` unconditionally. `npx supabase test db` run locally
+    (79/79 passing) before merge.
   - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
-    every gold-spend site), `itemsCrafted` (`claim_craft` needs `p_lifetime_stats` added),
-    `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
+    every gold-spend site), `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
   - [x] Roster: `charactersRecruited` (2026-09-16, survives Transcend wipes, unlike the current
     live roster count) — `recruit_character` didn't accept `p_lifetime_stats` yet, so this needed a
     small migration (`20260916120000_recruit_character_lifetime_stats.sql`): drop the old 5-arg
