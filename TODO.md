@@ -180,6 +180,17 @@ character sprite art. Older open items below may be stale — trust the mileston
   to one side and not the other (`src/test/migration-policy.test.ts` already parses migrations and
   is the natural home for this check).
   `↳ context: project-reset · docs/DECISIONS.md ADR-0054`
+- [ ] **`migration-policy.test.ts`'s service_role-grant check is name-based, not signature-based** —
+  found 2026-09-16 while adding `p_lifetime_stats` to `upgrade_items` (dropped + recreated with a
+  new arg): a first draft of the migration lost the RPC's explicit `grant execute ... to
+  service_role` for the new signature, but the existing lint still passed, because it only checks
+  that *a* grant exists for the function *name* somewhere in migration history, not that one exists
+  for the *current* signature. A stale grant on an old, now-dropped signature silently satisfies it.
+  Caught this specific case by hand before push, not by the lint. Affects any RPC whose signature
+  changes more than once (9 occurrences of `drop function` in migration history as of this writing)
+  — the lint should match grants against each function's latest `create or replace function`
+  signature, not just presence-by-name.
+  `↳ context: project-reset · src/test/migration-policy.test.ts, supabase/migrations/20260916140000_upgrade_items_lifetime_stats.sql`
 - [x] **Achievements system** (ADR-0055, 2026-09-14) — a purely cosmetic badge system: threshold
   ladders reusing `ASCENDANT_MILESTONES`'s own numbers plus one-off "moment" badges (Legendary
   equip, blessing capstone, level cap, full roster, first Reset/Transcend, Shard Hoarder, Days
@@ -224,8 +235,23 @@ character sprite art. Older open items below may be stale — trust the mileston
     ADR-0054 `for update` rule is about read-then-decide reward logic (milestones), not this.
     `craft-claim` passes `{ itemsCrafted: 1 }` unconditionally. `npx supabase test db` run locally
     (79/79 passing) before merge.
+  - [x] `itemsUpgraded` (2026-09-16) — `upgrade_items` processes a BATCH (`p_ops` array), and each
+    op produces a variable number of upgraded items (`consume_count / 5`), unlike every other
+    lifetime-stat RPC which always increments by a fixed amount per call. Kept the RPC a dumb
+    generic applier (same `p_lifetime_stats` loop as the others) by computing the total in the
+    `item-upgrade` Edge Function instead — it already has the full `ops` array. Migration drops the
+    old 2-arg signature, recreates with a 3rd `p_lifetime_stats jsonb default '{}'::jsonb`. First
+    draft of the migration lost `upgrade_items`'s explicit `grant execute ... to service_role` —
+    that grant wasn't in the RPC's original defining migration, only added later by a separate
+    follow-up (`20260910100001_upgrade_items_service_role_grant.sql`) once
+    `src/test/migration-policy.test.ts` started checking for it; dropping+recreating the function
+    silently dropped it again. Caught pre-push and fixed — both `revoke` and `grant` are present
+    for the new 3-arg signature. (Follow-up worth logging separately: that same lint turned out to
+    be name-based, not signature-based — it would NOT actually have caught this regression, since
+    the old 2-arg grant already satisfied it by name. Not fixed here, out of scope for this PR.)
+    `npx supabase test db` run locally (79/79 passing).
   - Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender, cross-cutting:
-    every gold-spend site), `itemsUpgraded` (`upgrade_items` needs `p_lifetime_stats` added).
+    every gold-spend site).
   - [x] Roster: `charactersRecruited` (2026-09-16, survives Transcend wipes, unlike the current
     live roster count) — `recruit_character` didn't accept `p_lifetime_stats` yet, so this needed a
     small migration (`20260916120000_recruit_character_lifetime_stats.sql`): drop the old 5-arg
