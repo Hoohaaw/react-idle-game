@@ -11,7 +11,7 @@ values ('60000000-0000-0000-0000-000000000001', 'activity-1@test.local', jsonb_b
 
 -- 1. Inserts a row with the given type/payload.
 select public.log_event(
-  '60000000-0000-0000-0000-000000000001'::uuid, 'mission_started', jsonb_build_object('missionName', 'Goblin Outpost')
+  '60000000-0000-0000-0000-000000000001'::uuid, 'mission_started'::text, jsonb_build_object('missionName', 'Goblin Outpost')
 );
 
 select is(
@@ -31,7 +31,7 @@ select '60000000-0000-0000-0000-000000000001'::uuid, 'gather_collected', '{}'::j
        now() - (n || ' minutes')::interval
 from generate_series(1, 200) as n;
 
-select public.log_event('60000000-0000-0000-0000-000000000001'::uuid, 'mission_started', '{}'::jsonb);
+select public.log_event('60000000-0000-0000-0000-000000000001'::uuid, 'mission_started'::text, '{}'::jsonb);
 
 select is(
   (select count(*)::int from public.player_events where player_id = '60000000-0000-0000-0000-000000000001'),
@@ -51,7 +51,7 @@ select is(
 -- 4. A second player's events are untouched by the first player's prune.
 insert into auth.users (id, email, raw_user_meta_data)
 values ('60000000-0000-0000-0000-000000000002', 'activity-2@test.local', jsonb_build_object('username', 'activity_2'));
-select public.log_event('60000000-0000-0000-0000-000000000002'::uuid, 'mission_started', '{}'::jsonb);
+select public.log_event('60000000-0000-0000-0000-000000000002'::uuid, 'mission_started'::text, '{}'::jsonb);
 
 select is(
   (select count(*)::int from public.player_events where player_id = '60000000-0000-0000-0000-000000000002'),
