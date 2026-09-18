@@ -2,6 +2,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { statsByCharacter, type CharRowForHp } from '../_shared/charMaxHp.ts'
 import { healState } from '../../../src/lib/infirmary.ts'
+import { fetchCharacterName } from '../_shared/characterName.ts'
 
 // infirmary-discharge: settle an admission (ADR-0003/0021). The server derives the healed HP
 // from admitted_at + hp_at_admission with the shared engine (compute-on-read, ADR-0002) and the
@@ -103,6 +104,17 @@ Deno.serve(async (req) => {
   if (rpcErr) {
     const reason = rpcErr.message.replace(/^.*discharge_infirmary:\s*/, '')
     return json({ error: reason || 'Could not discharge character' }, 409)
+  }
+
+  try {
+    const characterName = await fetchCharacterName(admin, playerId, characterId)
+    await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'infirmary_discharged',
+      p_payload: { characterName, fullyHealed: state.phase === 'full' },
+    })
+  } catch (e) {
+    console.error('activity log failed (infirmary_discharged) — continuing', e)
   }
 
   return json({ characterId, current_hp: newHp, phase: state.phase }, 200)
