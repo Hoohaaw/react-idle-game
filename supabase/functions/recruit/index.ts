@@ -17,11 +17,12 @@ function json(body: unknown, status: number) {
 
 type AcquisitionRow = {
   charKey: string
+  name?: string
   acquisition?: { goldCost?: number; condition?: { type?: string } } | null
 }
 
 const ACQUISITION_GROQ = `*[_type == "characterDef" && charKey == $key][0]{
-  charKey, acquisition{ goldCost, condition{ type } }
+  charKey, name, acquisition{ goldCost, condition{ type } }
 }`
 
 Deno.serve(async (req) => {
@@ -78,6 +79,16 @@ Deno.serve(async (req) => {
     if (reason.includes('insufficient gold')) return json({ error: reason }, 402)
     console.error('recruit_character failed', rpcErr)
     return json({ error: reason || 'Could not recruit character' }, 500)
+  }
+
+  try {
+    await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'character_recruited',
+      p_payload: { characterName: row.name ?? characterDefId },
+    })
+  } catch (e) {
+    console.error('activity log failed (character_recruited) — continuing', e)
   }
 
   return json({ character: charRow }, 201)
