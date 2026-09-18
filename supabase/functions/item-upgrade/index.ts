@@ -69,5 +69,17 @@ Deno.serve(async (req) => {
     return json({ error: reason || 'Could not upgrade items' }, 409)
   }
 
+  if (itemsUpgraded > 0) {
+    try {
+      await admin.rpc('log_event', {
+        p_player: playerId,
+        p_type: 'item_upgraded',
+        p_payload: { count: itemsUpgraded },
+      })
+    } catch (e) {
+      console.error('activity log failed (item_upgraded) — continuing', e)
+    }
+  }
+
   return json({ ok: true }, 200)
 })
