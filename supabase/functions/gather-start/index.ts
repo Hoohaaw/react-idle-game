@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { MINE_BY_RESOURCE } from '../../../src/lib/gather.ts'
+import { fetchCharacterName } from '../_shared/characterName.ts'
 
 // gather-start: assign a character to a mine (ADR-0003 server-authoritative write, ADR-0019). Validates the
 // caller + that the resource is a known mine (config is code — src/lib/gather.ts), then hands off to the
@@ -51,6 +52,17 @@ Deno.serve(async (req) => {
     // The RPC raises 'start_gather: <reason>' for every validation failure (owned/downed/busy/one-per-node).
     const reason = rpcErr.message.replace(/^.*start_gather:\s*/, '')
     return json({ error: reason || 'Could not start gathering' }, 409)
+  }
+
+  try {
+    const characterName = await fetchCharacterName(admin, playerId, characterId)
+    await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'gather_started',
+      p_payload: { resource: resourceId, characterName },
+    })
+  } catch (e) {
+    console.error('activity log failed (gather_started) — continuing', e)
   }
 
   return json({ assignment }, 201)
