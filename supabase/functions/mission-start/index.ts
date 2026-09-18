@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
   // exists. `prevMapKey` = the map immediately before this mission's map in world order — the RPC
   // gates on its boss being cleared (ADR-0034); null for the first map or unplaced legacy missions.
   type MissionDef = {
+    name?: string
     durationSeconds?: number
     stage?: number
     map?: { mapKey?: string; order?: number; prevMapKey?: string | null } | null
@@ -57,7 +58,7 @@ Deno.serve(async (req) => {
   try {
     def = await sanityQuery<MissionDef | null>(
       `*[_type == "missionDef" && missionKey == $id][0]{
-        durationSeconds, stage,
+        name, durationSeconds, stage,
         "map": map->{
           mapKey, order,
           "prevMapKey": *[_type == "mapDef" && order < ^.order] | order(order desc)[0].mapKey
@@ -125,6 +126,16 @@ Deno.serve(async (req) => {
     // The RPC raises 'start_mission: <reason>' for every validation failure (owned/downed/busy/size).
     const reason = rpcErr.message.replace(/^.*start_mission:\s*/, '')
     return json({ error: reason || 'Could not start mission' }, 409)
+  }
+
+  try {
+    await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'mission_started',
+      p_payload: { missionName: def.name ?? 'Unknown Mission' },
+    })
+  } catch (e) {
+    console.error('activity log failed (mission_started) — continuing', e)
   }
 
   return json({ run }, 201)
