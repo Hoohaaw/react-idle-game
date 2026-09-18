@@ -159,5 +159,17 @@ Deno.serve(async (req) => {
     role: candidateByKey.get(charKey)?.role ?? null,
   }))
 
+  if (gained > 0 || stop) {
+    try {
+      await admin.rpc('log_event', {
+        p_player: playerId,
+        p_type: 'gather_collected',
+        p_payload: { resource: assignment.resource_id, amount: gained },
+      })
+    } catch (e) {
+      console.error('activity log failed (gather_collected) — continuing', e)
+    }
+  }
+
   return json({ gained, resource: assignment.resource_id, stopped: stop, newlyUnlocked }, 200)
 })
