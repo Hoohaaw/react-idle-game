@@ -117,5 +117,15 @@ Deno.serve(async (req) => {
     return json({ error: reason || 'Could not upgrade infirmary' }, 409)
   }
 
+  try {
+    await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'infirmary_upgraded',
+      p_payload: { newLevel },
+    })
+  } catch (e) {
+    console.error('activity log failed (infirmary_upgraded) — continuing', e)
+  }
+
   return json({ infirmary_level: newLevel }, 200)
 })
