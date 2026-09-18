@@ -179,6 +179,18 @@ export type Database = {
         }
         Relationships: []
       }
+      player_events: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json
+          player_id: string
+          type: string
+        }
+        Insert: never // all writes go through log_event() — no direct client insert (ADR-0003)
+        Update: never
+        Relationships: []
+      }
       player_inventory: {
         Row: {
           acquired_at: string
