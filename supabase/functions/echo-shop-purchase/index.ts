@@ -46,5 +46,15 @@ Deno.serve(async (req) => {
     return json({ error: reason || 'Could not purchase upgrade' }, 409)
   }
 
+  try {
+    await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'echo_purchased',
+      p_payload: { nodeLabel: ECHO_SHOP_NODES[nodeKey].label },
+    })
+  } catch (e) {
+    console.error('activity log failed (echo_purchased) — continuing', e)
+  }
+
   return json(result, 200)
 })
