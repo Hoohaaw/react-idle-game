@@ -223,6 +223,7 @@ export default function MissionsPage() {
                     dropCount={m.loot.length}
                     resists={strong}
                     weakTo={weak}
+                    proficiencies={m.proficiencyTags}
                     onSend={locked ? undefined : () => setDispatchKey(m.missionKey)}
                   />
                 )
