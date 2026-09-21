@@ -36,6 +36,7 @@ function toDispatchMission(m: GameMission): DispatchMission {
     enemies: m.enemies,
     timeLimitSeconds: m.timeLimitSeconds,
     mapKey: m.map?.mapKey ?? null,
+    proficiencyTags: m.proficiencyTags,
   }
 }
 
@@ -142,6 +143,7 @@ export default function MissionsPage() {
     level: m.level,
     role: m.role,
     damageSchool: m.damageSchool,
+    proficiency: m.proficiency,
     stats: m.stats,
     currentHp: m.currentHp,
     traits: m.traits,
