@@ -22,6 +22,7 @@ import { applyXp } from '../../../src/lib/leveling.ts'
 import { resolveRole, type CharacterRole } from '../../../src/lib/roles.ts'
 import type { School } from '../../../src/lib/schools.ts'
 import { collectTraitBonuses, partyAverageStat, type TraitDef, type TraitContext } from '../../../src/lib/traits.ts'
+import { resolveProficiencyBonus } from '../../../src/lib/proficiencies.ts'
 import {
   flattenBlessingTree,
   resolveBlessingAllocations,
@@ -82,6 +83,7 @@ type EnemyRow = {
 type MissionForClaim = {
   baseXp?: number
   stage?: number
+  proficiencyTags?: string[]
   map?: { mapKey?: string } | null
   rewards?: { kind: 'currency' | 'resource'; code: string; amount: number }[]
   loot?: {
@@ -99,6 +101,7 @@ type CharDefRow = {
   charClass: string
   role?: CharacterRole | null
   damageSchool?: School | null
+  proficiency?: string | null
   baseStats?: StatValue[]
   growth?: StatGrowth[]
   blessingTree?: RawBlessingRow[]
@@ -119,7 +122,7 @@ type CharRow = {
 }
 
 const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
-  baseXp, stage,
+  baseXp, stage, proficiencyTags,
   "map": map->{ mapKey },
   rewards[]{ kind, code, amount },
   loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
@@ -131,7 +134,7 @@ const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
 }`
 
 const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
-  charKey, charClass, role, damageSchool,
+  charKey, charClass, role, damageSchool, proficiency,
   baseStats[]{ stat, value },
   growth[]{ stat, perLevel, milestones[]{ level, bonus } },
   blessingTree[]{ row, choices[]{ choiceId, effects[]{ stat, kind, value } } },
@@ -257,6 +260,7 @@ Deno.serve(async (req) => {
         resolveCapstoneBonuses(def.capstone, earnedCapstone, traitCtx),
         resolveCharAscendantBonuses(ascendantShop, def.charKey),
         resolveFlatAscendantStatBonuses(ascendantShop),
+        resolveProficiencyBonus(def.proficiency, mission.proficiencyTags),
       ),
     })
     statsById[c.id] = stats
