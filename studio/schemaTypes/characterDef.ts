@@ -1,7 +1,8 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 import { UserIcon } from '@sanity/icons'
-import { CLASS_ROLE, ROLE_STYLES } from '../../src/lib/roles'
+import { CLASS_ROLE, ROLE_STYLES, resolveRole, type CharacterRole } from '../../src/lib/roles'
 import { SCHOOL_DEFS } from '../../src/lib/schools'
+import { PROFICIENCY_DEFS } from '../../src/lib/proficiencies'
 import {
   CHARACTER_RARITIES,
   TRAIT_COUNT_BY_RARITY,
@@ -21,6 +22,7 @@ const SCHOOL_OPTIONS = SCHOOL_DEFS.filter((s) => s.key !== 'physical').map((s) =
   title: `${s.label} ${s.icon}`,
   value: s.key,
 }))
+const PROFICIENCY_OPTIONS = PROFICIENCY_DEFS.map((p) => ({ title: p.label, value: p.proficiencyKey }))
 
 type BlessingRowValue = { row?: number }
 
@@ -30,6 +32,8 @@ type CharacterDoc = {
   rarity?: CharacterRarity
   baseStats?: BudgetStatValue[]
   growth?: BudgetStatGrowth[]
+  charClass?: string
+  role?: string
 }
 
 function budgetError(doc: CharacterDoc, which: 'base' | 'growth'): string | true {
@@ -137,6 +141,24 @@ export const characterDef = defineType({
           const expected = TRAIT_COUNT_BY_RARITY[rarity]
           if (value.length !== expected) {
             return `${rarity} characters carry exactly ${expected} trait${expected === 1 ? '' : 's'} (got ${value.length}) — docs/TRAITS.md §4.`
+          }
+          return true
+        }),
+    }),
+    defineField({
+      name: 'proficiency',
+      title: 'Proficiency',
+      description:
+        'Utility-role-exclusive conditional stat bonus (ADR-0013 fork 6, ADR-0059): applies only on missions whose proficiencyTags include this key. Leave blank for non-Utility characters, and for any Utility character without one authored yet.',
+      type: 'string',
+      options: { list: PROFICIENCY_OPTIONS },
+      validation: (rule) =>
+        rule.custom((value: string | undefined, context) => {
+          if (!value) return true // optional
+          const doc = context.document as CharacterDoc | undefined
+          const role = resolveRole(doc?.charClass ?? '', (doc?.role as CharacterRole | undefined) ?? null)
+          if (role !== 'utility') {
+            return 'Proficiency is Utility-role-exclusive — this character resolves to a different role.'
           }
           return true
         }),
