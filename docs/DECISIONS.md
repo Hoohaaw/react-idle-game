@@ -2991,3 +2991,40 @@ dungeon-raid-rpc-tests-design.md`.
 - Follow-up, not done here: extending this infra to `recruit_character`,
   `check_ascendant_milestones`, `check_achievements` — same shape, smaller task now that the infra
   exists.
+
+## ADR-0059 — Utility role conditional proficiency
+
+**Date:** 2026-09-20 · **Status:** Accepted
+
+**Context.** ADR-0013 fork 6 deliberately left the Utility role (Druid/Bard/Engineer/
+Brewmaster/Painter) without a passive combat expression; ADR-0014 confirmed Utility
+characters fought as generic combatants in the meantime. The player's framing: Utility's
+identity should be *conditional* — proficient in something specific (e.g. Alchemy), useful
+on missions where that applies, ordinary elsewhere. Full design:
+`docs/superpowers/specs/2026-09-20-utility-proficiency-design.md`.
+
+**Decision.** A new registry, `src/lib/proficiencies.ts` (`PROFICIENCY_DEFS`,
+`PROFICIENCY_BY_KEY`, `resolveProficiencyBonus`), defines proficiency keys and their
+flat/pct stat effects — the same `{flat, pct}` shape gear/blessings/traits already use.
+`characterDef.proficiency` (new, optional, Utility-role-exclusive by studio validation) and
+`missionDef.proficiencyTags` (new, optional, sparse — not a forced per-map/per-mission
+categorization) carry the authored data. When a character's proficiency is present in the
+mission's tags, they receive their own personal stat bonus for that fight — never
+party-wide, never a direct win-chance probability tweak (the bonus modifies the sim's
+inputs, same rule `traits.ts` already established). One shared function,
+`resolveProficiencyBonus()`, is called from both the client's win-chance estimator
+(`WinChanceEstimate.tsx`) and the server-authoritative `mission-claim` Edge Function, so the
+two never drift.
+
+Proficiency is a **fixed authored trait** decided at recruitment — not trained via the
+Skills system (`skill_assignments`), and not folded into `traitDef`'s point-buy-budgeted
+trait system (a different kind of thing: a static per-mission-attempt match, not a live
+combat-state condition).
+
+**Consequences.** Adding proficiency #2 is a one-line `PROFICIENCY_DEFS` entry plus
+opportunistic authoring in Studio — no migration, no new RPC, no new Edge Function
+(ADR-0004). Initial stat-effect values ship as placeholders pending a `docs/BALANCE.md`
+before/after sweep (not done in this ADR's implementation pass). Hard content gating
+("this dungeon requires a proficient character") remains explicitly deferred — the data
+model already carries what a future gate check would read, but the gate mechanism and
+soft-lock UX are undesigned.
