@@ -20,6 +20,7 @@ export type GameCharacter = {
   name: string
   charClass: string
   role?: CharacterRole
+  proficiency?: string
   damageSchool?: School
   baseStats: StatValue[]
   growth: StatGrowth[]
@@ -36,7 +37,7 @@ export type GameCharacter = {
 // abilityParams are projected even though Phase A's schema doesn't author them yet (Phase B adds
 // the schema fields) — GROQ returns null for not-yet-existing fields, so this needs no revisit.
 const CHARACTER_DEFS_QUERY = `*[_type == "characterDef" && defined(charKey)]{
-  charKey, name, charClass, role, damageSchool,
+  charKey, name, charClass, role, damageSchool, proficiency,
   baseStats[]{stat, value},
   growth[]{stat, perLevel, milestones[]{level, bonus}},
   blessingTree[]{row, choices[]{choiceId, title, description, effects[]{stat, kind, value}}},
@@ -51,6 +52,7 @@ type RawCharacterDef = {
   name: string
   charClass: string
   role?: CharacterRole
+  proficiency?: string
   damageSchool?: School
   baseStats?: Array<{ stat: string; value: number }>
   growth?: Array<{ stat: string; perLevel: number; milestones?: Array<{ level: number; bonus: number }> }>
@@ -87,6 +89,7 @@ export async function fetchCharacterDefs(): Promise<GameCharacter[]> {
       name: c.name,
       charClass: c.charClass,
       role: c.role,
+      proficiency: c.proficiency,
       damageSchool: c.damageSchool,
       baseStats: (c.baseStats ?? []).map((b) => ({ stat: b.stat, value: b.value })),
       growth: (c.growth ?? []).map((g) => ({

@@ -65,6 +65,9 @@ export type RosterMember = {
   charClass: string
   role: CharacterRole
   damageSchool?: School
+  /** Utility-role-exclusive conditional bonus (ADR-0059) — resolved against a specific
+   *  mission's proficiencyTags at the fight-context call site, not here (context-free). */
+  proficiency?: string
   /** Innate traits (ADR-0035) — the roster view's stats include only the always-on ones;
    *  fight/gather-conditional matching happens at the site with its context. */
   traits: TraitDef[]
@@ -149,6 +152,7 @@ export function useRoster() {
         charClass: def.charClass,
         role: resolveRole(def.charClass, def.role),
         damageSchool: def.damageSchool,
+        proficiency: def.proficiency,
         traits: def.traits,
         level: c.level,
         xp: c.xp,
