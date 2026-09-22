@@ -2,6 +2,8 @@ import { StatusTag } from '@/components/atoms/StatusTag'
 import { IconSlot } from '@/components/atoms/IconSlot'
 import { PrimaryButton } from '@/components/atoms/Button'
 import { SCHOOL_DEFS, type School } from '@/lib/schools'
+import { PROFICIENCY_BY_KEY } from '@/lib/proficiencies'
+import { ROLE_STYLES } from '@/lib/roles'
 
 // School-colored labels for the card's compact resist line (real school icons come later —
 // design rule: no emoji icons).
@@ -23,8 +25,9 @@ function SchoolNames({ schools }: { schools: School[] }) {
 // A selectable available mission (maps to a Sanity missionDef). `gold`/`xp` are the BASE rewards
 // before the win-gated multipliers; `dropCount` = number of loot-table entries. `stage` is a display
 // tag for ordering/difficulty; `boss` = the map's stage-7 finale (ADR-0034 — harder, better loot,
-// red treatment). `resists`/`weakTo` = the encounter's school summary (ADR-0033).
-export function MissionCard({ name, stage, gold, xp, duration, dropCount, resists = [], weakTo = [], locked, boss, onSend }: { name: string; stage?: number; gold: number; xp: number; duration: string; dropCount: number; resists?: School[]; weakTo?: School[]; locked?: boolean; boss?: boolean; onSend?: () => void }) {
+// red treatment). `resists`/`weakTo` = the encounter's school summary (ADR-0033). `proficiencies` =
+// the mission's optional proficiency tags (ADR-0059) — informational, same as resists/weakTo.
+export function MissionCard({ name, stage, gold, xp, duration, dropCount, resists = [], weakTo = [], proficiencies = [], locked, boss, onSend }: { name: string; stage?: number; gold: number; xp: number; duration: string; dropCount: number; resists?: School[]; weakTo?: School[]; proficiencies?: string[]; locked?: boolean; boss?: boolean; onSend?: () => void }) {
   return (
     <div style={{
       width: 250, borderRadius: 8,
@@ -62,11 +65,17 @@ export function MissionCard({ name, stage, gold, xp, duration, dropCount, resist
             <IconSlot size={12} />{duration}
           </span>
         </div>
-        {(resists.length > 0 || weakTo.length > 0) && (
+        {(resists.length > 0 || weakTo.length > 0 || proficiencies.length > 0) && (
           <p style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 10 }}>
             {resists.length > 0 && <>Resists <SchoolNames schools={resists} /></>}
-            {resists.length > 0 && weakTo.length > 0 && <span style={{ opacity: 0.6 }}>·</span>}
+            {resists.length > 0 && (weakTo.length > 0 || proficiencies.length > 0) && <span style={{ opacity: 0.6 }}>·</span>}
             {weakTo.length > 0 && <>Weak <SchoolNames schools={weakTo} /></>}
+            {weakTo.length > 0 && proficiencies.length > 0 && <span style={{ opacity: 0.6 }}>·</span>}
+            {proficiencies.length > 0 && (
+              <span style={{ color: ROLE_STYLES.utility.color, fontSize: 11 }}>
+                Proficiency: {proficiencies.map((key) => PROFICIENCY_BY_KEY[key]?.label ?? key).join(', ')}
+              </span>
+            )}
           </p>
         )}
         <p style={{ color: 'var(--color-text-muted)', fontSize: 11, marginBottom: 12, fontStyle: 'italic' }}>

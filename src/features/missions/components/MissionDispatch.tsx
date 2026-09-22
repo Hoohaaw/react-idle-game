@@ -86,7 +86,7 @@ export function MissionDispatch({
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
                 <InfoStat label="Duration" value={mission.duration} />
                 <InfoStat label="Base XP" value={`${mission.baseXp}`} />
-                <WinChanceEstimate party={party} enemies={mission.enemies} timeLimitSeconds={mission.timeLimitSeconds ?? null} mapKey={mission.mapKey} />
+                <WinChanceEstimate party={party} enemies={mission.enemies} timeLimitSeconds={mission.timeLimitSeconds ?? null} mapKey={mission.mapKey} proficiencyTags={mission.proficiencyTags} />
               </div>
 
               <div className="atom-heavy" style={{
