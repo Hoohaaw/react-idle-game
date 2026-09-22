@@ -2994,7 +2994,7 @@ dungeon-raid-rpc-tests-design.md`.
 
 ## ADR-0059 — Utility role conditional proficiency
 
-**Date:** 2026-09-20 · **Status:** Accepted
+**Date:** 2026-09-20 · **Status:** Accepted (Alex)
 
 **Context.** ADR-0013 fork 6 deliberately left the Utility role (Druid/Bard/Engineer/
 Brewmaster/Painter) without a passive combat expression; ADR-0014 confirmed Utility
@@ -3014,7 +3014,9 @@ party-wide, never a direct win-chance probability tweak (the bonus modifies the 
 inputs, same rule `traits.ts` already established). One shared function,
 `resolveProficiencyBonus()`, is called from both the client's win-chance estimator
 (`WinChanceEstimate.tsx`) and the server-authoritative `mission-claim` Edge Function, so the
-two never drift.
+proficiency bonus specifically never drifts between the two (this does not extend to other,
+pre-existing gaps between the estimator and the server, such as Ascendant-shop bonuses the
+estimator omits — out of scope here).
 
 Proficiency is a **fixed authored trait** decided at recruitment — not trained via the
 Skills system (`skill_assignments`), and not folded into `traitDef`'s point-buy-budgeted
@@ -3027,4 +3029,13 @@ opportunistic authoring in Studio — no migration, no new RPC, no new Edge Func
 before/after sweep (not done in this ADR's implementation pass). Hard content gating
 ("this dungeon requires a proficient character") remains explicitly deferred — the data
 model already carries what a future gate check would read, but the gate mechanism and
-soft-lock UX are undesigned.
+soft-lock UX are undesigned. The proficiency bonus flows through the same `stats` object
+used for `xpGain`/`goldFind`/`magicFind`/`luck` multipliers and achievement-condition
+evaluation in `mission-claim` (same as trait/capstone/Ascendant bonuses already do), so a
+future `PROFICIENCY_DEFS` entry granting an economy-affecting stat (not just combat stats
+like the current `alchemy` placeholder) would also move those, not just combat outcomes —
+expected, worth flagging for whoever authors proficiency #2. This mechanic is mission-only:
+dungeons/raids (`group-claim-stage`, `groupDef`) carry no `proficiencyTags` and are
+deliberately not wired up, out of scope alongside the deferred hard-gating; and the mission
+card's synergy display (Task 7) is informational-only with no roster-ownership check,
+matching the existing resists/weakTo pattern — intentional, not a gap.

@@ -1,4 +1,4 @@
-import type { StatBonus } from './stats'
+import type { StatBonus } from './stats.ts'
 
 // Utility role conditional proficiency (ADR-0013 fork 6, ADR-0059,
 // docs/superpowers/specs/2026-09-20-utility-proficiency-design.md): a fixed authored trait,
