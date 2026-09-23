@@ -77,9 +77,16 @@ export async function fetchRecipes(): Promise<RecipeView[]> {
   })
 }
 
-/** The player's single in-progress craft, or null. */
+/**
+ * The player's single in-progress craft, or null. Explicit column list, not `select('*')` —
+ * `roll_seed` is deliberately excluded from the `authenticated` grant (only the crafting Edge
+ * Functions, running as service_role, can read it), so a `*` select would error.
+ */
 export async function fetchCraftRun(): Promise<CraftRun | null> {
-  const { data, error } = await supabase.from('craft_runs').select('*').maybeSingle()
+  const { data, error } = await supabase
+    .from('craft_runs')
+    .select('player_id, recipe_def_id, started_at, ends_at, resource_reagents, item_reagents')
+    .maybeSingle()
   if (error) throw error
   return data
 }
@@ -96,4 +103,10 @@ export async function claimCraft(recipeDefId: string): Promise<CraftClaimRespons
   const { data, error } = await supabase.functions.invoke('craft-claim', { body: { recipeDefId } })
   if (error) await invokeError(error, 'Could not claim the craft')
   return data as CraftClaimResponse
+}
+
+/** Abandon the in-progress (or finished-but-unclaimed) craft — full reagent refund, no result. */
+export async function cancelCraft(recipeDefId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('craft-cancel', { body: { recipeDefId } })
+  if (error) await invokeError(error, 'Could not cancel the craft')
 }

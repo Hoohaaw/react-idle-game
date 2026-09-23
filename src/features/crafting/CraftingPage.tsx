@@ -5,7 +5,7 @@ import { useInventory } from '@/hooks/useInventory'
 import { useItemDefs } from '@/hooks/useRoster'
 import { useProfile } from '@/hooks/useProfile'
 import { resolveReagents, canAfford, defaultRarityChoice, type ItemRarityChoice } from '@/lib/crafting'
-import { useRecipes, useCraftRun, useStartCraft, useClaimCraft } from './hooks'
+import { useRecipes, useCraftRun, useStartCraft, useClaimCraft, useCancelCraft } from './hooks'
 import { CraftingCircle } from './components/CraftingCircle'
 import { CraftingInventory } from './components/CraftingInventory'
 import { RecipeBook } from './components/RecipeBook'
@@ -24,6 +24,7 @@ export default function CraftingPage() {
   const run = useCraftRun()
   const startCraft = useStartCraft()
   const claimCraft = useClaimCraft()
+  const cancelCraft = useCancelCraft()
 
   // The 1 Hz clock only needs to run while a craft is in progress (drives the countdown label).
   const hasRun = Boolean(run.data)
@@ -67,9 +68,9 @@ export default function CraftingPage() {
       return { key: recipe.recipeKey, choices: [...kept, { reagentIndex, rarity }] }
     })
   }
-  const clear = () => { setSelectedKey(null); setPicks({ key: '', choices: [] }); startCraft.reset(); claimCraft.reset() }
+  const clear = () => { setSelectedKey(null); setPicks({ key: '', choices: [] }); startCraft.reset(); claimCraft.reset(); cancelCraft.reset() }
 
-  const mutationError = inProgress ? claimCraft.error : startCraft.error
+  const mutationError = inProgress ? (claimCraft.error ?? cancelCraft.error) : startCraft.error
 
   return (
     <div>
@@ -83,10 +84,11 @@ export default function CraftingPage() {
             inProgress={inProgress}
             remainingMs={remainingMs}
             canCraft={Boolean(recipe) && canAfford(resolved)}
-            pending={startCraft.isPending || claimCraft.isPending}
+            pending={startCraft.isPending || claimCraft.isPending || cancelCraft.isPending}
             error={mutationError?.message ?? null}
             onCraft={() => { if (recipe) { setClaimed(null); startCraft.mutate({ recipeDefId: recipe.recipeKey, choices }) } }}
             onClaim={() => { if (run.data) claimCraft.mutate(run.data.recipe_def_id, { onSuccess: (res) => { clear(); setClaimed({ name: itemDefs.data?.[res.itemDefId]?.name ?? res.itemDefId, rarity: res.rarity }) } }) }}
+            onCancel={() => { if (run.data) cancelCraft.mutate(run.data.recipe_def_id, { onSuccess: clear }) }}
             onClear={clear}
             claimed={claimed}
           />
