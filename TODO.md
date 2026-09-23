@@ -453,10 +453,15 @@ character sprite art. Older open items below may be stale — trust the mileston
   since, so these types won't show up for authoring there yet. Run `cd studio && npm run
   schema:deploy` (or `npm run deploy` for the full Studio).
   `↳ context: project-crafting · studio/schemaTypes/recipeDef.ts`
-- [ ] **Crafting cancel/abandon** — no way to clear a stuck craft (recipe broken between start and
-  claim) except deleting the `craft_runs` row. Design together with the rarity seed (client-derivable;
-  cancel + restart = free re-roll) and a refund rule. See ADR-0052 consequences.
-  `↳ context: project-crafting · docs/DECISIONS.md ADR-0052`
+- [x] **Crafting cancel/abandon** (2026-09-23, PR #143) — new "Abandon" action, full reagent
+  refund, no time restriction (works mid-craft or finished-but-unclaimed). Also closes ADR-0052's
+  flagged reroll exploit: the claim-time rarity roll now seeds off a new server-only `roll_seed`
+  column (hidden from the client via a column-level GRANT, including from `start_craft`'s own
+  RPC-return path) instead of the client-readable `started_at`. `craft_runs` now persists the
+  exact reagents spent per run so `cancel_craft` can refund precisely what was charged. **Not yet
+  applied to the hosted Supabase project** — needs the migration applied + `craft-start`/
+  `craft-claim`/`craft-cancel` (Edge Functions) deployed once the Supabase MCP is reconnected.
+  `↳ context: project-crafting · supabase/migrations/20260923100000_craft_cancel.sql, docs/DECISIONS.md ADR-0052`
 - [ ] **Roster size target** — 19 `characterDef` docs live (matches ADR-0046's "all 19
   characters"). Unclear whether that's the full intended roster or more are planned — no target
   number found in docs/CHARACTERS.md or elsewhere. Needs a decision before "author the rest" is
