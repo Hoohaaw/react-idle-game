@@ -379,29 +379,22 @@ character sprite art. Older open items below may be stale — trust the mileston
     tracking shapes, not just registry additions. Flagged as its own future design question, not
     scoped here.
   `↳ context: project-reset · src/lib/lifetimeStats.ts, src/features/statistics/`
-- [ ] **Hosted deploy pending: 4 lifetime-stats migrations + Edge Function redeploys**
-  (2026-09-16/17) — `missionsFailed`/`partyWipes` (PR #129), `gatherSecondsSpent` (PR #130),
-  `charactersRecruited` (PR #131), `itemsCrafted` (PR #132), `itemsUpgraded` (PR #133),
-  `charactersDowned` (PR #134) are all merged to `master` but NOT applied to the hosted Supabase
-  project (`nqaitmbwmuwpnpqatsfs`) — the Supabase MCP was unauthenticated for the back half of the
-  2026-09-16 session, so nothing since `20260915150000_lock_shop_purchase_price.sql` is live.
-  Steps:
-  1. Reconnect the Supabase MCP (`/mcp` or `claude mcp` in an interactive session).
-  2. Apply, in order (each drops+recreates the prior RPC signature, so order matters):
-     `20260916120000_recruit_character_lifetime_stats.sql`,
-     `20260916130000_claim_craft_lifetime_stats.sql`,
-     `20260916140000_upgrade_items_lifetime_stats.sql`,
-     `20260916150000_admit_infirmary_lifetime_stats.sql`. (`missionsFailed`/`partyWipes`/
-     `gatherSecondsSpent` needed zero migrations — Edge-Function-only changes.)
-  3. Redeploy the 6 touched Edge Functions: `recruit`, `craft-claim`, `item-upgrade`,
-     `infirmary-admit`, `mission-claim`, `gather-collect`.
-  4. Run `mcp__supabase__get_advisors` (security + performance) after applying — same step every
-     prior migration PR this session ran.
-  5. Byte-verify each redeployed function against its local source (same pattern used for the
-     username feature's step 5, further up this file).
-  6. Manually exercise at least one of each and confirm it shows up under `/statistics` with a
-     nonzero value: recruit a character, craft an item, upgrade an item, get a character downed and
-     admitted, lose a mission, gather with a fresh `last_collected_at`.
+- [x] **Hosted deploy: 4 lifetime-stats migrations + Edge Function redeploys** (2026-09-23) —
+  reconnected the Supabase MCP and caught the project up: applied
+  `20260916120000_recruit_character_lifetime_stats.sql`,
+  `20260916130000_claim_craft_lifetime_stats.sql`,
+  `20260916140000_upgrade_items_lifetime_stats.sql`,
+  `20260916150000_admit_infirmary_lifetime_stats.sql`, plus `20260923100000_craft_cancel.sql`
+  (bundled into the same session, see the crafting cancel/abandon entry below). Redeployed all 8
+  touched Edge Functions (`recruit`, `craft-claim`, `craft-start`, `craft-cancel`, `item-upgrade`,
+  `infirmary-admit`, `mission-claim`, `gather-collect`) via `mcp__supabase__deploy_edge_function`
+  after the local Supabase CLI's own bundler hit an unrelated upstream npm-registry propagation gap
+  for the just-published `@supabase/supabase-js@2.117.1` sub-packages (resolved itself within
+  minutes; not a project issue). `mcp__supabase__get_advisors` (security + performance) run after —
+  only the same pre-existing findings (2 search_path-mutable functions, leaked-password-protection,
+  3 unindexed FKs, 1 RLS initplan warning), nothing new. **Not yet done**: step 6's manual browser
+  exercise (recruit/craft/upgrade/admit/lose-a-mission/gather) to confirm each stat shows up under
+  `/statistics` with a nonzero value — still open, do next session.
   `↳ context: project-reset · supabase/migrations/20260916{120000,130000,140000,150000}_*.sql`
 - [ ] **Legendary class-specific quest-lines** — certain Legendary items, equippable only by a
   specific class, unlock a class-specific mission/quest line that further powers up that item once
@@ -458,9 +451,12 @@ character sprite art. Older open items below may be stale — trust the mileston
   flagged reroll exploit: the claim-time rarity roll now seeds off a new server-only `roll_seed`
   column (hidden from the client via a column-level GRANT, including from `start_craft`'s own
   RPC-return path) instead of the client-readable `started_at`. `craft_runs` now persists the
-  exact reagents spent per run so `cancel_craft` can refund precisely what was charged. **Not yet
-  applied to the hosted Supabase project** — needs the migration applied + `craft-start`/
-  `craft-claim`/`craft-cancel` (Edge Functions) deployed once the Supabase MCP is reconnected.
+  exact reagents spent per run so `cancel_craft` can refund precisely what was charged. **Applied
+  to the hosted Supabase project** (2026-09-23, same session as the lifetime-stats catch-up above):
+  migration applied, `craft-start`/`craft-claim`/`craft-cancel` all deployed (`craft-cancel` was a
+  brand-new function, not just a redeploy). Not yet manually browser-exercised (cancel a mid-craft,
+  cancel a finished-unclaimed craft, confirm exact reagent refund) — bundle into the same next-
+  session verification pass as the lifetime-stats item above.
   `↳ context: project-crafting · supabase/migrations/20260923100000_craft_cancel.sql, docs/DECISIONS.md ADR-0052`
 - [ ] **Roster size target** — 19 `characterDef` docs live (matches ADR-0046's "all 19
   characters"). Unclear whether that's the full intended roster or more are planned — no target
