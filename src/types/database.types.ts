@@ -15,10 +15,15 @@ export type Database = {
   public: {
     Tables: {
       craft_runs: {
+        // roll_seed is a real column but deliberately excluded here: the `authenticated` grant is
+        // column-restricted to these fields only (20260923100000_craft_cancel.sql) so the client
+        // can never read the rarity-roll seed ahead of claiming.
         Row: {
           ends_at: string
+          item_reagents: Json
           player_id: string
           recipe_def_id: string
+          resource_reagents: Json
           started_at: string
         }
         Insert: never // all writes go through the RPCs — no direct client insert (ADR-0003)
@@ -356,6 +361,13 @@ export type Database = {
         }
         Returns: Json
       }
+      cancel_craft: {
+        Args: {
+          p_player: string
+          p_recipe_def_id: string
+        }
+        Returns: undefined
+      }
       claim_craft: {
         Args: {
           p_player: string
@@ -485,8 +497,10 @@ export type Database = {
         }
         Returns: {
           ends_at: string
+          item_reagents: Json
           player_id: string
           recipe_def_id: string
+          resource_reagents: Json
           started_at: string
         }
         SetofOptions: {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchRecipes, fetchCraftRun, startCraft, claimCraft } from '@/services/crafting'
+import { fetchRecipes, fetchCraftRun, startCraft, claimCraft, cancelCraft } from '@/services/crafting'
 import type { ItemRarityChoice } from '@/lib/crafting'
 
 export function useRecipes() {
@@ -30,6 +30,19 @@ export function useClaimCraft() {
     mutationFn: (recipeDefId: string) => claimCraft(recipeDefId),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['craftRun'] })
+      void qc.invalidateQueries({ queryKey: ['inventory'] })
+    },
+  })
+}
+
+export function useCancelCraft() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (recipeDefId: string) => cancelCraft(recipeDefId),
+    onSuccess: () => {
+      // Full refund: wallet + item stacks change back, same invalidation set as a successful start.
+      void qc.invalidateQueries({ queryKey: ['craftRun'] })
+      void qc.invalidateQueries({ queryKey: ['profile'] })
       void qc.invalidateQueries({ queryKey: ['inventory'] })
     },
   })

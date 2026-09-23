@@ -7,7 +7,7 @@ vi.mock('@/lib/supabase', () => ({
 
 import { sanity } from './sanity'
 import { supabase } from '@/lib/supabase'
-import { fetchRecipes, fetchCraftRun, startCraft, claimCraft } from './crafting'
+import { fetchRecipes, fetchCraftRun, startCraft, claimCraft, cancelCraft } from './crafting'
 
 describe('fetchRecipes', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -93,5 +93,15 @@ describe('claimCraft', () => {
     const result = await claimCraft('x')
     expect(supabase.functions.invoke).toHaveBeenCalledWith('craft-claim', { body: { recipeDefId: 'x' } })
     expect(result).toEqual({ itemDefId: 'rusted-blade', rarity: 'Rare' })
+  })
+})
+
+describe('cancelCraft', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('invokes craft-cancel with recipeDefId', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue({ data: { ok: true }, error: null } as never)
+    await cancelCraft('x')
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('craft-cancel', { body: { recipeDefId: 'x' } })
   })
 })

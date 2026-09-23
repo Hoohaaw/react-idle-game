@@ -98,5 +98,19 @@ Deno.serve(async (req) => {
     return json({ error: reason || 'Could not start crafting' }, 409)
   }
 
-  return json({ run }, 201)
+  // start_craft's declared return type is the full craft_runs row — a SECURITY DEFINER function's
+  // return value is NOT gated by the table's column-level GRANT (that only restricts direct table
+  // SELECTs), so roll_seed must be stripped explicitly here before it reaches the client. Keep this
+  // field set in sync with the authenticated column-grant allowlist in
+  // 20260923100000_craft_cancel.sql.
+  return json({
+    run: {
+      player_id: run.player_id,
+      recipe_def_id: run.recipe_def_id,
+      started_at: run.started_at,
+      ends_at: run.ends_at,
+      resource_reagents: run.resource_reagents,
+      item_reagents: run.item_reagents,
+    },
+  }, 201)
 })

@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
   // 1. The player's craft (owner-scoped) — friendly early-out; the RPC re-guards atomically.
   const { data: run, error: runErr } = await admin
     .from('craft_runs')
-    .select('recipe_def_id, started_at, ends_at')
+    .select('recipe_def_id, started_at, ends_at, roll_seed')
     .eq('player_id', playerId)
     .maybeSingle()
   if (runErr) {
@@ -64,11 +64,10 @@ Deno.serve(async (req) => {
   if (!def?.resultItemKey) return json({ error: 'Recipe has no result item' }, 500)
 
   // 3. Roll the rarity — deterministic per run, so a retried claim can't re-roll.
-  // NOTE: the seed is derivable by the client (player id, recipe key, started_at are all
-  // readable under RLS), so the outcome is predictable at start time. Harmless while there is
-  // no cancel/abandon path; any future cancel feature must re-seed or refund, or it becomes a
-  // re-roll exploit.
-  const rng = makeRng(`${playerId}:${recipeDefId}:${run.started_at}:craft`)
+  // The seed is roll_seed, a server-generated column the client cannot read (column-level GRANT
+  // added in 20260923100000_craft_cancel.sql restricts authenticated SELECT on craft_runs to the
+  // safe columns only). So cancelling and restarting a craft cannot predict or influence the roll.
+  const rng = makeRng(`${playerId}:${recipeDefId}:${run.roll_seed}:craft`)
   const rarity = rollRarity(def.resultRarityWeights ?? undefined, rng)
 
   // 4. Apply atomically (the RPC owns the double-claim guard).

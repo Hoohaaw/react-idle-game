@@ -13,7 +13,7 @@ import { RarityPicker } from './RarityPicker'
 // renders state and raises intents (pick a rarity, craft, claim, clear).
 const SLOT_COUNT = 6
 
-export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRarity, inProgress, remainingMs, canCraft, pending, error, onCraft, onClaim, onClear, claimed }: {
+export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRarity, inProgress, remainingMs, canCraft, pending, error, onCraft, onClaim, onCancel, onClear, claimed }: {
   reagents: ResolvedReagent[]
   resultName: string | null
   rarityChoices: ItemRarityChoice[]
@@ -25,6 +25,7 @@ export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRari
   error: string | null
   onCraft: () => void
   onClaim: () => void
+  onCancel: () => void
   onClear: () => void
   claimed: { name: string; rarity: string } | null
 }) {
@@ -68,6 +69,7 @@ export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRari
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
         <SecondaryButton onClick={onClear} disabled={inProgress || pending}>Clear</SecondaryButton>
+        {inProgress && <SecondaryButton onClick={onCancel} disabled={pending}>Abandon</SecondaryButton>}
         {inProgress
           ? <PrimaryButton disabled={!ready || pending} onClick={onClaim}>{pending ? 'Claiming…' : ready ? 'Claim' : 'Crafting…'}</PrimaryButton>
           : <PrimaryButton disabled={!canCraft || pending} onClick={onCraft}>{pending ? 'Starting…' : 'Craft'}</PrimaryButton>}
