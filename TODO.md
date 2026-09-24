@@ -130,10 +130,15 @@ character sprite art. Older open items below may be stale — trust the mileston
   *party wiped*; claim UI needs a failure state that explains the loss honestly. Built (PR #49):
   reason-keyed Party Wiped / Out of Time screens in ClaimReward.
   `↳ context: project-combat (timeout = loss), feedback-game-stats-guide · src/features/missions/components/ClaimReward.tsx`
-- [ ] **History / activity log component** — a place where the player can look back at what
-  happened: missions run (win/loss, loot, XP), characters recruited/leveled/downed, gathers
-  collected, upgrades made. Needs an events table (or derive from existing rows) + a page.
-  `↳ context: project-next-steps · supabase/ (new events table?), src/features/`
+- [x] **History / activity log component** (ADR-0059, 2026-09-24) — `player_events` table + one
+  shared `log_event(p_player, p_type, p_payload)` RPC (insert + 200-row-per-player retention,
+  atomic), called from 21 write sites (missions, dungeons/raids, recruit, craft, gather, skills,
+  blessings, shop purchases, infirmary, upgrades, reset/transcend). `/activity` page renders a
+  plain newest-first sentence list via `src/lib/events.ts`'s registry/formatter (28 TDD tests).
+  Design/plan authored 2026-09-18; implementation resumed and integrated 2026-09-24 after being
+  interrupted mid-session (SDD run had all 25 tasks implemented + 21 reviewed clean, but never
+  merged back together — see ADR-0059 for the full design rationale).
+  `↳ context: docs/DECISIONS.md ADR-0059, src/lib/events.ts, src/features/activity/`
 - [x] **Character acquisition economy** (2026-08-20) — full engine + wave-1 content shipped: 6
   condition types (`evaluateCondition`), Sanity `acquisition`/`characterLootDrop` schema, recruit
   RPC/Edge Function, `/recruits` UI with blind-surprise reveal. All 19 characters authored: 7 named
