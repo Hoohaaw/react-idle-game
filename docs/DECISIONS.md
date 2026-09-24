@@ -2991,3 +2991,58 @@ dungeon-raid-rpc-tests-design.md`.
 - Follow-up, not done here: extending this infra to `recruit_character`,
   `check_ascendant_milestones`, `check_achievements` — same shape, smaller task now that the infra
   exists.
+
+## ADR-0059 — Activity log: one shared `log_event` RPC, called from 21 write sites
+
+**Date:** 2026-09-18 · **Status:** Accepted (Alex)
+
+**Context.** The game had no player-facing history of what happened: `mission_runs` and
+`gather_assignments` (its only "activity" tables) are DELETED on claim/stop, and `/statistics`
+only shows cumulative lifetime totals, never individual past events. `TODO.md`'s "History /
+activity log component" item asked for a page a player can look back at — missions run,
+characters recruited/leveled/downed, gathers collected, upgrades made. Design:
+`docs/superpowers/specs/2026-09-18-activity-log-design.md`.
+
+**Decision.**
+- **A new `player_events` table** (`id`, `player_id`, `type`, `payload jsonb`, `created_at`),
+  RLS owner-read only, and **one shared `log_event(p_player uuid, p_type text, p_payload jsonb
+  default '{}'::jsonb) returns void`** SECURITY DEFINER RPC that does the insert AND prunes that
+  player back to their newest 200 rows, atomically, in the same call.
+- **Called from 21 existing Edge Functions** (mission-start/claim, group-start/claim-stage,
+  recruit, craft-start/claim, gather-start/collect, skill-start/collect, blessing-choose/respec,
+  ascendant-shop-purchase, echo-shop-purchase, infirmary-upgrade/admit/discharge, item-upgrade,
+  reset-player, transcend-player) — every write site with something a player would recognize as
+  "something happened," not only the ones that already had a `p_lifetime_stats`-shaped delta.
+- **Raw per-site inserts were rejected**: breaks this repo's established "every mutation goes
+  through a SECURITY DEFINER RPC" convention (ADR-0003), and would repeat — or inconsistently
+  skip — the 200-row retention prune logic 21 times instead of once.
+- **A DB trigger per source table was rejected**: several source tables (`mission_runs`,
+  `craft_runs`, `gather_assignments`) are DELETED as part of the normal claim/collect flow, so
+  there is no reliable `AFTER INSERT` hook at the semantically right moment, and a trigger has no
+  access to Edge-Function-computed values (gold granted, XP gained, item name resolved from
+  Sanity) that the event payloads need.
+- **Every `log_event` call is wrapped in `try/catch`, logs to `console.error`, never rethrows** —
+  a lost history row must never cost a player their actual reward, level-up, or purchase. This is
+  the same fire-and-forget posture used nowhere else in this codebase before now, deliberately:
+  every other RPC call in this repo is NOT wrapped this way because its failure must abort the
+  request — `log_event` is the one exception, because its own failure carries no player-facing
+  stake.
+
+**Consequences.**
+- `src/lib/events.ts`: the `EventType` registry + `formatEvent()` — turns a `player_events` row
+  into a display sentence, TDD'd (28 tests).
+- `supabase/functions/_shared/characterName.ts`: a shared `fetchCharacterName` helper, needed by
+  6 sites (`gather-start`, `skill-start`, `blessing-choose`, `blessing-respec`,
+  `infirmary-admit`, `infirmary-discharge`) that don't otherwise have a character's Sanity name in
+  scope — not anticipated by the original spec, added as a direct, minimal consequence of it once
+  every site was actually read.
+- `src/features/activity/` (`ActivityPage.tsx`, `hooks.ts`): a plain newest-first list of
+  sentences at `/activity`. Deliberately no pagination, no filters, no day-grouping, no icons —
+  the retention cap already bounds the list to 200 rows, and those are explicit non-goals in the
+  spec, not deferred scope.
+- `supabase/tests/database/activity_log.sql`: 4 pgTAP assertions covering `log_event`'s insert
+  and retention-prune behavior.
+- This ADR intentionally does not touch the RPCs that don't yet accept anything
+  `log_event`-shaped worth reporting (e.g. `username_available`, read-only queries) — every
+  write site a player would recognize as "something happened" is covered; nothing was added
+  speculatively.
