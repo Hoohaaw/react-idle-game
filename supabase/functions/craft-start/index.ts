@@ -100,11 +100,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'craft_started',
       p_payload: { recipeName: def.name ?? recipeDefId },
     })
+    if (logErr) console.error('activity log failed (craft_started) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (craft_started) — continuing', e)
   }

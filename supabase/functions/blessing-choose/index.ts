@@ -84,11 +84,12 @@ Deno.serve(async (req) => {
       const picked = treeRow?.choices?.find((c) => c.choiceId === choice)
       if (picked?.title) choiceLabel = picked.title
     }
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'blessing_chosen',
       p_payload: { characterName, choiceLabel },
     })
+    if (logErr) console.error('activity log failed (blessing_chosen) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (blessing_chosen) — continuing', e)
   }

@@ -64,11 +64,12 @@ Deno.serve(async (req) => {
 
   try {
     const echoesAwarded = (result as { echoesAwarded?: number } | null)?.echoesAwarded
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'player_reset',
       p_payload: echoesAwarded ? { echoesAwarded } : {},
     })
+    if (logErr) console.error('activity log failed (player_reset) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (player_reset) — continuing', e)
   }

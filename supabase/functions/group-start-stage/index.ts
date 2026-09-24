@@ -102,11 +102,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'group_stage_started',
       p_payload: { contentName: def.name ?? 'Unknown', kind, stageIndex },
     })
+    if (logErr) console.error('activity log failed (group_stage_started) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (group_stage_started) — continuing', e)
   }

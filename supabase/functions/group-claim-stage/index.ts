@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'group_stage_claimed',
       p_payload: {
@@ -282,6 +282,7 @@ Deno.serve(async (req) => {
         ...(win && loot.length > 0 ? { itemCount: loot.length } : {}),
       },
     })
+    if (logErr) console.error('activity log failed (group_stage_claimed) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (group_stage_claimed) — continuing', e)
   }
@@ -292,11 +293,12 @@ Deno.serve(async (req) => {
       if (updated.level <= c.level) return
       const def = charDefByKey.get(c.character_def_id)
       try {
-        await admin.rpc('log_event', {
+        const { error: logErr } = await admin.rpc('log_event', {
           p_player: playerId,
           p_type: 'character_leveled',
           p_payload: { characterName: def?.name ?? 'Unknown', newLevel: updated.level },
         })
+        if (logErr) console.error('activity log failed (character_leveled) — continuing', logErr)
       } catch (e) {
         console.error('activity log failed (character_leveled) — continuing', e)
       }

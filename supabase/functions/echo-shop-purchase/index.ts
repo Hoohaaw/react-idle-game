@@ -47,11 +47,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'echo_purchased',
       p_payload: { nodeLabel: ECHO_SHOP_NODES[nodeKey].label },
     })
+    if (logErr) console.error('activity log failed (echo_purchased) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (echo_purchased) — continuing', e)
   }

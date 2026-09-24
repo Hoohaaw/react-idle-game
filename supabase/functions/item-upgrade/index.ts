@@ -71,11 +71,12 @@ Deno.serve(async (req) => {
 
   if (itemsUpgraded > 0) {
     try {
-      await admin.rpc('log_event', {
+      const { error: logErr } = await admin.rpc('log_event', {
         p_player: playerId,
         p_type: 'item_upgraded',
         p_payload: { count: itemsUpgraded },
       })
+      if (logErr) console.error('activity log failed (item_upgraded) — continuing', logErr)
     } catch (e) {
       console.error('activity log failed (item_upgraded) — continuing', e)
     }

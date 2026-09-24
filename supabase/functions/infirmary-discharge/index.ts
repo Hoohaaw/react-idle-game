@@ -108,11 +108,12 @@ Deno.serve(async (req) => {
 
   try {
     const characterName = await fetchCharacterName(admin, playerId, characterId)
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'infirmary_discharged',
       p_payload: { characterName, fullyHealed: state.phase === 'full' },
     })
+    if (logErr) console.error('activity log failed (infirmary_discharged) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (infirmary_discharged) — continuing', e)
   }

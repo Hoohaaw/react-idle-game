@@ -70,11 +70,12 @@ Deno.serve(async (req) => {
 
   try {
     const shardsAwarded = (result as { shardsAwarded?: number } | null)?.shardsAwarded
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'player_transcended',
       p_payload: shardsAwarded ? { shardsAwarded } : {},
     })
+    if (logErr) console.error('activity log failed (player_transcended) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (player_transcended) — continuing', e)
   }
