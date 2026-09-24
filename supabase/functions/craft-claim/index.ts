@@ -14,7 +14,7 @@ function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 }
 
-type RecipeDef = { resultItemKey?: string | null; resultRarityWeights?: { rarity: string; weight: number }[] | null } | null
+type RecipeDef = { resultItemKey?: string | null; resultItemName?: string | null; resultRarityWeights?: { rarity: string; weight: number }[] | null } | null
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
   let def: RecipeDef
   try {
     def = await sanityQuery<RecipeDef>(
-      `*[_type == "recipeDef" && recipeKey == $key][0]{ "resultItemKey": result->itemKey, resultRarityWeights[]{ rarity, weight } }`,
+      `*[_type == "recipeDef" && recipeKey == $key][0]{ "resultItemKey": result->itemKey, "resultItemName": result->name, resultRarityWeights[]{ rarity, weight } }`,
       { key: recipeDefId },
     )
   } catch (e) {
@@ -85,5 +85,17 @@ Deno.serve(async (req) => {
   }
 
   const granted = claimData as { item_def_id: string; rarity: string }
+
+  try {
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'item_crafted',
+      p_payload: { itemName: def.resultItemName ?? def.resultItemKey, rarity: granted.rarity },
+    })
+    if (logErr) console.error('activity log failed (item_crafted) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (item_crafted) — continuing', e)
+  }
+
   return json({ itemDefId: granted.item_def_id, rarity: granted.rarity }, 200)
 })

@@ -15,6 +15,7 @@ function json(body: unknown, status: number) {
 const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
 
 type RecipeDef = {
+  name?: string
   durationSeconds?: number
   reagents?: { kind?: string; resource?: string | null; quantity?: number; itemKey?: string | null }[]
 } | null
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
   try {
     def = await sanityQuery<RecipeDef>(
       `*[_type == "recipeDef" && recipeKey == $key][0]{
-        durationSeconds,
+        name, durationSeconds,
         reagents[]{ kind, resource, quantity, "itemKey": item->itemKey }
       }`,
       { key: recipeDefId },
@@ -96,6 +97,17 @@ Deno.serve(async (req) => {
   if (rpcErr) {
     const reason = rpcErr.message.replace(/^.*start_craft:\s*/, '')
     return json({ error: reason || 'Could not start crafting' }, 409)
+  }
+
+  try {
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'craft_started',
+      p_payload: { recipeName: def.name ?? recipeDefId },
+    })
+    if (logErr) console.error('activity log failed (craft_started) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (craft_started) — continuing', e)
   }
 
   // start_craft's declared return type is the full craft_runs row — a SECURITY DEFINER function's

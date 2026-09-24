@@ -80,6 +80,7 @@ type EnemyRow = {
   spikeMultiplier?: number
 }
 type MissionForClaim = {
+  name?: string
   baseXp?: number
   stage?: number
   map?: { mapKey?: string } | null
@@ -95,6 +96,7 @@ type MissionForClaim = {
   characterLootDrop?: { charKey: string | null; dropChance?: number }[]
 }
 type CharDefRow = {
+  name?: string
   charKey: string
   charClass: string
   role?: CharacterRole | null
@@ -119,7 +121,7 @@ type CharRow = {
 }
 
 const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
-  baseXp, stage,
+  name, baseXp, stage,
   "map": map->{ mapKey },
   rewards[]{ kind, code, amount },
   loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
@@ -131,7 +133,7 @@ const MISSION_GROQ = `*[_type == "missionDef" && missionKey == $id][0]{
 }`
 
 const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
-  charKey, charClass, role, damageSchool,
+  charKey, name, charClass, role, damageSchool,
   baseStats[]{ stat, value },
   growth[]{ stat, perLevel, milestones[]{ level, bonus } },
   blessingTree[]{ row, choices[]{ choiceId, effects[]{ stat, kind, value } } },
@@ -325,6 +327,7 @@ Deno.serve(async (req) => {
   // 9. Per-character updates. HP is always persisted (win OR loss). XP only for SURVIVORS on a win
   //    (ending HP > 0) — a character that died mid-fight earns nothing (ADR-0017). A survivor's own
   //    `xpGain` stat (Scholar trait etc., ADR-0035 — self-only by design) scales their share.
+  let totalXpGained = 0
   const charUpdates = chars.map((c) => {
     const endHp = Math.round(result.endingHp[c.id] ?? 0)
     let level = c.level
@@ -332,6 +335,7 @@ Deno.serve(async (req) => {
     if (win && endHp > 0 && baseXp > 0) {
       const xpMult = 1 + Math.max(0, statsById[c.id]?.xpGain ?? 0) / 100
       const gained = Math.round(finalReward(baseXp, mods) * xpMult * firstClearMult)
+      totalXpGained += gained
       const rolled = applyXp(c.level, c.xp, gained)
       level = rolled.level
       xp = rolled.xp
@@ -474,6 +478,41 @@ Deno.serve(async (req) => {
     name: candidateByKey.get(charKey)?.name ?? charKey,
     role: candidateByKey.get(charKey)?.role ?? null,
   }))
+
+  try {
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'mission_claimed',
+      p_payload: {
+        missionName: mission.name ?? 'Unknown Mission',
+        result: win ? 'win' : (result.reason === 'party-wiped' ? 'party-wiped' : 'timeout'),
+        ...(win && (currencies['gold'] ?? 0) > 0 ? { gold: currencies['gold'] } : {}),
+        ...(win && totalXpGained > 0 ? { xp: totalXpGained } : {}),
+        ...(win && loot.length > 0 ? { itemCount: loot.length } : {}),
+      },
+    })
+    if (logErr) console.error('activity log failed (mission_claimed) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (mission_claimed) — continuing', e)
+  }
+
+  await Promise.allSettled(
+    chars.map(async (c, i) => {
+      const updated = charUpdates[i]
+      if (updated.level <= c.level) return
+      const def = charDefByKey.get(c.character_def_id)
+      try {
+        const { error: logErr } = await admin.rpc('log_event', {
+          p_player: playerId,
+          p_type: 'character_leveled',
+          p_payload: { characterName: def?.name ?? 'Unknown', newLevel: updated.level },
+        })
+        if (logErr) console.error('activity log failed (character_leveled) — continuing', logErr)
+      } catch (e) {
+        console.error('activity log failed (character_leveled) — continuing', e)
+      }
+    }),
+  )
 
   return json(
     {

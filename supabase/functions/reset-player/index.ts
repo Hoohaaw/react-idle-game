@@ -62,5 +62,17 @@ Deno.serve(async (req) => {
     return json({ error: reason || 'Could not reset' }, 409)
   }
 
+  try {
+    const echoesAwarded = (result as { echoesAwarded?: number } | null)?.echoesAwarded
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'player_reset',
+      p_payload: echoesAwarded ? { echoesAwarded } : {},
+    })
+    if (logErr) console.error('activity log failed (player_reset) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (player_reset) — continuing', e)
+  }
+
   return json(result, 200)
 })

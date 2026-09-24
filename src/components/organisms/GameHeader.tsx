@@ -29,6 +29,7 @@ const NAV = [
   { label: 'Respec', to: '/respec' },
   { label: 'Reset', to: '/reset' },
   { label: 'Statistics', to: '/statistics' },
+  { label: 'Activity', to: '/activity' },
   { label: 'Achievements', to: '/achievements' },
   { label: 'Game Stats', to: '/game-stats' },
   { label: 'Design', to: '/design' }, // dev-only — remove before production

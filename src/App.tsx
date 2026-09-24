@@ -28,6 +28,7 @@ const CraftingPage = lazy(() => import('@/features/crafting').then((m) => ({ def
 const UpgradesPage = lazy(() => import('./pages/UpgradesPage'))
 const PrestigePage = lazy(() => import('@/features/reset').then((m) => ({ default: m.PrestigePage })))
 const StatisticsPage = lazy(() => import('@/features/statistics').then((m) => ({ default: m.StatisticsPage })))
+const ActivityPage = lazy(() => import('@/features/activity').then((m) => ({ default: m.ActivityPage })))
 const GameStatsPage = lazy(() => import('./pages/GameStatsPage'))
 const AchievementsPage = lazy(() => import('@/features/achievements').then((m) => ({ default: m.AchievementsPage })))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
@@ -79,6 +80,7 @@ export default function App() {
               <Route path="/respec" element={<RespecPage />} />
               <Route path="/reset" element={<PrestigePage />} />
               <Route path="/statistics" element={<StatisticsPage />} />
+              <Route path="/activity" element={<ActivityPage />} />
               <Route path="/game-stats" element={<GameStatsPage />} />
               <Route path="/achievements" element={<AchievementsPage />} />
               <Route path="*" element={<NotFoundPage />} />
