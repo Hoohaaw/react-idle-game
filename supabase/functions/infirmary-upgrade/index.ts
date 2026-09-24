@@ -118,11 +118,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'infirmary_upgraded',
       p_payload: { newLevel },
     })
+    if (logErr) console.error('activity log failed (infirmary_upgraded) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (infirmary_upgraded) — continuing', e)
   }

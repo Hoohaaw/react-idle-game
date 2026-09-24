@@ -129,11 +129,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'mission_started',
       p_payload: { missionName: def.name ?? 'Unknown Mission' },
     })
+    if (logErr) console.error('activity log failed (mission_started) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (mission_started) — continuing', e)
   }

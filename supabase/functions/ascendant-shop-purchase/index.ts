@@ -79,11 +79,12 @@ Deno.serve(async (req) => {
       )
       nodeLabel = `${kind === 'power' ? 'Power' : 'Vitality'} (${charDef?.name ?? charKey})`
     }
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'ascendant_purchased',
       p_payload: { nodeLabel },
     })
+    if (logErr) console.error('activity log failed (ascendant_purchased) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (ascendant_purchased) — continuing', e)
   }

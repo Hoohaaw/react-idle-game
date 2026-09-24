@@ -87,11 +87,12 @@ Deno.serve(async (req) => {
   const granted = claimData as { item_def_id: string; rarity: string }
 
   try {
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'item_crafted',
       p_payload: { itemName: def.resultItemName ?? def.resultItemKey, rarity: granted.rarity },
     })
+    if (logErr) console.error('activity log failed (item_crafted) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (item_crafted) — continuing', e)
   }

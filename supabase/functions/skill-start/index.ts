@@ -57,11 +57,12 @@ Deno.serve(async (req) => {
 
   try {
     const characterName = await fetchCharacterName(admin, playerId, characterId)
-    await admin.rpc('log_event', {
+    const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
       p_type: 'skill_started',
       p_payload: { skillName: SKILL_BY_KEY[skillKey].label, characterName },
     })
+    if (logErr) console.error('activity log failed (skill_started) — continuing', logErr)
   } catch (e) {
     console.error('activity log failed (skill_started) — continuing', e)
   }
