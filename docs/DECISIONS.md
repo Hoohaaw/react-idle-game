@@ -3040,7 +3040,7 @@ deliberately not wired up, out of scope alongside the deferred hard-gating; and 
 card's synergy display (Task 7) is informational-only with no roster-ownership check,
 matching the existing resists/weakTo pattern — intentional, not a gap.
 
-## ADR-0059 — Activity log: one shared `log_event` RPC, called from 21 write sites
+## ADR-0060 — Activity log: one shared `log_event` RPC, called from 21 write sites
 
 **Date:** 2026-09-18 · **Status:** Accepted (Alex)
 
