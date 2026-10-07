@@ -91,5 +91,18 @@ Deno.serve(async (req) => {
     return json({ error: reason || 'Could not collect' }, 409)
   }
 
+  if (gained > 0 || stop) {
+    try {
+      const { error: logErr } = await admin.rpc('log_event', {
+        p_player: playerId,
+        p_type: 'skill_collected',
+        p_payload: { skillName: skill.label, xpGained: gained, stopped: stop },
+      })
+      if (logErr) console.error('activity log failed (skill_collected) — continuing', logErr)
+    } catch (e) {
+      console.error('activity log failed (skill_collected) — continuing', e)
+    }
+  }
+
   return json({ gainedXp: gained, skillKey: assignment.skill_key, newLevel, newXp, stopped: stop }, 200)
 })

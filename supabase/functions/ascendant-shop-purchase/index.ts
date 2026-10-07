@@ -1,7 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
-import { characterDefExists } from '../_shared/sanity.ts'
-import { FLAT_ASCENDANT_NODES } from '../../../src/lib/ascendantShop.ts'
+import { characterDefExists, sanityQuery } from '../_shared/sanity.ts'
+import { FLAT_ASCENDANT_NODES, type FlatAscendantKind } from '../../../src/lib/ascendantShop.ts'
 
 // ascendant-shop-purchase: buy the next level of one Ascendant Shop node (ADR-0023). The cost is
 // resolved authoritatively INSIDE the RPC now (supabase/migrations/20260915150000_lock_shop_purchase_price.sql),
@@ -63,6 +63,30 @@ Deno.serve(async (req) => {
     console.error('ascendant-shop-purchase: purchase_ascendant_shop_node failed', rpcErr)
     const reason = rpcErr.message.replace(/^.*purchase_ascendant_shop_node:\s*/, '')
     return json({ error: reason || 'Could not purchase upgrade' }, 409)
+  }
+
+  try {
+    let nodeLabel: string = nodeKey
+    if (nodeKey in FLAT_ASCENDANT_NODES) {
+      nodeLabel = FLAT_ASCENDANT_NODES[nodeKey as FlatAscendantKind].label
+    } else {
+      const dot = nodeKey.lastIndexOf('.')
+      const charKey = nodeKey.slice(0, dot)
+      const kind = nodeKey.slice(dot + 1)
+      const charDef = await sanityQuery<{ name?: string } | null>(
+        `*[_type == "characterDef" && charKey == $key][0]{ name }`,
+        { key: charKey },
+      )
+      nodeLabel = `${kind === 'power' ? 'Power' : 'Vitality'} (${charDef?.name ?? charKey})`
+    }
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'ascendant_purchased',
+      p_payload: { nodeLabel },
+    })
+    if (logErr) console.error('activity log failed (ascendant_purchased) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (ascendant_purchased) — continuing', e)
   }
 
   return json(result, 200)

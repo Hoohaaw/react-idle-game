@@ -1,5 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
+import { sanityQuery } from '../_shared/sanity.ts'
 
 // blessing-choose: pick one of the two choices for a blessing row (ADR-0045), permanent. No
 // Sanity fetch — unlike gear (which needs the itemDef's authored slot/minLevel), a blessing pick
@@ -57,6 +58,40 @@ Deno.serve(async (req) => {
     // (level/sequence/already-chosen/busy).
     const reason = rpcErr.message.replace(/^.*choose_blessing:\s*/, '')
     return json({ error: reason || 'Could not choose blessing' }, 409)
+  }
+
+  try {
+    const { data: charRow } = await admin
+      .from('player_characters')
+      .select('character_def_id')
+      .eq('id', characterId)
+      .eq('player_id', playerId)
+      .maybeSingle()
+    let characterName = 'Unknown'
+    let choiceLabel = `${row} choice ${choice.toUpperCase()}`
+    if (charRow) {
+      const def = await sanityQuery<{
+        name?: string
+        blessingTree?: { row?: string; choices?: { choiceId?: string; title?: string }[] }[]
+      } | null>(
+        `*[_type == "characterDef" && charKey == $key][0]{
+          name, blessingTree[]{ row, choices[]{ choiceId, title } }
+        }`,
+        { key: charRow.character_def_id },
+      )
+      characterName = def?.name ?? 'Unknown'
+      const treeRow = def?.blessingTree?.find((r) => r.row === row)
+      const picked = treeRow?.choices?.find((c) => c.choiceId === choice)
+      if (picked?.title) choiceLabel = picked.title
+    }
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'blessing_chosen',
+      p_payload: { characterName, choiceLabel },
+    })
+    if (logErr) console.error('activity log failed (blessing_chosen) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (blessing_chosen) — continuing', e)
   }
 
   return json(data, 200)

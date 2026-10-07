@@ -2,6 +2,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { maxHpByCharacter, type CharRowForHp } from '../_shared/charMaxHp.ts'
 import { bedsForLevel } from '../../../src/lib/infirmary.ts'
+import { fetchCharacterName } from '../_shared/characterName.ts'
 
 // infirmary-admit: put a damaged character in an infirmary bed (ADR-0003/0021). Validates the
 // caller + that the character actually has HP to recover, then hands off to the atomic
@@ -89,6 +90,20 @@ Deno.serve(async (req) => {
     // The RPC raises 'admit_infirmary: <reason>' for every validation failure (owned/busy/beds).
     const reason = rpcErr.message.replace(/^.*admit_infirmary:\s*/, '')
     return json({ error: reason || 'Could not admit character' }, 409)
+  }
+
+  if (char.current_hp === 0) {
+    try {
+      const characterName = await fetchCharacterName(admin, playerId, characterId)
+      const { error: logErr } = await admin.rpc('log_event', {
+        p_player: playerId,
+        p_type: 'character_downed',
+        p_payload: { characterName },
+      })
+      if (logErr) console.error('activity log failed (character_downed) — continuing', logErr)
+    } catch (e) {
+      console.error('activity log failed (character_downed) — continuing', e)
+    }
   }
 
   return json({ admission }, 201)

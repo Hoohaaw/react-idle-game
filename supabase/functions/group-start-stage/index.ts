@@ -14,7 +14,7 @@ function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 }
 
-type GroupDef = { stages?: { durationSeconds?: number }[]; gateKey?: string | null } | null
+type GroupDef = { name?: string; stages?: { durationSeconds?: number }[]; gateKey?: string | null } | null
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
   let def: GroupDef
   try {
     def = await sanityQuery<GroupDef>(
-      `*[_type == "${sanityType}" && ${keyField} == $key][0]{ stages[]{ durationSeconds }, "gateKey": mapGate->mapKey }`,
+      `*[_type == "${sanityType}" && ${keyField} == $key][0]{ name, stages[]{ durationSeconds }, "gateKey": mapGate->mapKey }`,
       { key: defKey },
     )
   } catch (e) {
@@ -99,6 +99,17 @@ Deno.serve(async (req) => {
   if (rpcErr) {
     const reason = rpcErr.message.replace(/^.*start_group_stage:\s*/, '')
     return json({ error: reason || 'Could not start stage' }, 409)
+  }
+
+  try {
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'group_stage_started',
+      p_payload: { contentName: def.name ?? 'Unknown', kind, stageIndex },
+    })
+    if (logErr) console.error('activity log failed (group_stage_started) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (group_stage_started) — continuing', e)
   }
 
   return json({ run: groupRun }, 201)

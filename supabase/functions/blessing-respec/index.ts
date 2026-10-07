@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { RESPEC_COST } from '../../../src/lib/blessings.ts'
+import { fetchCharacterName } from '../_shared/characterName.ts'
 
 // blessing-respec: pay gold to wipe a character's entire blessing tree back to `{}` (ADR-0047).
 // All-or-nothing — see respec_blessings's header for why partial-row respec isn't offered.
@@ -48,6 +49,18 @@ Deno.serve(async (req) => {
     // (nothing-to-respec/busy/insufficient gold).
     const reason = rpcErr.message.replace(/^.*respec_blessings:\s*/, '')
     return json({ error: reason || 'Could not respec' }, 409)
+  }
+
+  try {
+    const characterName = await fetchCharacterName(admin, playerId, characterId)
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'blessing_respec',
+      p_payload: { characterName },
+    })
+    if (logErr) console.error('activity log failed (blessing_respec) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (blessing_respec) — continuing', e)
   }
 
   return json(data, 200)

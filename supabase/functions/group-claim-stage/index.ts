@@ -43,8 +43,9 @@ type StageRow = {
   loot?: { itemKey: string | null; dropChance?: number; quantityMin?: number; quantityMax?: number; rarityWeights?: { rarity: string; weight: number }[] }[]
   encounter?: { timeLimitSeconds: number; enemies: { count?: number; enemy: EnemyRow }[] } | null
 }
-type GroupDefRow = { stages?: StageRow[] } | null
+type GroupDefRow = { name?: string; stages?: StageRow[] } | null
 type CharDefRow = {
+  name?: string
   charKey: string; charClass: string; role?: CharacterRole | null; damageSchool?: School | null
   baseStats?: StatValue[]; growth?: StatGrowth[]; blessingTree?: RawBlessingRow[]
   capstone?: CapstoneDef; traits?: TraitDef[]
@@ -56,7 +57,7 @@ type CharRow = {
 }
 
 const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
-  charKey, charClass, role, damageSchool,
+  charKey, name, charClass, role, damageSchool,
   baseStats[]{ stat, value },
   growth[]{ stat, perLevel, milestones[]{ level, bonus } },
   blessingTree[]{ row, choices[]{ choiceId, effects[]{ stat, kind, value } } },
@@ -128,6 +129,7 @@ Deno.serve(async (req) => {
   try {
     groupDef = await sanityQuery<GroupDefRow>(
       `*[_type == "${sanityType}" && ${keyField} == $key][0]{
+        name,
         stages[]{
           baseXp, rewards[]{ kind, code, amount },
           loot[]{ dropChance, quantityMin, quantityMax, rarityWeights[]{ rarity, weight }, "itemKey": item->itemKey },
@@ -207,6 +209,7 @@ Deno.serve(async (req) => {
   }
   const baseXp = typeof stage.baseXp === 'number' ? stage.baseXp : 0
 
+  let totalXpGained = 0
   const charUpdates = chars.map((c) => {
     const endHp = Math.round(result.endingHp[c.id] ?? 0)
     let level = c.level
@@ -214,6 +217,7 @@ Deno.serve(async (req) => {
     if (win && endHp > 0 && baseXp > 0) {
       const xpMult = 1 + Math.max(0, statsById[c.id]?.xpGain ?? 0) / 100
       const gained = Math.round(finalReward(baseXp, mods) * xpMult)
+      totalXpGained += gained
       const rolled = applyXp(c.level, c.xp, gained)
       level = rolled.level
       xp = rolled.xp
@@ -264,6 +268,42 @@ Deno.serve(async (req) => {
     const reason = claimErr.message.replace(/^.*claim_group_stage:\s*/, '')
     return json({ error: reason || 'Could not claim stage' }, 409)
   }
+
+  try {
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'group_stage_claimed',
+      p_payload: {
+        contentName: groupDef?.name ?? 'Unknown',
+        kind, stageIndex,
+        result: win ? 'win' : 'loss',
+        ...(win && totalXpGained > 0 ? { xp: totalXpGained } : {}),
+        ...(win && (currencies['gold'] ?? 0) > 0 ? { gold: currencies['gold'] } : {}),
+        ...(win && loot.length > 0 ? { itemCount: loot.length } : {}),
+      },
+    })
+    if (logErr) console.error('activity log failed (group_stage_claimed) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (group_stage_claimed) — continuing', e)
+  }
+
+  await Promise.allSettled(
+    chars.map(async (c, i) => {
+      const updated = charUpdates[i]
+      if (updated.level <= c.level) return
+      const def = charDefByKey.get(c.character_def_id)
+      try {
+        const { error: logErr } = await admin.rpc('log_event', {
+          p_player: playerId,
+          p_type: 'character_leveled',
+          p_payload: { characterName: def?.name ?? 'Unknown', newLevel: updated.level },
+        })
+        if (logErr) console.error('activity log failed (character_leveled) — continuing', logErr)
+      } catch (e) {
+        console.error('activity log failed (character_leveled) — continuing', e)
+      }
+    }),
+  )
 
   return json({
     outcome: result.outcome, reason: result.reason, survivingHpPct: result.survivingHpPct,

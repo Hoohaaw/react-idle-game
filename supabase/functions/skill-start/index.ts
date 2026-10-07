@@ -2,6 +2,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { SKILL_BY_KEY } from '../../../src/lib/skills.ts'
+import { fetchCharacterName } from '../_shared/characterName.ts'
 
 // skill-start: assign a character to train a skill (ADR-0003 server-authoritative write). Validates
 // the caller + that the skill is known (config is code — src/lib/skills.ts), then hands off to the
@@ -52,6 +53,18 @@ Deno.serve(async (req) => {
     // The RPC raises 'start_skill: <reason>' for every validation failure.
     const reason = rpcErr.message.replace(/^.*start_skill:\s*/, '')
     return json({ error: reason || 'Could not start training' }, 409)
+  }
+
+  try {
+    const characterName = await fetchCharacterName(admin, playerId, characterId)
+    const { error: logErr } = await admin.rpc('log_event', {
+      p_player: playerId,
+      p_type: 'skill_started',
+      p_payload: { skillName: SKILL_BY_KEY[skillKey].label, characterName },
+    })
+    if (logErr) console.error('activity log failed (skill_started) — continuing', logErr)
+  } catch (e) {
+    console.error('activity log failed (skill_started) — continuing', e)
   }
 
   return json({ assignment }, 201)
