@@ -41,10 +41,10 @@ describe('MAX_PROTECTED_SLOTS', () => {
 
 describe('nodeCost', () => {
   it('grows by costGrowth per level, floored', () => {
-    const node = ECHO_SHOP_NODES.missionSpeed // costBase 20, costGrowth 1.15
-    expect(nodeCost(node, 0)).toBe(20)
-    expect(nodeCost(node, 1)).toBe(23) // floor(20 * 1.15)
-    expect(nodeCost(node, 5)).toBe(40) // floor(20 * 1.15^5) = floor(40.227...)
+    const node = ECHO_SHOP_NODES.missionSpeed // costBase 10, costGrowth 1.15
+    expect(nodeCost(node, 0)).toBe(10)
+    expect(nodeCost(node, 1)).toBe(11) // floor(10 * 1.15)
+    expect(nodeCost(node, 5)).toBe(20) // floor(10 * 1.15^5) = floor(20.11...)
   })
 })
 

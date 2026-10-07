@@ -29,12 +29,12 @@ const FLAT_PER_LEVEL_BONUS: Record<FlatAscendantKind, number> = {
 }
 
 export const FLAT_ASCENDANT_NODES: Record<FlatAscendantKind, FlatAscendantNode> = {
-  missionSpeed: { key: 'missionSpeed', label: 'Ascendant Haste', description: 'Missions and dungeon/raid stages take even less real-world time to finish.', costBase: 200, costGrowth: 1.35 },
-  goldFind:     { key: 'goldFind',     label: 'Ascendant Fortune', description: 'Every character gains Gold Find, account-wide.', costBase: 200, costGrowth: 1.35 },
-  magicFind:    { key: 'magicFind',    label: 'Ascendant Sight', description: 'Every character gains Magic Find, account-wide.', costBase: 200, costGrowth: 1.35 },
-  xpGain:       { key: 'xpGain',       label: 'Ascendant Wisdom', description: 'Every character gains XP Gain, account-wide.', costBase: 200, costGrowth: 1.35 },
-  resourceGain: { key: 'resourceGain', label: 'Ascendant Bounty', description: 'More of every resource from mission and dungeon/raid loot.', costBase: 200, costGrowth: 1.35 },
-  rarityBias:   { key: 'rarityBias',   label: 'Ascendant Fate', description: 'Loot rolls favor higher rarities.', costBase: 250, costGrowth: 1.4 },
+  missionSpeed: { key: 'missionSpeed', label: 'Ascendant Haste', description: 'Missions and dungeon/raid stages take even less real-world time to finish.', costBase: 1, costGrowth: 1.35 },
+  goldFind:     { key: 'goldFind',     label: 'Ascendant Fortune', description: 'Every character gains Gold Find, account-wide.', costBase: 1, costGrowth: 1.35 },
+  magicFind:    { key: 'magicFind',    label: 'Ascendant Sight', description: 'Every character gains Magic Find, account-wide.', costBase: 1, costGrowth: 1.35 },
+  xpGain:       { key: 'xpGain',       label: 'Ascendant Wisdom', description: 'Every character gains XP Gain, account-wide.', costBase: 1, costGrowth: 1.35 },
+  resourceGain: { key: 'resourceGain', label: 'Ascendant Bounty', description: 'More of every resource from mission and dungeon/raid loot.', costBase: 1, costGrowth: 1.35 },
+  rarityBias:   { key: 'rarityBias',   label: 'Ascendant Fate', description: 'Loot rolls favor higher rarities.', costBase: 1, costGrowth: 1.4 },
 }
 
 /** Cost to buy the NEXT level of a flat node. */
@@ -66,7 +66,7 @@ export function resolveFlatAscendantStatBonuses(shop: Record<string, number>): R
  *  unlike RESOURCE_SOURCE, there's no fixed array to derive keys from). Cost and effect size are
  *  the same for every character; only the LEVEL (read from ascendant_shop) varies. Callers
  *  validate a given charKey against Sanity (characterDefExists) at purchase time. */
-const CHAR_COST_BASE = 500
+const CHAR_COST_BASE = 1
 const CHAR_COST_GROWTH = 1.5
 const CHAR_PER_LEVEL_BONUS = 0.10 // +10%/level to the bundled stat group
 
