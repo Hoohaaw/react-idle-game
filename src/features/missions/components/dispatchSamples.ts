@@ -22,6 +22,8 @@ export type DispatchMission = {
   timeLimitSeconds?: number | null
   /** World map key (ADR-0034/0035) — the trait context for Mapborn matching. */
   mapKey?: string | null
+  /** Optional/sparse (ADR-0059) — proficiency keys a Utility character can match for a bonus. */
+  proficiencyTags?: string[]
 }
 
 export type DispatchChar = {
@@ -31,6 +33,9 @@ export type DispatchChar = {
   level: number
   role?: CharacterRole
   damageSchool?: School
+  /** Utility-role-exclusive conditional bonus (ADR-0059) — matched against the mission's
+   *  proficiencyTags by the win-chance estimator. */
+  proficiency?: string
   /** Effective stat map + carried HP — inputs to the win-chance estimate (omitted in fixtures). */
   stats?: Record<string, number>
   currentHp?: number | null

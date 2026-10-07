@@ -1,5 +1,8 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 import { RocketIcon } from '@sanity/icons'
+import { PROFICIENCY_DEFS } from '../../src/lib/proficiencies'
+
+const PROFICIENCY_OPTIONS = PROFICIENCY_DEFS.map((p) => ({ title: p.label, value: p.proficiencyKey }))
 
 // A MISSION definition — what mission_runs.mission_def_id points at. The claim resolver (the
 // server-authoritative mission-claim Edge Function, ADR-0003) loads this to run the fight and pay
@@ -75,6 +78,15 @@ export const missionDef = defineType({
       type: 'number',
       fieldset: 'identity',
       validation: (rule) => rule.required().integer().min(1),
+    }),
+    defineField({
+      name: 'proficiencyTags',
+      title: 'Proficiency tags',
+      description:
+        'Optional, sparse (ADR-0059): proficiency keys a Utility character can match for a stat bonus on this mission. Leave empty for missions where no proficiency applies — most missions have none.',
+      type: 'array',
+      of: [defineArrayMember({ type: 'string', options: { list: PROFICIENCY_OPTIONS } })],
+      fieldset: 'identity',
     }),
 
     // --- Rewards ---

@@ -8,7 +8,8 @@ import { CharacterStats } from './CharacterStats'
 import { TalentsTab } from './TalentsTab'
 import { SchoolBadge } from '../atoms/SchoolBadge'
 import { TraitChips } from '../molecules/TraitChips'
-import { resolveRole, type CharacterRole } from '../../lib/roles'
+import { resolveRole, ROLE_STYLES, type CharacterRole } from '../../lib/roles'
+import { PROFICIENCY_BY_KEY } from '@/lib/proficiencies'
 import type { School } from '../../lib/schools'
 import type { TraitDef } from '../../lib/traits'
 import type { StatValue, StatGrowth, StatSourceBreakdown } from '../../lib/stats'
@@ -27,7 +28,7 @@ type CharTab = 'equipped' | 'talents' | 'stats'
 
 export function CharacterCard({
   name, charClass, level, xpCurrent, xpNeeded, role: roleProp, damageSchool,
-  traits = [], baseStats = [], growth = [], gear, statBreakdown,
+  traits = [], proficiency, baseStats = [], growth = [], gear, statBreakdown,
   blessingTree = [], blessings = {}, capstone, capstoneEarned = false,
 }: {
   name: string
@@ -38,6 +39,7 @@ export function CharacterCard({
   role?: CharacterRole // overrides the class-default role when authored (ADR-0008)
   damageSchool?: School // the caster's magic school, when authored (ADR-0033)
   traits?: TraitDef[] // innate identity traits (ADR-0035)
+  proficiency?: string // conditional mission proficiency, Utility-role-exclusive (ADR-0059)
   baseStats?: StatValue[]
   growth?: StatGrowth[]
   gear?: ComponentProps<typeof GearSlotGrid> // recruited instance's gear; omitted = empty preview grid
@@ -113,6 +115,13 @@ export function CharacterCard({
           <RoleBadge role={role} size="sm" />
           {damageSchool && <SchoolBadge school={damageSchool} size="sm" />}
         </div>
+
+        {/* Conditional mission proficiency (ADR-0059) — informational, Utility-role-exclusive */}
+        {proficiency && (
+          <p style={{ color: ROLE_STYLES.utility.color, fontSize: '10px', letterSpacing: '0.5px', textAlign: 'center' }}>
+            Proficiency: {PROFICIENCY_BY_KEY[proficiency]?.label ?? proficiency}
+          </p>
+        )}
 
         {/* Innate traits (ADR-0035) — hover for what each does */}
         {traits.length > 0 && (

@@ -80,6 +80,7 @@ export default function TeamPage() {
             role={openDef.role}
             damageSchool={openDef.damageSchool}
             traits={openDef.traits}
+            proficiency={openDef.proficiency}
             baseStats={openDef.baseStats}
             growth={openDef.growth}
             blessingTree={openDef.blessingTree}

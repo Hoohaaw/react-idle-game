@@ -421,9 +421,11 @@ character sprite art. Older open items below may be stale — trust the mileston
 - [x] Combat sim module — `src/lib/combat.ts` (576 lines) + `combat.test.ts` (418 lines), pure/seeded.
 - [x] `player_characters.current_hp` migration — `20260705120000_player_characters_current_hp.sql`,
   referenced across mission/gather/infirmary/map migrations.
-- [ ] **Utility role passive expression** — OPEN (ADR-0013 fork 6). Re-checked 2026-08-20: still
-  unresolved, no evidence the design question was ever closed. Needs a decision, not just code.
-  `↳ context: project-combat (ADR-0013 fork 6), project-undecided, project-roles`
+- [x] **Utility role passive expression** — shipped (ADR-0059): Utility characters can now be
+  authored with a single conditional proficiency (e.g. Alchemy) that grants a personal stat bonus
+  on missions tagged with a matching proficiency; the mission card surfaces the tag and the
+  character card surfaces the character's proficiency.
+  `↳ context: project-combat (ADR-0013 fork 6) · src/lib/proficiencies.ts, src/features/missions/, docs/DECISIONS.md ADR-0059`
 - [ ] **Mission win-chance is too binary — needs strategic depth** — players can currently swing a
   mission's win chance from near-0% to near-100% without much meaningful choice along the way; want
   deliberate strategy (gear, party composition, blessings, prep) that actually earns a

@@ -45,6 +45,8 @@ export type GameMission = {
   name: string
   description: string
   durationSeconds: number
+  /** Optional/sparse (ADR-0059) — proficiency keys a Utility character can match for a bonus. */
+  proficiencyTags: string[]
   baseXp: number
   baseGold: number
   resources: { code: string; amount: number }[]
@@ -58,7 +60,7 @@ export type GameMission = {
 }
 
 const MISSIONS_QUERY = `*[_type == "missionDef" && defined(missionKey)]{
-  missionKey, name, description, durationSeconds, baseXp, stage,
+  missionKey, name, description, durationSeconds, baseXp, stage, proficiencyTags,
   "map": map->{ mapKey, name, order },
   rewards[]{ kind, code, amount },
   loot[]{ dropChance, "itemKey": item->itemKey, "name": item->name, "slot": item->slot, rarityWeights[]{ rarity, weight } },
@@ -72,6 +74,7 @@ type RawMission = {
   name: string
   description?: string
   durationSeconds: number
+  proficiencyTags?: string[]
   baseXp?: number
   stage?: number
   map?: { mapKey?: string; name?: string; order?: number } | null
@@ -103,6 +106,7 @@ export async function fetchMissions(): Promise<GameMission[]> {
       name: m.name,
       description: m.description ?? '',
       durationSeconds: m.durationSeconds,
+      proficiencyTags: m.proficiencyTags ?? [],
       baseXp: m.baseXp ?? 0,
       baseGold: rewards.filter((r) => r.kind === 'currency').reduce((s, r) => s + r.amount, 0),
       resources: rewards.filter((r) => r.kind === 'resource').map((r) => ({ code: r.code, amount: r.amount })),

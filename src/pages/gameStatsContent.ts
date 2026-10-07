@@ -48,8 +48,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         name: 'Utility',
         icon: '✨',
         body:
-          'A flexible all-rounder. Fights with whatever stats they have; their special support tricks ' +
-          'are still being developed.',
+          'A flexible all-rounder, each one proficient in a specific specialty (Alchemy, for example). ' +
+          'On a mission that calls for it, a proficient Utility hero gets a personal stat boost for that ' +
+          'fight; elsewhere they fight as an ordinary combatant.',
       },
       {
         name: 'Gatherer',
