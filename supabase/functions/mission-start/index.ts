@@ -5,6 +5,7 @@ import { statsByCharacter } from '../_shared/charMaxHp.ts'
 import { missionDurationMultiplier } from '../../../src/lib/traits.ts'
 import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 import { resolveFlatAscendantBonus } from '../../../src/lib/ascendantShop.ts'
+import { validateMissionLoadout, type LoadoutEntry } from '../../../src/lib/consumables.ts'
 
 // mission-start: dispatch a party on a mission (ADR-0003 server-authoritative write). Validates the
 // caller, resolves the mission's authored duration from Sanity (the client is NOT trusted for it), and
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
   if (userErr || !userData.user) return json({ error: 'Invalid or expired session' }, 401)
   const playerId = userData.user.id
 
-  let body: { missionDefId?: unknown; party?: unknown }
+  let body: { missionDefId?: unknown; party?: unknown; consumables?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -38,11 +39,15 @@ Deno.serve(async (req) => {
   }
   const missionDefId = body.missionDefId
   const party = body.party
+  const consumablesInput = body.consumables ?? []
   if (typeof missionDefId !== 'string' || missionDefId.length === 0) {
     return json({ error: 'missionDefId is required' }, 400)
   }
   if (!Array.isArray(party) || party.length < 1 || party.length > 3 || !party.every((p) => typeof p === 'string')) {
     return json({ error: 'party must be 1–3 character ids' }, 400)
+  }
+  if (!Array.isArray(consumablesInput)) {
+    return json({ error: 'consumables must be an array' }, 400)
   }
 
   // Authored mission duration + map/stage placement (server-trusted). Also validates the mission
@@ -106,6 +111,70 @@ Deno.serve(async (req) => {
     console.error('party stats lookup failed — using authored duration', e)
   }
 
+  // Mission-prep consumables (2026-10-12 spec): resolve each party member's level/
+  // bonusConsumableSlot and each submitted item's category from Sanity, then validate the
+  // loadout with the pure function (Task 2) before it ever reaches the RPC. consumablesInput
+  // entries are expected as { characterId: string, consumableDefId: string }.
+  let validatedConsumables: LoadoutEntry[] = []
+  if (consumablesInput.length > 0) {
+    if (!consumablesInput.every((c) => typeof c === 'object' && c !== null && typeof (c as { characterId?: unknown }).characterId === 'string' && typeof (c as { consumableDefId?: unknown }).consumableDefId === 'string')) {
+      return json({ error: 'Each consumable entry needs characterId and consumableDefId' }, 400)
+    }
+    const raw = consumablesInput as { characterId: string; consumableDefId: string }[]
+
+    type CharLevelRow = { id: string; character_def_id: string; level: number }
+    const { data: charRows } = await admin
+      .from('player_characters')
+      .select('id, character_def_id, level')
+      .in('id', party as string[])
+      .eq('player_id', playerId)
+
+    const charDefKeys = [...new Set((charRows as CharLevelRow[] | null ?? []).map((r) => r.character_def_id))]
+    type CharFlagRow = { charKey: string; bonusConsumableSlot?: boolean }
+    let bonusSlotByCharKey = new Map<string, boolean>()
+    try {
+      const flagRows = await sanityQuery<CharFlagRow[]>(
+        `*[_type == "characterDef" && charKey in $keys]{ charKey, bonusConsumableSlot }`,
+        { keys: charDefKeys },
+      )
+      bonusSlotByCharKey = new Map(flagRows.map((r) => [r.charKey, r.bonusConsumableSlot ?? false]))
+    } catch (e) {
+      console.error('Sanity bonusConsumableSlot lookup failed — treating as no bonus slots', e)
+    }
+
+    const consumableDefIds = [...new Set(raw.map((c) => c.consumableDefId))]
+    type ConsumableCategoryRow = { consumableKey: string; category: 'heal' | 'buff' }
+    let categoryByDefId = new Map<string, 'heal' | 'buff'>()
+    try {
+      const catRows = await sanityQuery<ConsumableCategoryRow[]>(
+        `*[_type == "consumableDef" && consumableKey in $keys]{ consumableKey, category }`,
+        { keys: consumableDefIds },
+      )
+      categoryByDefId = new Map(catRows.map((r) => [r.consumableKey, r.category]))
+    } catch (e) {
+      console.error('Sanity consumableDef category lookup failed', e)
+      return json({ error: 'Could not validate consumables' }, 502)
+    }
+
+    const partyForValidation = (charRows as CharLevelRow[] | null ?? []).map((r) => ({
+      characterId: r.id,
+      level: r.level,
+      bonusSlot: bonusSlotByCharKey.get(r.character_def_id) ?? false,
+    }))
+    const loadout: LoadoutEntry[] = raw.map((c) => ({
+      characterId: c.characterId,
+      consumableDefId: c.consumableDefId,
+      category: categoryByDefId.get(c.consumableDefId) ?? 'buff',
+    }))
+    if (loadout.some((l) => !categoryByDefId.has(l.consumableDefId))) {
+      return json({ error: 'Unknown consumable' }, 400)
+    }
+
+    const error = validateMissionLoadout(partyForValidation, loadout)
+    if (error) return json({ error }, 400)
+    validatedConsumables = loadout
+  }
+
   // Echo Shop Mission Speed (ADR-0053) — a separate multiplier layered on top of the
   // trait/gear/blessing one above, applied last.
   durationSeconds = Math.max(1, Math.round(
@@ -120,6 +189,7 @@ Deno.serve(async (req) => {
     p_map_key: def.map?.mapKey ?? null,
     p_stage: def.stage ?? null,
     p_prev_map_key: def.map?.prevMapKey ?? null,
+    p_consumables: validatedConsumables.map((c) => ({ characterId: c.characterId, consumableDefId: c.consumableDefId })),
   })
 
   if (rpcErr) {
