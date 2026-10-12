@@ -164,6 +164,24 @@ export const characterDef = defineType({
         }),
     }),
     defineField({
+      name: 'bonusConsumableSlot',
+      title: 'Bonus consumable slot',
+      description:
+        'Utility-role-exclusive. Grants a 3rd mission-prep slot (on top of the level-based 1–2) for this SPECIFIC character — authored by hand, never earned automatically. Leave off unless you have deliberately decided this character gets it.',
+      type: 'boolean',
+      initialValue: false,
+      validation: (rule) =>
+        rule.custom((value: boolean | undefined, context) => {
+          if (!value) return true // optional, default-off
+          const doc = context.document as CharacterDoc | undefined
+          const role = resolveRole(doc?.charClass ?? '', (doc?.role as CharacterRole | undefined) ?? null)
+          if (role !== 'utility') {
+            return 'Bonus consumable slot is Utility-role-exclusive — this character resolves to a different role.'
+          }
+          return true
+        }),
+    }),
+    defineField({
       name: 'blessingTree',
       title: 'Blessing tree',
       description:

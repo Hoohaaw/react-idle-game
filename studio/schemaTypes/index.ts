@@ -1,9 +1,11 @@
 import { characterDef } from './characterDef'
+import { consumableDef } from './consumableDef'
 import { enemyDef } from './enemyDef'
 import { encounterDef } from './encounterDef'
 import { itemDef } from './itemDef'
 import { mapDef } from './mapDef'
 import { missionDef } from './missionDef'
+import { totemDef } from './totemDef'
 import { traitDef } from './traitDef'
 import { statValue } from './objects/statValue'
 import { statGrowth } from './objects/statGrowth'
@@ -28,11 +30,13 @@ import { recipeDef } from './recipeDef'
 
 export const schemaTypes = [
   characterDef,
+  consumableDef,
   enemyDef,
   encounterDef,
   itemDef,
   mapDef,
   missionDef,
+  totemDef,
   traitDef,
   statValue,
   statGrowth,
