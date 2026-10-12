@@ -10,7 +10,7 @@ import type { AbilityStat } from './combat'
 export type TotemEffect = { stat: string; kind: 'flat' | 'pct'; value: number }
 export type TotemDef = { totemKey: string; effects: TotemEffect[] }
 
-const TOTEM_ALLOWED_STATS: ReadonlySet<string> = new Set<AbilityStat>([
+export const TOTEM_ALLOWED_STATS: ReadonlySet<AbilityStat> = new Set<AbilityStat>([
   'defense', 'resistance', 'critChance', 'critDamage', 'dodge', 'block', 'healthRegen',
 ])
 
