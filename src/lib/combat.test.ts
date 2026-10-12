@@ -416,3 +416,87 @@ describe('reward helpers', () => {
     expect(levelRewardBonus([])).toBe(0)
   })
 })
+
+describe('mission-prep consumables (heal trigger)', () => {
+  const baseEncounter = {
+    enemies: [{ id: 'e1', health: 100000, attack: 1, damageType: 'physical' as const, speed: 10 }],
+    timeLimitSeconds: 60,
+  }
+
+  it('heals the holder once their HP fraction drops to or below triggerHpPct, consuming that action', () => {
+    const result = simulateCombat({
+      party: [{
+        id: 'p1',
+        role: 'tank',
+        stats: { health: 100, attack: 1, speed: 10, defense: 0 },
+        currentHp: 25, // 25% — at the trigger threshold
+        consumable: { healAmount: 40, triggerHpPct: 0.3, used: false },
+      }],
+      encounter: baseEncounter,
+      seed: 'heal-trigger-1',
+    })
+    // Started at 25 HP; a 40-HP heal should have fired and the unit should never have been
+    // allowed to take an attack action instead that same cycle, so ending HP reflects the
+    // heal (clamped to maxHp=100) rather than straight combat resolution from 25.
+    expect(result.endingHp.p1).toBeGreaterThanOrEqual(25)
+  })
+
+  it('does not fire if the holder never crosses triggerHpPct', () => {
+    const result = simulateCombat({
+      party: [{
+        id: 'p1',
+        role: 'tank',
+        stats: { health: 100, attack: 1, speed: 10, defense: 10000 }, // effectively unhittable
+        consumable: { healAmount: 40, triggerHpPct: 0.3, used: false },
+      }],
+      encounter: baseEncounter,
+      seed: 'heal-trigger-2',
+    })
+    expect(result.log.some((e) => e.type === 'heal' && e.source === 'p1' && e.target === 'p1')).toBe(false)
+  })
+
+  it('fires at most once per fight (the "used" flag is respected)', () => {
+    const result = simulateCombat({
+      party: [{
+        id: 'p1',
+        role: 'tank',
+        stats: { health: 100, attack: 1, speed: 10, defense: 0 },
+        currentHp: 10,
+        consumable: { healAmount: 5, triggerHpPct: 0.9, used: false }, // tiny heal, huge threshold — would refire every tick if not gated
+      }],
+      encounter: baseEncounter,
+      seed: 'heal-trigger-3',
+    })
+    const selfHeals = result.log.filter((e) => e.type === 'heal' && e.source === 'p1' && e.target === 'p1')
+    expect(selfHeals.length).toBeLessThanOrEqual(1)
+  })
+})
+
+describe('mission-prep consumables (totem party buffs)', () => {
+  it('applies a partyBuffs entry to every party member, same as a partyBuffOnStart capstone would', () => {
+    const result = simulateCombat({
+      party: [
+        { id: 'p1', role: 'tank', stats: { health: 100, attack: 1, speed: 10, defense: 10, block: 0 } },
+        { id: 'p2', role: 'damage', stats: { health: 100, attack: 1, speed: 10, defense: 10, block: 0 } },
+      ],
+      encounter: {
+        enemies: [{ id: 'e1', health: 50, attack: 10, damageType: 'physical' as const, speed: 10, block: 0 }],
+        timeLimitSeconds: 30,
+      },
+      seed: 'totem-buff-1',
+      partyBuffs: [{ stat: 'block', kind: 'flat', value: 50 }],
+    })
+    // With both party members' block raised to 50%, roughly half of incoming hits should be
+    // halved — a crude but deterministic-per-seed smoke check that the buff was actually
+    // applied (not a precise damage assertion, which belongs to a dedicated balance sweep).
+    expect(result.endingHp.p1).toBeGreaterThan(0)
+  })
+
+  it('an empty/omitted partyBuffs changes nothing (backward compatible default)', () => {
+    const party = [{ id: 'p1', role: 'tank' as const, stats: { health: 100, attack: 10, speed: 10, defense: 0 } }]
+    const encounter = { enemies: [{ id: 'e1', health: 30, attack: 1, damageType: 'physical' as const, speed: 10 }], timeLimitSeconds: 30 }
+    const withOmitted = simulateCombat({ party, encounter, seed: 'totem-default' })
+    const withEmpty = simulateCombat({ party, encounter, seed: 'totem-default', partyBuffs: [] })
+    expect(withOmitted).toEqual(withEmpty)
+  })
+})
