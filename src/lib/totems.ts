@@ -15,6 +15,15 @@ export const TOTEM_ALLOWED_STATS: ReadonlySet<AbilityStat> = new Set<AbilityStat
 ])
 
 /**
+ * Type-guard helper: narrow a string to AbilityStat by checking membership in
+ * TOTEM_ALLOWED_STATS. Cast to ReadonlySet<string> is justified here as the one place
+ * where "is this string one of our known literals" needs a runtime assertion.
+ */
+function isTotemAllowedStat(stat: string): stat is AbilityStat {
+  return (TOTEM_ALLOWED_STATS as ReadonlySet<string>).has(stat)
+}
+
+/**
  * Resolves the equipped totem's effects into the exact array shape simulateCombat's new
  * `partyBuffs` param expects. Null-safe by design: a missing totem (none equipped) or a
  * stale reference (the totemDef was deleted/unpublished in Sanity since being equipped —
@@ -27,6 +36,6 @@ export function resolveTotemPartyBuffs(
 ): { stat: AbilityStat; kind: 'flat' | 'pct'; value: number }[] {
   if (!totem) return []
   return totem.effects
-    .filter((e): e is TotemEffect & { stat: AbilityStat } => TOTEM_ALLOWED_STATS.has(e.stat))
+    .filter((e): e is TotemEffect & { stat: AbilityStat } => isTotemAllowedStat(e.stat))
     .map((e) => ({ stat: e.stat, kind: e.kind, value: e.value }))
 }
