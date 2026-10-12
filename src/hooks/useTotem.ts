@@ -1,5 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { equipTotem, unequipTotem } from '@/services/totems'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { equipTotem, unequipTotem, fetchTotemDefs } from '@/services/totems'
+
+// Authored totem defs — cache freely, same as useItemDefs (useRoster.ts).
+export function useTotemDefs() {
+  return useQuery({ queryKey: ['totemDefs'], queryFn: fetchTotemDefs })
+}
 
 export function useEquipTotem() {
   const qc = useQueryClient()

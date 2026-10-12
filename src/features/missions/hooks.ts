@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchMissions, startMission, claimMission, type MissionLoadoutEntry } from '@/services/missions'
+import { fetchConsumableDefs } from '@/services/consumables'
 
 // Mission-specific hooks. The shared roster + runtime reads (useRoster, useMissionRuns, owned chars, …)
 // live in @/hooks/useRoster — imported directly by the pages that need them.
@@ -7,6 +8,12 @@ import { fetchMissions, startMission, claimMission, type MissionLoadoutEntry } f
 // --- Query hooks -------------------------------------------------------------------------------
 export function useMissions() {
   return useQuery({ queryKey: ['missions'], queryFn: fetchMissions })
+}
+
+// Authored consumable defs — only the dispatch loadout picker needs these, so this stays
+// mission-local rather than moving to the shared @/hooks/useRoster (ADR-0010).
+export function useConsumableDefs() {
+  return useQuery({ queryKey: ['consumableDefs'], queryFn: fetchConsumableDefs })
 }
 
 // --- Mutations ---------------------------------------------------------------------------------
