@@ -121,7 +121,10 @@ export type Combatant = {
   /** A self-only, mid-fight heal trigger from a carried `heal`-category consumable (mission
    *  prep, 2026-10-12 spec). Absent = no consumable carried, or a `buff`-category one (which
    *  applies pre-fight via effectiveStats' extraBonuses instead — see Task 9). `used` starts
-   *  `false`; the sim flips it once the trigger fires. */
+   *  `false`; the sim flips it once the trigger fires. `simulateCombat` mutates this object IN
+   *  PLACE — callers must construct a fresh `consumable` object per call, never reuse the same
+   *  object/array across multiple `simulateCombat` invocations (e.g. a Monte Carlo estimator
+   *  looping seeds over the same `party` array, as `winChance.ts` does today). */
   consumable?: { healAmount: number; triggerHpPct: number; used: boolean }
 }
 
@@ -237,7 +240,8 @@ type Unit = {
   spikeNextAt: number
   /** Capstone-earned scripted ability (ADR-0045 Phase B, party only); undefined = none. */
   ability?: CombatAbility
-  /** Pass-through of Combatant.consumable (mission prep); mutated in place when it fires. */
+  /** Pass-through of Combatant.consumable (mission prep); mutated in place when it fires —
+   *  see the warning on Combatant.consumable: callers must pass a fresh object per call. */
   consumable?: { healAmount: number; triggerHpPct: number; used: boolean }
   /** Whether a 'surviveFatal' ability has already been consumed this fight. */
   fatalSaveUsed: boolean
