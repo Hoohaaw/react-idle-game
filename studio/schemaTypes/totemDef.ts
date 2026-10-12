@@ -1,5 +1,5 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
-import { ShieldIcon } from '@sanity/icons'
+import { DiamondIcon } from '@sanity/icons'
 
 // A TOTEM definition (design spec §E): durable, party-wide, account-level equip — NOT a
 // per-mission consumable. One active at a time (profiles.active_totem_id). Effects are
@@ -11,7 +11,7 @@ export const totemDef = defineType({
   name: 'totemDef',
   title: 'Totem',
   type: 'document',
-  icon: ShieldIcon,
+  icon: DiamondIcon,
   fields: [
     defineField({ name: 'name', type: 'string', validation: (rule) => rule.required() }),
     defineField({
