@@ -261,7 +261,18 @@ Deno.serve(async (req) => {
     console.error('consumable/totem content lookup failed — continuing without their bonuses', e)
   }
   const consumableByKey = new Map(consumableDefs.map((c) => [c.consumableKey, c]))
-  const consumableByChar = new Map(consumablesUsed.map((c) => [c.characterId, consumableByKey.get(c.consumableDefId)]))
+  // Group ALL of a character's carried consumableDefs (not just the last one) — a level-21+
+  // character has 2 slots and can legitimately carry 2 buff-category items (even 2x the same
+  // one). Heal stays effectively single-entry: validateMissionLoadout caps heal items at 1 per
+  // PARTY per mission, so at most one heal-category entry can exist for any one character.
+  const consumableByChar = new Map<string, ConsumableRow[]>()
+  for (const used of consumablesUsed) {
+    const def = consumableByKey.get(used.consumableDefId)
+    if (!def) continue
+    const list = consumableByChar.get(used.characterId) ?? []
+    list.push(def)
+    consumableByChar.set(used.characterId, list)
+  }
 
   const charDefByKey = new Map(charDefs.map((d) => [d.charKey, d]))
   const itemDefById: Record<string, ItemDefBonuses> = Object.fromEntries(
@@ -284,11 +295,12 @@ Deno.serve(async (req) => {
     if (!def) return json({ error: `Missing character definition: ${c.character_def_id}` }, 500)
     const picks = c.blessings ?? {}
     const earnedCapstone = capstoneEarned(c.level, picks)
-    const consumableForChar = consumableByChar.get(c.id)
-    const consumableBuffBonus =
-      consumableForChar?.category === 'buff' && consumableForChar.effects
-        ? resolveConsumableBuffBonus(consumableForChar.effects)
-        : {}
+    const consumablesForChar = consumableByChar.get(c.id) ?? []
+    const buffConsumablesForChar = consumablesForChar.filter((d) => d.category === 'buff' && d.effects)
+    const consumableBuffBonus = mergeBonuses(
+      ...buffConsumablesForChar.map((d) => resolveConsumableBuffBonus(d.effects!)),
+    )
+    const healConsumableForChar = consumablesForChar.find((d) => d.category === 'heal')
     const stats = effectiveStats({
       level: c.level,
       baseStats: def.baseStats ?? [],
@@ -315,10 +327,10 @@ Deno.serve(async (req) => {
       damageSchool: def.damageSchool ?? undefined, // ADR-0033; sim defaults to neutral 'magic'
       ability: resolveCapstoneAbility(def.capstone, earnedCapstone), // ADR-0045 Phase B
       consumable:
-        consumableForChar?.category === 'heal' &&
-        typeof consumableForChar.healAmount === 'number' &&
-        typeof consumableForChar.triggerHpPct === 'number'
-          ? { healAmount: consumableForChar.healAmount, triggerHpPct: consumableForChar.triggerHpPct, used: false }
+        healConsumableForChar &&
+        typeof healConsumableForChar.healAmount === 'number' &&
+        typeof healConsumableForChar.triggerHpPct === 'number'
+          ? { healAmount: healConsumableForChar.healAmount, triggerHpPct: healConsumableForChar.triggerHpPct, used: false }
           : undefined,
     })
   }
