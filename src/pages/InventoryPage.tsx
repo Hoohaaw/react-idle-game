@@ -37,9 +37,14 @@ export default function InventoryPage() {
   // ['itemDefs'] already does for gear.
   const activeTotemId = profile.data?.activeTotemId ?? null
   const activeTotemName = activeTotemId ? totemDefs.data?.[activeTotemId]?.name ?? activeTotemId : null
+  // Only owned totems can be equipped (equip_totem now enforces this server-side too) — same
+  // owned-stacks-joined-with-authored-defs pattern MissionDispatch.tsx uses for consumables.
+  const ownedTotemKeys = new Set((inventory.data ?? []).map((stack) => stack.itemDefId))
   const totemOptions = [
     { value: '', label: activeTotemId ? 'Change totem…' : 'Equip a totem…' },
-    ...Object.entries(totemDefs.data ?? {}).map(([key, def]) => ({ value: key, label: def.name })),
+    ...Object.entries(totemDefs.data ?? {})
+      .filter(([key]) => ownedTotemKeys.has(key))
+      .map(([key, def]) => ({ value: key, label: def.name })),
   ]
   const totemError = equipTotemM.error ?? unequipTotemM.error
 
