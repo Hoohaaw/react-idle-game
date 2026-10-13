@@ -7,7 +7,7 @@ vi.mock('@/lib/supabase', () => ({
 
 import { sanity } from './sanity'
 import { supabase } from '@/lib/supabase'
-import { fetchRecipes, fetchCraftRun, startCraft, claimCraft, cancelCraft } from './crafting'
+import { fetchRecipes, fetchCraftRun, startCraft, claimCraft, cancelCraft, RECIPES_QUERY } from './crafting'
 
 describe('fetchRecipes', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -59,6 +59,41 @@ describe('fetchRecipes', () => {
     }])
     const [query] = vi.mocked(sanity.fetch).mock.calls[0]
     expect(query).toContain('recipeDef')
+  })
+
+  it('does not drop a recipe whose result is a consumableDef/totemDef (no slot, no itemKey field)', async () => {
+    // The GROQ query projects "itemKey": coalesce(itemKey, consumableKey, totemKey) so a
+    // consumableDef/totemDef result (which has no `itemKey` or `slot` of its own) still comes
+    // back with a populated `itemKey` and no `slot` — regression test for the bug where these
+    // recipes were silently dropped because the query hardcoded result->itemKey.
+    vi.mocked(sanity.fetch).mockResolvedValue([
+      {
+        recipeKey: 'brew-minor-healing-potion',
+        name: 'Brew a Minor Healing Potion',
+        description: 'z',
+        durationSeconds: 60,
+        result: { itemKey: 'minor-healing-potion', name: 'Minor Healing Potion' }, // no slot
+        resultRarityWeights: [],
+        reagents: [{ kind: 'resource', resource: 'Herb', quantity: 2, item: null }],
+      },
+    ] as never)
+
+    const result = await fetchRecipes()
+
+    expect(result).toEqual([{
+      recipeKey: 'brew-minor-healing-potion',
+      name: 'Brew a Minor Healing Potion',
+      description: 'z',
+      durationSeconds: 60,
+      result: { itemKey: 'minor-healing-potion', name: 'Minor Healing Potion', slot: '' },
+      resultRarityWeights: [],
+      reagents: [{ kind: 'resource', resource: 'Herb', quantity: 2 }],
+      reagentNames: {},
+    }])
+  })
+
+  it('queries result with a coalesce across itemKey/consumableKey/totemKey so no result type is dropped', () => {
+    expect(RECIPES_QUERY).toContain('coalesce(itemKey, consumableKey, totemKey)')
   })
 })
 
