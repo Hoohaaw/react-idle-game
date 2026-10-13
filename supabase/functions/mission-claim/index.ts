@@ -255,10 +255,14 @@ Deno.serve(async (req) => {
       )
     }
   } catch (e) {
-    // Stale/deleted totemDef or consumableDef reference degrades to "no bonus applied" —
-    // never blocks the claim (Review Focus: a dangling active_totem_id must not 500 every
-    // future claim for this player).
-    console.error('consumable/totem content lookup failed — continuing without their bonuses', e)
+    // A THROWN error here is a genuine fetch/Sanity failure (network error, non-2xx response —
+    // see sanityQuery), same as the mission/charDefs/itemDefs fetch above — it must 502, not
+    // silently commit a fight with zero consumable/totem bonuses after the player already paid
+    // for them at mission-start. A stale/deleted totemDef or consumableDef *reference* does NOT
+    // throw at all (sanityQuery just returns null/[] for no match) — that case degrades
+    // gracefully via the consumableByKey/activeTotem null-checks below, untouched by this catch.
+    console.error('consumable/totem content fetch failed', e)
+    return json({ error: 'Could not load consumable/totem content' }, 502)
   }
   const consumableByKey = new Map(consumableDefs.map((c) => [c.consumableKey, c]))
   // Group ALL of a character's carried consumableDefs (not just the last one) — a level-21+
