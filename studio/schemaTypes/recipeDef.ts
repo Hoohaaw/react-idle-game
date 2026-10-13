@@ -30,7 +30,7 @@ export const recipeDef = defineType({
       name: 'result',
       title: 'Result item',
       type: 'reference',
-      to: [{ type: 'itemDef' }],
+      to: [{ type: 'itemDef' }, { type: 'consumableDef' }, { type: 'totemDef' }],
       validation: (rule) => rule.required(),
     }),
     defineField({
