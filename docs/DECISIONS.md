@@ -3094,3 +3094,147 @@ characters recruited/leveled/downed, gathers collected, upgrades made. Design:
   `log_event`-shaped worth reporting (e.g. `username_available`, read-only queries) — every
   write site a player would recognize as "something happened" is covered; nothing was added
   speculatively.
+
+## ADR-0061 — Mission prep & consumables: self-only heal/buff items + a durable, party-wide totem equip
+
+**Date:** 2026-10-13 · **Status:** Accepted (Alex)
+
+**Context.** `docs/QUALITY_HYBRID.md`'s E7 finding scored this game 25% on "in-run resource
+scarcity/tension" — combat resolves as a deterministic server-run auto-battle with zero
+player-managed in-run resources (no potions-used-this-attempt, no prep decision before
+committing). Separately, the user wanted parties to be able to *prepare* for a mission —
+bring items that heal, buff, or grant resistances, the way an adventuring party would.
+Design: `docs/superpowers/specs/2026-10-12-mission-prep-consumables-design.md`. Plan (13
+tasks): `docs/superpowers/plans/2026-10-12-mission-prep-consumables.md`.
+
+**Decision.**
+- **Two consumable categories, split by timing, not by flavor.** A new Sanity type,
+  `consumableDef`, separate from `itemDef` (flat tiered items, no slot type, no rarity
+  roll — "Minor Healing Potion" vs. a hypothetical "Major Healing Potion" are two distinct
+  defs, not one item with a rarity roll). `heal` is mid-fight and HP-threshold-triggered
+  (`healAmount`, `triggerHpPct`) because popping it at full HP wastes it — it needs a real
+  trigger, checked at the exact point the Healer role's existing conditional
+  attack-or-heal override already fires in `combat.ts`, consuming that action cycle like a
+  Healer's heal does. `buff` is pre-fight and whole-encounter (`effects: [{stat, kind,
+  value}]`, the same `{flat, pct}` shape gear/blessings/traits/proficiencies already use) —
+  it folds straight into the existing `extraBonuses` merge with zero new sim logic, because
+  an always-on buff needs no trigger condition at all.
+- **Per-character slots, not a party-wide pool.** `slotsForCharacter(level) = level >= 21 ?
+  2 : 1`, plus a studio-authored `characterDef.bonusConsumableSlot: boolean` third slot —
+  Utility-role-exclusive by validation (same authoring pattern as `characterDef.proficiency`,
+  ADR-0059), hand-granted per character, never computed from role alone. Keeps "who carries
+  what" a per-character decision like gear/blessings already are, rather than inventing a
+  shared pool.
+- **Anti-stacking cap: at most one `heal`-category item per party per mission**, enforced in
+  `start_mission` by counting submitted items by category across the whole party and
+  rejecting more than one `heal`. This exists because of a real tactical-layer bypass:
+  per-character slots alone would let every party member carry a heal item, and combined
+  with the Tank role's existing threat generation (ADR-0027 — it already soaks most incoming
+  damage), "Tank soaks + everyone pops heals" would let brute-force stacking substitute for
+  the party comp/elemental-matching/blessing decisions the game already rewards. `buff`-
+  category items are left uncapped for v1 — they're situational (the *right* resistance for
+  the *right* fight) rather than a universal safety net, so the stacking risk reads lower;
+  revisit if that turns out wrong in practice.
+- **Items are consumed at `mission-start`, not at claim** — same timing `start_craft`
+  already uses for reagents — so a lost mission still spent the prep; that's the honest cost
+  of preparing, win or lose. The loadout is stored on `mission_runs.consumables_used jsonb`
+  so `mission-claim` knows what to wire into each `Combatant` when it rebuilds the fight.
+- **Totems are explicitly not a per-mission consumable.** A new Sanity type, `totemDef`
+  (`totemKey`, `effects: [{stat, kind, value}]`), equips into a single slot on
+  `profiles.active_totem_id` — account-wide, one at a time, applying to every mission until
+  swapped, free to swap (no gold cost, matching gear's convention), no busy-check (unlike
+  `equip_item`, a totem isn't tied to one specific character being unavailable, so there's
+  no equivalent entity to check against). Combat integration reuses the exact mechanism the
+  capstone's `partyBuffOnStart` ability already uses — a flat/pct buff applied to every
+  party member once at fight start, restricted to the same allowlisted stats (`defense`,
+  `resistance`, `critChance`, `critDamage`, `dodge`, `block`, `healthRegen`) that ability
+  already respects (`src/lib/totems.ts`'s `TOTEM_ALLOWED_STATS`). Read live at claim time,
+  not frozen at dispatch — consistent with how equipped gear already works, rather than
+  inventing a separate "locked loadout" concept just for totems. The choice to make totems
+  durable rather than consumed-per-use was deliberate ("carved" implies durability): a
+  third flavor of one-shot item would have blurred into the `heal`/`buff` consumables this
+  same spec ships, where a durable, gear-like equip slot is a cleaner, distinct niche.
+  Overall, it's the `heal`/`buff` consumable loadout — not the totem — that is the direct
+  answer to E7's "no in-run resource management" finding; the totem is a complementary,
+  always-on account-level buff layered on top, not itself a scarcity/tension mechanic.
+- **Slot formula and anti-stacking cap are flat placeholders**, matching this project's
+  convention for every other first-pass constant (Echo Shop costs, Infirmary upgrade costs,
+  Proficiency's `alchemy` placeholder effect) — a `docs/BALANCE.md`-style pass on exact
+  numbers is deferred, not decided here.
+- **Deferred to later, sequential specs** (not part of this one): the five professions that
+  will produce the richer content on top of this framework — Alchemy (deepens `heal`/`buff`),
+  Carving (deepens totems), Prospecting (new crack-open-reveal mechanic), Tempering (new
+  physical-damage category), Arcane Writing (new spell-damage category) — in that build
+  order, per the spec's own sequencing rationale. Also deferred: mid-fight triggers for
+  `buff`-category items, more than the formula-driven 1–2 slots plus the studio-flagged 3rd
+  slot, and per-ally targeting for heal items (self-only is final for this spec).
+
+**Consequences.**
+- A real in-run resource-management decision (E7) now exists using entirely existing
+  architecture — two small schema additions (`mission_runs.consumables_used`,
+  `profiles.active_totem_id`), no new RNG model, no change to the deterministic-replay
+  guarantee of the combat sim.
+- **A real plan defect was found and fixed during implementation, not just during review**:
+  the plan's `start_mission` migration used `create or replace function
+  public.start_mission(...)` with a differing argument count from the live function.
+  Postgres treats a differing arg list as a new overload, not a replacement, so the old
+  function would never have been dropped — caught via a real pgTAP failure ("function ...
+  is not unique") and fixed by adding the `drop function ...` precedent this project already
+  established (`20260916140000_upgrade_items_lifetime_stats.sql`) immediately before the
+  `create or replace`.
+- **A real cross-task type error surfaced only after reconciling the parallel-cluster
+  branches, not during any individual task's own vitest-only verification.** Tightening
+  `TOTEM_ALLOWED_STATS` to `ReadonlySet<AbilityStat>` (a fix the task's own code review
+  requested and approved on vitest evidence) broke `npm run build`:
+  `TOTEM_ALLOWED_STATS.has(e.stat)` fails to typecheck against `TotemEffect.stat: string`.
+  Root cause: that task's brief only asked for `npx vitest run`, never a `tsc`/build check —
+  a real gap in that one task's own verification scope, caught by the plan's own
+  closing-task discipline (a full build after reconciliation), not by any single task's
+  review. Fixed with the `isTotemAllowedStat()` type-guard helper now in `src/lib/totems.ts`.
+  **Lesson for future plans:** a task that narrows a shared type used elsewhere needs a
+  build check in its own verification step, not just the test file it's editing.
+- **A real aggregation bug was self-caught and fixed before review**, not shipped: in
+  mission-claim, the map from characterId to that character's buff consumableDef (one entry
+  per character) silently dropped all but the last if a character carried two or more
+  `buff`-category items in their own slots — reachable today (a level 21+ character has 2
+  slots and could legitimately queue the same buff item twice). The player paid for both;
+  only one's effect applied at claim. Fixed by collecting *all* of a character's
+  `buff`-category entries and merging every one of their effects via the existing
+  `mergeBonuses` helper, instead of resolving a single consumableDef per character. `heal`
+  resolution stays single-entry — already provably ≤1 per character via the party-wide cap.
+- **A real plan gap was found and fixed at the UI task, not earlier**: no task in the
+  12-task plan was ever assigned to thread `profiles.active_totem_id` through
+  `src/types/database.types.ts`/`src/services/profile.ts`, even though Task 6 added the
+  column. It only surfaced when the UI task became the first consumer that actually needed
+  to read it client-side. Fixed by hand-adding the column to the `profiles` type blocks and
+  threading it through `profile.ts` as `activeTotemId`, verified not to reproduce the
+  `CompositeTypes`/`Insert: never` regression CLAUDE.md warns about for regenerated types
+  (this was a manual edit, not a regeneration, but checked against the same risk anyway).
+- **Known follow-ups, parked as Minor, not fixed in this plan:**
+  - `combat.test.ts`'s heal/totem assertions use `toBeGreaterThanOrEqual`/
+    `toBeGreaterThan` rather than exact values — brief-prescribed, not an implementer
+    deviation.
+  - `start_mission`'s consumable loop doesn't independently verify a submitted
+    `characterId` is actually a member of the party/owned by the player at the DB layer —
+    explicitly scoped to the Edge Function layer per the brief.
+  - `start_mission`'s consumable category defaults to `'buff'` via `??` one line before the
+    unknown-consumable 400 check fires — harmless (never consumed), but loosens the type to
+    `'heal' | 'buff' | undefined`.
+  - LoadoutPicker's quantity label doesn't account for the same item picked for 2+
+    characters in one dispatch (server rejects it; client doesn't pre-warn) —
+    client-validation was explicitly out of scope.
+  - `ConsumableDefMeta.category` is fetched but unused in rendering (harmless, future-use
+    metadata); no loading-state skeleton for the two new Sanity queries (matches the rest of
+    the page).
+  - Content wave 1's reagent choices are thematically arbitrary and `resultRarityWeights` is
+    empty on all 3 new recipes — correct today (`consumableDef`/`totemDef` have no rarity
+    field) but flagged for a future balance pass to confirm "always-Common consumables" is
+    deliberate, not an oversight.
+- **Manual browser verification was never performed in this environment and is still
+  outstanding** — both Task 1's Sanity Studio field-visibility check (does
+  `bonusConsumableSlot` actually show up Utility-exclusive the way the schema validation
+  intends) and Task 11's actual click-through dispatch/equip flow (pick a loadout, dispatch,
+  claim, equip/unequip a totem, see it apply) were disclosed as unexecuted throughout
+  implementation — no browser is available in this environment. This needs a human pass
+  before the feature is considered launch-verified, the same disclosed-limitation pattern
+  this project has used before (e.g. the activity-log PR's manual browser verification gap).
