@@ -435,10 +435,12 @@ describe('mission-prep consumables (heal trigger)', () => {
       encounter: baseEncounter,
       seed: 'heal-trigger-1',
     })
-    // Started at 25 HP; a 40-HP heal should have fired and the unit should never have been
-    // allowed to take an attack action instead that same cycle, so ending HP reflects the
-    // heal (clamped to maxHp=100) rather than straight combat resolution from 25.
-    expect(result.endingHp.p1).toBeGreaterThanOrEqual(25)
+    // Both p1 and the enemy start at nextAt=0 (a tie), broken by order — party order 0 beats
+    // the enemy's order 1 — so p1's own action fires FIRST, before the enemy ever lands a hit.
+    // That makes the heal event's exact amount deterministic regardless of combat RNG: hp goes
+    // from 25 to min(maxHp=100, 25+40)=65, a delta of exactly 40.
+    const healEvent = result.log.find((e) => e.type === 'heal' && e.source === 'p1' && e.target === 'p1')
+    expect(healEvent?.amount).toBe(40)
   })
 
   it('does not fire if the holder never crosses triggerHpPct', () => {
@@ -468,28 +470,35 @@ describe('mission-prep consumables (heal trigger)', () => {
       seed: 'heal-trigger-3',
     })
     const selfHeals = result.log.filter((e) => e.type === 'heal' && e.source === 'p1' && e.target === 'p1')
-    expect(selfHeals.length).toBeLessThanOrEqual(1)
+    // p1 starts at 10/100 = 10% HP, well under the 90% trigger, so the heal WOULD fire on this
+    // very first action tick (same order-tiebreak as above) whether or not the "used" gate
+    // works — the real assertion is that it never fires a second time despite staying far below
+    // the threshold all fight (15/100 = 15% after the one heal, still <= 0.9).
+    expect(selfHeals.length).toBe(1)
   })
 })
 
 describe('mission-prep consumables (totem party buffs)', () => {
   it('applies a partyBuffs entry to every party member, same as a partyBuffOnStart capstone would', () => {
-    const result = simulateCombat({
-      party: [
-        { id: 'p1', role: 'tank', stats: { health: 100, attack: 1, speed: 10, defense: 10, block: 0 } },
-        { id: 'p2', role: 'damage', stats: { health: 100, attack: 1, speed: 10, defense: 10, block: 0 } },
-      ],
-      encounter: {
-        enemies: [{ id: 'e1', health: 50, attack: 10, damageType: 'physical' as const, speed: 10, block: 0 }],
-        timeLimitSeconds: 30,
-      },
-      seed: 'totem-buff-1',
-      partyBuffs: [{ stat: 'block', kind: 'flat', value: 50 }],
+    const party = [
+      { id: 'p1', role: 'tank' as const, stats: { health: 100, attack: 1, speed: 10, defense: 10, block: 0 } },
+      { id: 'p2', role: 'damage' as const, stats: { health: 100, attack: 1, speed: 10, defense: 10, block: 0 } },
+    ]
+    const encounter = {
+      enemies: [{ id: 'e1', health: 50, attack: 10, damageType: 'physical' as const, speed: 10, block: 0 }],
+      timeLimitSeconds: 30,
+    }
+    const withBuff = simulateCombat({
+      party, encounter, seed: 'totem-buff-1', partyBuffs: [{ stat: 'block', kind: 'flat', value: 50 }],
     })
-    // With both party members' block raised to 50%, roughly half of incoming hits should be
-    // halved — a crude but deterministic-per-seed smoke check that the buff was actually
-    // applied (not a precise damage assertion, which belongs to a dedicated balance sweep).
-    expect(result.endingHp.p1).toBeGreaterThan(0)
+    const withoutBuff = simulateCombat({ party, encounter, seed: 'totem-buff-1' })
+    // Same seed, same party, same encounter — the ONLY difference is partyBuffs. Raising both
+    // party members' block stat from 0 to 50 changes whether `defender.block > 0 && rng() * 100
+    // < defender.block` even evaluates its rng() call on every incoming hit (short-circuits when
+    // block is 0), which desynchronizes the RNG stream the moment it diverges — so a real buff
+    // application reliably produces a different outcome, whereas a deleted/no-op buff loop would
+    // make these two runs come out byte-for-byte identical.
+    expect(withBuff.survivingHpPct).not.toBe(withoutBuff.survivingHpPct)
   })
 
   it('an empty/omitted partyBuffs changes nothing (backward compatible default)', () => {
