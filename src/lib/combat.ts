@@ -118,6 +118,14 @@ export type Combatant = {
   /** A capstone-earned scripted ability (ADR-0045 Phase B), resolved by the caller from the
    *  character's earned capstone; absent for everyone else. */
   ability?: CombatAbility
+  /** A self-only, mid-fight heal trigger from a carried `heal`-category consumable (mission
+   *  prep, 2026-10-12 spec). Absent = no consumable carried, or a `buff`-category one (which
+   *  applies pre-fight via effectiveStats' extraBonuses instead — see Task 9). `used` starts
+   *  `false`; the sim flips it once the trigger fires. `simulateCombat` mutates this object IN
+   *  PLACE — callers must construct a fresh `consumable` object per call, never reuse the same
+   *  object/array across multiple `simulateCombat` invocations (e.g. a Monte Carlo estimator
+   *  looping seeds over the same `party` array, as `winChance.ts` does today). */
+  consumable?: { healAmount: number; triggerHpPct: number; used: boolean }
 }
 
 /** A lean enemy instance (maps from Sanity `enemyDef`, minus the wrappers; swarms are pre-expanded). */
@@ -232,6 +240,9 @@ type Unit = {
   spikeNextAt: number
   /** Capstone-earned scripted ability (ADR-0045 Phase B, party only); undefined = none. */
   ability?: CombatAbility
+  /** Pass-through of Combatant.consumable (mission prep); mutated in place when it fires —
+   *  see the warning on Combatant.consumable: callers must pass a fresh object per call. */
+  consumable?: { healAmount: number; triggerHpPct: number; used: boolean }
   /** Whether a 'surviveFatal' ability has already been consumed this fight. */
   fatalSaveUsed: boolean
 }
@@ -287,6 +298,7 @@ function partyUnit(c: Combatant, order: number): Unit {
     spikeMult: 1,
     spikeNextAt: Infinity,
     ability: c.ability,
+    consumable: c.consumable,
     fatalSaveUsed: false,
   }
 }
@@ -416,8 +428,12 @@ export function simulateCombat(args: {
   party: Combatant[]
   encounter: Encounter
   seed: string
+  /** Account-level totem bonus (mission prep, 2026-10-12 spec) — applied the same way a
+   *  partyBuffOnStart capstone ability is, to every party member, once, at fight start.
+   *  Restricted to the same AbilityStat allowlist by the caller (src/lib/totems.ts). */
+  partyBuffs?: { stat: AbilityStat; kind: 'flat' | 'pct'; value: number }[]
 }): CombatResult {
-  const { party, encounter, seed } = args
+  const { party, encounter, seed, partyBuffs = [] } = args
   const rng = makeRng(seed)
   const timeLimit = encounter.timeLimitSeconds
 
@@ -455,6 +471,17 @@ export function simulateCombat(args: {
     }
   }
 
+  // Totem party buffs (mission prep, 2026-10-12 spec): account-level, not tied to any one
+  // unit's ability, so this is a second pass over the SAME units rather than a per-unit
+  // ability check. Re-clamp dodge for the same reason the capstone loop above does.
+  for (const buff of partyBuffs) {
+    for (const target of units) {
+      if (target.side !== 'party') continue
+      target[buff.stat] += buff.kind === 'flat' ? buff.value : target[buff.stat] * (buff.value / 100)
+      if (buff.stat === 'dodge') target.dodge = Math.min(target.dodge, COMBAT.DODGE_CAP)
+    }
+  }
+
   const log: CombatEvent[] = []
 
   const alive = (side: 'party' | 'enemy') => units.some((u) => u.side === side && u.hp > 0)
@@ -479,6 +506,23 @@ export function simulateCombat(args: {
     if (actor.healthRegen > 0) {
       const regen = actor.healthRegen * (actor.interval / COMBAT.BASE_INTERVAL)
       actor.hp = Math.min(actor.maxHp, actor.hp + regen)
+    }
+
+    // Mission-prep heal consumable (2026-10-12 spec): checked at the SAME point the Healer
+    // role's own conditional override is — on the holder's own action tick, before a normal
+    // attack. Self-only; fires at most once per fight.
+    if (
+      actor.side === 'party' &&
+      actor.consumable &&
+      !actor.consumable.used &&
+      actor.hp / actor.maxHp <= actor.consumable.triggerHpPct
+    ) {
+      actor.consumable.used = true
+      const before = actor.hp
+      actor.hp = Math.min(actor.maxHp, actor.hp + actor.consumable.healAmount)
+      log.push({ t, type: 'heal', source: actor.id, target: actor.id, amount: actor.hp - before })
+      actor.nextAt += actor.interval
+      continue
     }
 
     if (actor.isHealer) {

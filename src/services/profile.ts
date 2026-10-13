@@ -10,6 +10,8 @@ export type PlayerProfile = {
   username: string
   currencies: Record<string, number>
   resources: Record<string, number>
+  /** Sanity totemKey of the player's currently equipped totem (design spec §E), or null for none. */
+  activeTotemId: string | null
   /** How many times the player has done a soft Reset (ADR-0053). Display-only counter. */
   resetCount: number
   infirmaryLevel: number
@@ -51,7 +53,7 @@ export async function fetchProfile(): Promise<PlayerProfile> {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'username, currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played, achievement_counters',
+      'username, currencies, resources, active_totem_id, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played, achievement_counters',
     )
     .maybeSingle()
   if (error) throw error
@@ -59,6 +61,7 @@ export async function fetchProfile(): Promise<PlayerProfile> {
     username: data?.username ?? '',
     currencies: (data?.currencies ?? {}) as Record<string, number>,
     resources: (data?.resources ?? {}) as Record<string, number>,
+    activeTotemId: data?.active_totem_id ?? null,
     resetCount: data?.reset_count ?? 0,
     infirmaryLevel: data?.infirmary_level ?? 1,
     mapProgress: (data?.map_progress ?? {}) as Record<string, number>,

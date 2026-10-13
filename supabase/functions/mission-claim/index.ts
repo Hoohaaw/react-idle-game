@@ -38,6 +38,8 @@ import { fetchAcquisitionCandidates } from '../_shared/characterAcquisition.ts'
 import { rollItemLoot } from '../../../src/lib/loot.ts'
 import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 import { resolveCharAscendantBonuses, resolveFlatAscendantStatBonuses, resolveFlatAscendantBonus } from '../../../src/lib/ascendantShop.ts'
+import { resolveConsumableBuffBonus } from '../../../src/lib/consumables.ts'
+import { resolveTotemPartyBuffs, type TotemDef } from '../../../src/lib/totems.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -170,7 +172,7 @@ Deno.serve(async (req) => {
   // 1. Load the run (owner-scoped) — the RPC re-guards atomically, this is a friendly early-out.
   const { data: run, error: runErr } = await admin
     .from('mission_runs')
-    .select('id, mission_def_id, party, started_at, ends_at')
+    .select('id, mission_def_id, party, started_at, ends_at, consumables_used')
     .eq('id', runId)
     .eq('player_id', playerId)
     .maybeSingle()
@@ -199,7 +201,7 @@ Deno.serve(async (req) => {
   // 3. Player profile: Echo Shop levels (ADR-0053) + map progress (for the first-clear check).
   const { data: profile } = await admin
     .from('profiles')
-    .select('map_progress, lifetime_stats, unlocked_characters, echo_shop, ascendant_shop')
+    .select('map_progress, lifetime_stats, unlocked_characters, echo_shop, ascendant_shop, active_totem_id')
     .eq('player_id', playerId)
     .maybeSingle()
   const shop = (profile?.echo_shop ?? {}) as Record<string, number>
@@ -228,6 +230,54 @@ Deno.serve(async (req) => {
   if (!mission) return json({ error: 'Mission definition not found' }, 404)
   if (!mission.encounter) return json({ error: 'Mission has no encounter' }, 500)
 
+  const consumablesUsed = (run.consumables_used ?? []) as { characterId: string; consumableDefId: string }[]
+  const consumableKeys = [...new Set(consumablesUsed.map((c) => c.consumableDefId))]
+  type ConsumableRow = {
+    consumableKey: string
+    category: 'heal' | 'buff'
+    healAmount?: number
+    triggerHpPct?: number
+    effects?: { stat: string; kind: 'flat' | 'pct'; value: number }[]
+  }
+  let consumableDefs: ConsumableRow[] = []
+  let activeTotem: TotemDef | null = null
+  try {
+    if (consumableKeys.length > 0) {
+      consumableDefs = await sanityQuery<ConsumableRow[]>(
+        `*[_type == "consumableDef" && consumableKey in $keys]{ consumableKey, category, healAmount, triggerHpPct, effects[]{ stat, kind, value } }`,
+        { keys: consumableKeys },
+      )
+    }
+    if (profile?.active_totem_id) {
+      activeTotem = await sanityQuery<TotemDef | null>(
+        `*[_type == "totemDef" && totemKey == $key][0]{ totemKey, effects[]{ stat, kind, value } }`,
+        { key: profile.active_totem_id },
+      )
+    }
+  } catch (e) {
+    // A THROWN error here is a genuine fetch/Sanity failure (network error, non-2xx response —
+    // see sanityQuery), same as the mission/charDefs/itemDefs fetch above — it must 502, not
+    // silently commit a fight with zero consumable/totem bonuses after the player already paid
+    // for them at mission-start. A stale/deleted totemDef or consumableDef *reference* does NOT
+    // throw at all (sanityQuery just returns null/[] for no match) — that case degrades
+    // gracefully via the consumableByKey/activeTotem null-checks below, untouched by this catch.
+    console.error('consumable/totem content fetch failed', e)
+    return json({ error: 'Could not load consumable/totem content' }, 502)
+  }
+  const consumableByKey = new Map(consumableDefs.map((c) => [c.consumableKey, c]))
+  // Group ALL of a character's carried consumableDefs (not just the last one) — a level-21+
+  // character has 2 slots and can legitimately carry 2 buff-category items (even 2x the same
+  // one). Heal stays effectively single-entry: validateMissionLoadout caps heal items at 1 per
+  // PARTY per mission, so at most one heal-category entry can exist for any one character.
+  const consumableByChar = new Map<string, ConsumableRow[]>()
+  for (const used of consumablesUsed) {
+    const def = consumableByKey.get(used.consumableDefId)
+    if (!def) continue
+    const list = consumableByChar.get(used.characterId) ?? []
+    list.push(def)
+    consumableByChar.set(used.characterId, list)
+  }
+
   const charDefByKey = new Map(charDefs.map((d) => [d.charKey, d]))
   const itemDefById: Record<string, ItemDefBonuses> = Object.fromEntries(
     itemDefs.map((i) => [i.itemKey, { statBonuses: i.statBonuses }]),
@@ -249,6 +299,12 @@ Deno.serve(async (req) => {
     if (!def) return json({ error: `Missing character definition: ${c.character_def_id}` }, 500)
     const picks = c.blessings ?? {}
     const earnedCapstone = capstoneEarned(c.level, picks)
+    const consumablesForChar = consumableByChar.get(c.id) ?? []
+    const buffConsumablesForChar = consumablesForChar.filter((d) => d.category === 'buff' && d.effects)
+    const consumableBuffBonus = mergeBonuses(
+      ...buffConsumablesForChar.map((d) => resolveConsumableBuffBonus(d.effects!)),
+    )
+    const healConsumableForChar = consumablesForChar.find((d) => d.category === 'heal')
     const stats = effectiveStats({
       level: c.level,
       baseStats: def.baseStats ?? [],
@@ -263,6 +319,7 @@ Deno.serve(async (req) => {
         resolveCharAscendantBonuses(ascendantShop, def.charKey),
         resolveFlatAscendantStatBonuses(ascendantShop),
         resolveProficiencyBonus(def.proficiency, mission.proficiencyTags),
+        consumableBuffBonus,
       ),
     })
     statsById[c.id] = stats
@@ -273,6 +330,12 @@ Deno.serve(async (req) => {
       currentHp: c.current_hp ?? undefined, // null = full → sim uses maxHp
       damageSchool: def.damageSchool ?? undefined, // ADR-0033; sim defaults to neutral 'magic'
       ability: resolveCapstoneAbility(def.capstone, earnedCapstone), // ADR-0045 Phase B
+      consumable:
+        healConsumableForChar &&
+        typeof healConsumableForChar.healAmount === 'number' &&
+        typeof healConsumableForChar.triggerHpPct === 'number'
+          ? { healAmount: healConsumableForChar.healAmount, triggerHpPct: healConsumableForChar.triggerHpPct, used: false }
+          : undefined,
     })
   }
 
@@ -309,6 +372,7 @@ Deno.serve(async (req) => {
     party: combatants,
     encounter: { enemies, timeLimitSeconds: mission.encounter.timeLimitSeconds },
     seed: run.id,
+    partyBuffs: resolveTotemPartyBuffs(activeTotem),
   })
   const win = result.outcome === 'win'
 

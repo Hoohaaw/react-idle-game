@@ -155,9 +155,15 @@ export async function fetchMissionRuns(): Promise<MissionRun[]> {
 
 // ---- Writes via Edge Functions ----------------------------------------------------------------
 
-export async function startMission(missionDefId: string, party: string[]): Promise<MissionRun> {
+export type MissionLoadoutEntry = { characterId: string; consumableDefId: string }
+
+export async function startMission(
+  missionDefId: string,
+  party: string[],
+  consumables: MissionLoadoutEntry[] = [],
+): Promise<MissionRun> {
   const { data, error } = await supabase.functions.invoke('mission-start', {
-    body: { missionDefId, party },
+    body: { missionDefId, party, consumables },
   })
   if (error) await invokeError(error, 'Could not start mission')
   return data.run as MissionRun

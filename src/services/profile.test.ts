@@ -13,6 +13,7 @@ type Row = {
   username?: string
   currencies: unknown
   resources: unknown
+  active_totem_id?: string | null
   reset_count: number
   infirmary_level?: number
   map_progress?: unknown
@@ -48,6 +49,7 @@ describe('fetchProfile', () => {
         username: 'ashfall_rider',
         currencies: { gold: 1420 },
         resources: { Iron: 5, Wood: 30 },
+        active_totem_id: 'ember-sigil',
         reset_count: 2,
         infirmary_level: 3,
         map_progress: { gravemarch: 4 },
@@ -73,6 +75,7 @@ describe('fetchProfile', () => {
       username: 'ashfall_rider',
       currencies: { gold: 1420 },
       resources: { Iron: 5, Wood: 30 },
+      activeTotemId: 'ember-sigil',
       resetCount: 2,
       infirmaryLevel: 3,
       mapProgress: { gravemarch: 4 },
@@ -100,6 +103,7 @@ describe('fetchProfile', () => {
       username: '',
       currencies: {},
       resources: {},
+      activeTotemId: null,
       resetCount: 0,
       infirmaryLevel: 1,
       mapProgress: {},
@@ -135,7 +139,7 @@ describe('fetchProfile', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('profiles')
     expect(select).toHaveBeenCalledWith(
-      'username, currencies, resources, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played, achievement_counters',
+      'username, currencies, resources, active_totem_id, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played, achievement_counters',
     )
   })
 })

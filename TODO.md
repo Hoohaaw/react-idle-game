@@ -24,6 +24,29 @@ and ADRs 0012–0017. Done since the sections below were written:
 (profile hook); gather start/claim loop; transcendence flow; balance combat constants + loot odds;
 character sprite art. Older open items below may be stale — trust the milestone + ARCHITECTURE.md §5.3.
 
+## Current queue — 2026-10-13 (mission prep & consumables session)
+- [x] **Mission prep & consumables framework** (ADR-0061, 2026-10-13) — self-only `heal`/
+  `buff` consumables carried per-character into missions (level-gated 1-2 slots + a
+  studio-flagged Utility-exclusive 3rd slot), a one-heal-per-party anti-stacking cap, and a
+  durable account-level totem equip slot (`profiles.active_totem_id`) applying a
+  capstone-style party buff at fight start. Directly answers `docs/QUALITY_HYBRID.md`'s E7
+  finding (no in-run resource management). Full stack shipped: `consumableDef`/`totemDef`
+  Sanity schema + 3 v1 content items, `start_mission`/`mission-claim` wiring,
+  `equip_totem`/`unequip_totem` RPCs, and a minimal dispatch/equip UI.
+  - [x] Code complete, lint/build/vitest/pgTAP all passing (see ADR-0061 Consequences for 4
+    real issues found and fixed during implementation: a `start_mission` migration overload
+    defect, a cross-task `TOTEM_ALLOWED_STATS` type break only caught by the full
+    post-reconciliation build, a buff-consumable aggregation bug, and a plan gap in
+    `active_totem_id` typing).
+  - [ ] **Manual browser verification NOT done** — Sanity Studio's `bonusConsumableSlot`
+    field-visibility check and the actual click-through dispatch/equip flow were never
+    exercised (no browser in this environment, disclosed throughout). Do this before
+    treating the feature as launch-verified.
+  - [ ] The five professions (Alchemy, Carving, Prospecting, Tempering, Arcane Writing)
+    that build richer content on top of this framework are separate, sequential specs —
+    not started.
+  `↳ context: docs/DECISIONS.md ADR-0061, docs/superpowers/specs/2026-10-12-mission-prep-consumables-design.md, docs/superpowers/plans/2026-10-12-mission-prep-consumables.md, src/lib/consumables.ts, src/lib/totems.ts`
+
 ## Current queue — 2026-07-13 (post maps session)
 - [x] **World maps + stage progression** (ADR-0034, PRs #51/#52, deployed + e2e-verified) — map
   toggle, 7 stages per map (7 = boss), sequential unlock, boss-gated next map. 3 maps live in
