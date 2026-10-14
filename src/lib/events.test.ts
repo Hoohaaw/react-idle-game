@@ -147,7 +147,12 @@ describe('formatEvent', () => {
     expect(formatEvent(ev('player_transcended', {}))).toBe('Transcended')
   })
 
-  it('totem_broke', () => {
+  it('totem_broke — resolved name', () => {
+    expect(formatEvent(ev('totem_broke', { totemName: 'Totem of Minor Warding', totemKey: 'totem-of-minor-warding' })))
+      .toBe('Your totem (Totem of Minor Warding) broke')
+  })
+
+  it('totem_broke — falls back to the raw key when totemName is missing', () => {
     expect(formatEvent(ev('totem_broke', { totemKey: 'totem-of-minor-warding' })))
       .toBe('Your totem (totem-of-minor-warding) broke')
   })

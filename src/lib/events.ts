@@ -120,10 +120,11 @@ export function formatEvent(event: PlayerEvent): string {
       return shards ? `Transcended — earned ${shards.toLocaleString()} Ascendant Shards` : 'Transcended'
     }
     case 'totem_broke':
-      // Payload only carries the bare totemKey (mission-claim's totemDef GROQ query fetches
-      // effects for buff computation, not a display name) — same raw-key fallback every other
-      // formatter above uses when a name isn't cheaply available.
-      return `Your totem (${str(p, 'totemKey')}) broke`
+      // totemName is resolved server-side (mission-claim's totemDef GROQ query fetches `name`
+      // alongside totemKey) — payload also carries the bare totemKey as a fallback for the rare
+      // case the totemDef was deleted/unpublished since being equipped, same missing-field
+      // fallback pattern str() gives every other formatter above.
+      return `Your totem (${str(p, 'totemName', str(p, 'totemKey'))}) broke`
     default:
       return 'Something happened'
   }

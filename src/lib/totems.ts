@@ -8,7 +8,11 @@ import type { AbilityStat } from './combat'
 // aren't separately addressable after construction).
 
 export type TotemEffect = { stat: string; kind: 'flat' | 'pct'; value: number }
-export type TotemDef = { totemKey: string; effects: TotemEffect[] }
+// `name` is optional: resolveTotemPartyBuffs below never reads it (buff resolution only needs
+// totemKey + effects) — it exists so callers that also need a display name (mission-claim's
+// totem_broke activity-log entry) can widen their own GROQ projection to fetch it without a
+// second type.
+export type TotemDef = { totemKey: string; name?: string; effects: TotemEffect[] }
 
 export const TOTEM_ALLOWED_STATS: ReadonlySet<AbilityStat> = new Set<AbilityStat>([
   'defense', 'resistance', 'critChance', 'critDamage', 'dodge', 'block', 'healthRegen',

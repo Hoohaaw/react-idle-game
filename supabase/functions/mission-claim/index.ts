@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
     }
     if (profile?.active_totem_id) {
       activeTotem = await sanityQuery<TotemDef | null>(
-        `*[_type == "totemDef" && totemKey == $key][0]{ totemKey, effects[]{ stat, kind, value } }`,
+        `*[_type == "totemDef" && totemKey == $key][0]{ totemKey, name, effects[]{ stat, kind, value } }`,
         { key: profile.active_totem_id },
       )
     }
@@ -554,7 +554,10 @@ Deno.serve(async (req) => {
       const { error: logErr } = await admin.rpc('log_event', {
         p_player: playerId,
         p_type: 'totem_broke',
-        p_payload: { totemKey: brokenTotemKey },
+        // Resolved name, same as every other log_event site (recipeName/characterName/itemName/
+        // missionName) — falls back to the raw key only if the totemDef was deleted/unpublished
+        // since being equipped (activeTotem degrades to null, same as resolveTotemPartyBuffs).
+        p_payload: { totemName: activeTotem?.name ?? brokenTotemKey, totemKey: brokenTotemKey },
       })
       if (logErr) console.error('activity log failed (totem_broke) — continuing', logErr)
     } catch (e) {
