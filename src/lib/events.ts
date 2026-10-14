@@ -15,6 +15,7 @@ export type EventType =
   | 'ascendant_purchased' | 'echo_purchased'
   | 'infirmary_upgraded' | 'infirmary_discharged'
   | 'player_reset' | 'player_transcended'
+  | 'totem_broke'
 
 export type PlayerEvent = {
   id: string
@@ -118,6 +119,11 @@ export function formatEvent(event: PlayerEvent): string {
       const shards = num(p, 'shardsAwarded')
       return shards ? `Transcended — earned ${shards.toLocaleString()} Ascendant Shards` : 'Transcended'
     }
+    case 'totem_broke':
+      // Payload only carries the bare totemKey (mission-claim's totemDef GROQ query fetches
+      // effects for buff computation, not a display name) — same raw-key fallback every other
+      // formatter above uses when a name isn't cheaply available.
+      return `Your totem (${str(p, 'totemKey')}) broke`
     default:
       return 'Something happened'
   }

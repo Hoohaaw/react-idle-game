@@ -147,6 +147,11 @@ describe('formatEvent', () => {
     expect(formatEvent(ev('player_transcended', {}))).toBe('Transcended')
   })
 
+  it('totem_broke', () => {
+    expect(formatEvent(ev('totem_broke', { totemKey: 'totem-of-minor-warding' })))
+      .toBe('Your totem (totem-of-minor-warding) broke')
+  })
+
   it('falls back gracefully on a missing string field', () => {
     expect(formatEvent(ev('character_recruited', {}))).toBe('Recruited (unknown)')
   })

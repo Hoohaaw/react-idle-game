@@ -547,6 +547,21 @@ Deno.serve(async (req) => {
     role: candidateByKey.get(charKey)?.role ?? null,
   }))
 
+  const totemBroke = (claimData as { totem_broke?: boolean; broken_totem_key?: string } | null)?.totem_broke ?? false
+  const brokenTotemKey = (claimData as { broken_totem_key?: string } | null)?.broken_totem_key ?? null
+  if (totemBroke && brokenTotemKey) {
+    try {
+      const { error: logErr } = await admin.rpc('log_event', {
+        p_player: playerId,
+        p_type: 'totem_broke',
+        p_payload: { totemKey: brokenTotemKey },
+      })
+      if (logErr) console.error('activity log failed (totem_broke) — continuing', logErr)
+    } catch (e) {
+      console.error('activity log failed (totem_broke) — continuing', e)
+    }
+  }
+
   try {
     const { error: logErr } = await admin.rpc('log_event', {
       p_player: playerId,
