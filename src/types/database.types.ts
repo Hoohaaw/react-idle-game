@@ -239,6 +239,7 @@ export type Database = {
           player_id: string
           reset_count: number
           resources: Json
+          totem_charges: Json
           transcend_count: number
           unlocked_characters: Json
           username: string
@@ -263,6 +264,7 @@ export type Database = {
           player_id: string
           reset_count?: number
           resources?: Json
+          totem_charges?: Json
           transcend_count?: number
           unlocked_characters?: Json
           username: string
@@ -287,6 +289,7 @@ export type Database = {
           player_id?: string
           reset_count?: number
           resources?: Json
+          totem_charges?: Json
           transcend_count?: number
           unlocked_characters?: Json
           username?: string

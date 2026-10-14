@@ -37,6 +37,9 @@ export default function InventoryPage() {
   // ['itemDefs'] already does for gear.
   const activeTotemId = profile.data?.activeTotemId ?? null
   const activeTotemName = activeTotemId ? totemDefs.data?.[activeTotemId]?.name ?? activeTotemId : null
+  // Totem durability (mission-prep spec): every totem has 3 uses, decremented per mission claim
+  // (win or loss) by claim_mission. Missing entry = untracked = full 3 uses.
+  const activeTotemChargesRemaining = activeTotemId ? profile.data?.totemCharges?.[activeTotemId] ?? 3 : null
   // Only owned totems can be equipped (equip_totem now enforces this server-side too) — same
   // owned-stacks-joined-with-authored-defs pattern MissionDispatch.tsx uses for consumables.
   const ownedTotemKeys = new Set((inventory.data ?? []).map((stack) => stack.itemDefId))
@@ -98,6 +101,11 @@ export default function InventoryPage() {
           <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Totem</span>
           <p style={{ color: 'var(--color-text-primary)', fontSize: '13px', marginTop: '2px' }}>
             {activeTotemName ?? 'None equipped'}
+            {activeTotemChargesRemaining !== null && (
+              <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginLeft: '8px' }}>
+                {activeTotemChargesRemaining}/3 uses left
+              </span>
+            )}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
