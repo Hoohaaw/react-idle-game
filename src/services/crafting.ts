@@ -22,9 +22,9 @@ export type RecipeView = {
   reagentNames: Record<string, string>
 }
 
-const RECIPES_QUERY = `*[_type == "recipeDef" && defined(recipeKey)]{
+export const RECIPES_QUERY = `*[_type == "recipeDef" && defined(recipeKey)]{
   recipeKey, name, description, durationSeconds,
-  "result": result->{ itemKey, name, slot },
+  "result": result->{ "itemKey": coalesce(itemKey, consumableKey, totemKey), name, slot },
   resultRarityWeights[]{ rarity, weight },
   reagents[]{ kind, resource, quantity, "item": item->{ itemKey, name, slot } }
 } | order(name asc)`
@@ -34,6 +34,9 @@ type RawRecipe = {
   name: string
   description?: string | null
   durationSeconds: number
+  // "itemKey" here is really coalesce(itemKey, consumableKey, totemKey) — see RECIPES_QUERY. The
+  // result can be an itemDef, consumableDef, or totemDef (Task 12 widened recipeDef.result);
+  // only itemDef has a `slot`, so it's optional and defaulted below.
   result: { itemKey: string; name?: string; slot?: string } | null
   resultRarityWeights?: { rarity: string; weight: number }[] | null
   reagents?: {

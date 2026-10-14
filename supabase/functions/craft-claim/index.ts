@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
   let def: RecipeDef
   try {
     def = await sanityQuery<RecipeDef>(
-      `*[_type == "recipeDef" && recipeKey == $key][0]{ "resultItemKey": result->itemKey, "resultItemName": result->name, resultRarityWeights[]{ rarity, weight } }`,
+      `*[_type == "recipeDef" && recipeKey == $key][0]{ "resultItemKey": coalesce(result->itemKey, result->consumableKey, result->totemKey), "resultItemName": result->name, resultRarityWeights[]{ rarity, weight } }`,
       { key: recipeDefId },
     )
   } catch (e) {

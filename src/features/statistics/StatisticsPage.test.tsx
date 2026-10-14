@@ -25,6 +25,8 @@ function makeProfile(overrides: Partial<PlayerProfile> = {}): PlayerProfile {
     username: 'Tester',
     currencies: {},
     resources: {},
+    activeTotemId: null,
+    totemCharges: {},
     resetCount: 0,
     infirmaryLevel: 1,
     mapProgress: {},

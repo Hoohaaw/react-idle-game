@@ -155,10 +155,10 @@ export default function MissionsPage() {
     downed: m.currentHp === 0,
   }))
 
-  function handleDispatch(party: string[]) {
+  function handleDispatch(party: string[], consumables: { characterId: string; consumableDefId: string }[]) {
     if (!dispatchMission) return
     startM.mutate(
-      { missionDefId: dispatchMission.missionKey, party },
+      { missionDefId: dispatchMission.missionKey, party, consumables },
       { onSuccess: () => setDispatchKey(null) },
     )
   }

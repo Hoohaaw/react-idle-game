@@ -15,6 +15,7 @@ export type EventType =
   | 'ascendant_purchased' | 'echo_purchased'
   | 'infirmary_upgraded' | 'infirmary_discharged'
   | 'player_reset' | 'player_transcended'
+  | 'totem_broke'
 
 export type PlayerEvent = {
   id: string
@@ -118,6 +119,12 @@ export function formatEvent(event: PlayerEvent): string {
       const shards = num(p, 'shardsAwarded')
       return shards ? `Transcended — earned ${shards.toLocaleString()} Ascendant Shards` : 'Transcended'
     }
+    case 'totem_broke':
+      // totemName is resolved server-side (mission-claim's totemDef GROQ query fetches `name`
+      // alongside totemKey) — payload also carries the bare totemKey as a fallback for the rare
+      // case the totemDef was deleted/unpublished since being equipped, same missing-field
+      // fallback pattern str() gives every other formatter above.
+      return `Your totem (${str(p, 'totemName', str(p, 'totemKey'))}) broke`
     default:
       return 'Something happened'
   }

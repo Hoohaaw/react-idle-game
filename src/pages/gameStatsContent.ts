@@ -212,6 +212,32 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     ],
   },
   {
+    title: 'Mission Prep',
+    intro:
+      'Before you send a party, you can arm it with consumables and a totem — extra insurance or an ' +
+      'edge that carries into the fight itself.',
+    entries: [
+      {
+        name: 'Consumables',
+        body:
+          'Each hero can carry one consumable on a mission — two past level 21, and a few Utility ' +
+          'heroes are hand-picked for a third slot. HEAL items sit in reserve and trigger ' +
+          'automatically the moment that hero\'s health drops to its threshold, so bringing one ' +
+          'early never wastes it. BUFF items work the opposite way: they apply once at the start of ' +
+          'the fight and last the whole battle, no trigger needed. Only ONE heal item is allowed per ' +
+          'party per mission — buffs have no such limit, so match the right one to the right fight.',
+      },
+      {
+        name: 'Totems',
+        body:
+          'A totem is an always-on, account-wide buff. Equip one on the Inventory page and it quietly ' +
+          'helps every party you send from then on — no re-equipping before each mission. Swapping ' +
+          'between totems you have crafted is free and instant; you just need to have crafted at ' +
+          'least one copy before you can equip it.',
+      },
+    ],
+  },
+  {
     title: 'Getting Stronger',
     entries: [
       {

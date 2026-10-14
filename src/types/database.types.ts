@@ -222,6 +222,7 @@ export type Database = {
         Row: {
           achievement_counters: Json
           achievements: Json
+          active_totem_id: string | null
           ascendant_milestones: Json
           ascendant_shards: number
           ascendant_shards_earned_total: number
@@ -238,6 +239,7 @@ export type Database = {
           player_id: string
           reset_count: number
           resources: Json
+          totem_charges: Json
           transcend_count: number
           unlocked_characters: Json
           username: string
@@ -245,6 +247,7 @@ export type Database = {
         Insert: {
           achievement_counters?: Json
           achievements?: Json
+          active_totem_id?: string | null
           ascendant_milestones?: Json
           ascendant_shards?: number
           ascendant_shards_earned_total?: number
@@ -261,6 +264,7 @@ export type Database = {
           player_id: string
           reset_count?: number
           resources?: Json
+          totem_charges?: Json
           transcend_count?: number
           unlocked_characters?: Json
           username: string
@@ -268,6 +272,7 @@ export type Database = {
         Update: {
           achievement_counters?: Json
           achievements?: Json
+          active_totem_id?: string | null
           ascendant_milestones?: Json
           ascendant_shards?: number
           ascendant_shards_earned_total?: number
@@ -284,6 +289,7 @@ export type Database = {
           player_id?: string
           reset_count?: number
           resources?: Json
+          totem_charges?: Json
           transcend_count?: number
           unlocked_characters?: Json
           username?: string

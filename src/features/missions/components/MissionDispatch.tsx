@@ -6,14 +6,18 @@ import { RarityChancePill } from '@/components/molecules/RarityChancePill'
 import { MissionEnemies } from './MissionEnemies'
 import { WinChanceEstimate } from './WinChanceEstimate'
 import { missionTraitContext } from '../winChance'
-import { InfoStat, RewardRow } from './dispatchParts'
+import { InfoStat, RewardRow, LoadoutPicker } from './dispatchParts'
 import { CharacterTile } from '@/components/molecules/CharacterTile'
+import { useInventory } from '@/hooks/useInventory'
+import { useConsumableDefs } from '../hooks'
 import {
   SAMPLE_DISPATCH_MISSION,
   SAMPLE_DISPATCH_ROSTER,
   type DispatchMission,
   type DispatchChar,
 } from './dispatchSamples'
+
+export type DispatchLoadoutEntry = { characterId: string; consumableDefId: string }
 
 // Wide two-column redesign (prototyped on /design as DesignMissionDispatchWide): LEFT column
 // never scrolls — every card (Mission/Enemies/Potential Loot) previews in full. RIGHT is a
@@ -32,13 +36,23 @@ export function MissionDispatch({
   roster?: DispatchChar[]
   pending?: boolean
   error?: string | null
-  onDispatch?: (party: string[]) => void
+  onDispatch?: (party: string[], consumables: DispatchLoadoutEntry[]) => void
 }) {
   const [selected, setSelected] = useState<string[]>([])
+  const [loadout, setLoadout] = useState<Record<string, string>>({}) // characterId -> consumableDefId ('' = none)
   const toggle = (id: string) =>
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : (prev.length >= MAX_PARTY ? prev : [...prev, id]))
 
   const party = roster.filter(c => selected.includes(c.id))
+
+  // Mission-prep consumables (one optional slot per party member, v1 — see Task 11 brief):
+  // owned stacks whose item_def_id resolves to a known consumableDef, label + category from
+  // Sanity. Reuses the Inventory page's own query/hook rather than adding a second one.
+  const inventory = useInventory()
+  const consumableDefs = useConsumableDefs()
+  const ownedConsumables = (inventory.data ?? [])
+    .filter(stack => consumableDefs.data?.[stack.itemDefId])
+    .map(stack => ({ defId: stack.itemDefId, quantity: stack.quantity, ...consumableDefs.data![stack.itemDefId] }))
   // What this mission "is" for trait matching (ADR-0035) — same construction mission-claim uses.
   const traitCtx = missionTraitContext(mission.enemies, mission.mapKey)
   // Reward pipeline (ADR-0012/0017), win-gated. Only the multipliers KNOWN before the fight are shown
@@ -187,7 +201,21 @@ export function MissionDispatch({
         background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.3) 100%)',
       }}>
         {error && <p style={{ color: '#e0635c', fontSize: 11, textAlign: 'center' }}>{error}</p>}
-        <PrimaryButton disabled={selected.length === 0 || pending} onClick={() => onDispatch?.(selected)}>
+        <LoadoutPicker
+          party={party}
+          ownedConsumables={ownedConsumables}
+          loadout={loadout}
+          onChange={(characterId, consumableDefId) => setLoadout(prev => ({ ...prev, [characterId]: consumableDefId }))}
+        />
+        <PrimaryButton
+          disabled={selected.length === 0 || pending}
+          onClick={() => {
+            const consumables = party
+              .map(c => ({ characterId: c.id, consumableDefId: loadout[c.id] ?? '' }))
+              .filter((entry): entry is DispatchLoadoutEntry => entry.consumableDefId !== '')
+            onDispatch?.(selected, consumables)
+          }}
+        >
           {pending ? 'Sending…' : selected.length === 0 ? 'Select a character' : `Send Party (${selected.length})`}
         </PrimaryButton>
       </div>
