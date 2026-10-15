@@ -24,6 +24,22 @@ and ADRs 0012–0017. Done since the sections below were written:
 (profile hook); gather start/claim loop; transcendence flow; balance combat constants + loot odds;
 character sprite art. Older open items below may be stale — trust the milestone + ARCHITECTURE.md §5.3.
 
+## Current queue — 2026-10-14 (totem durability session)
+- [x] **Totem durability** (ADR-0062, 2026-10-14) — totems now have 3 uses, decrementing on
+  every mission claim (win or loss) via the same locked `profiles` row `claim_mission`
+  already reads/writes. Breaking a totem at 0 charges unequips it to `none` (no auto-requip
+  from a spare copy) and fires a `totem_broke` activity-log entry with a resolved display
+  name. `profiles.totem_charges jsonb` is the per-totem-key charge map. Merged to master via
+  PR #150.
+  - [x] Code complete, lint/build/vitest (576/576)/pgTAP (101/101) all passing (see ADR-0062
+    Consequences for 2 real issues found and fixed: a `player_inventory` quantity-constraint
+    violation in the break-handling SQL, and a bare-`totemKey` activity-log gap caught by
+    review).
+  - [ ] **Manual browser verification NOT done** — the "X/3 uses left" InventoryPage readout
+    and the actual break-on-3rd-claim flow were never clicked through (no browser in this
+    environment, disclosed throughout).
+  `↳ context: docs/DECISIONS.md ADR-0062, supabase/migrations/20261014100000_totem_durability.sql, src/lib/totems.ts`
+
 ## Current queue — 2026-10-13 (mission prep & consumables session)
 - [x] **Mission prep & consumables framework** (ADR-0061, 2026-10-13) — self-only `heal`/
   `buff` consumables carried per-character into missions (level-gated 1-2 slots + a

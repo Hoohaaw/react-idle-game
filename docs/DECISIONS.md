@@ -3238,3 +3238,68 @@ tasks): `docs/superpowers/plans/2026-10-12-mission-prep-consumables.md`.
   implementation — no browser is available in this environment. This needs a human pass
   before the feature is considered launch-verified, the same disclosed-limitation pattern
   this project has used before (e.g. the activity-log PR's manual browser verification gap).
+
+## ADR-0062 — Totem durability: 3 uses, breaks at zero, every claim costs a charge
+
+**Date:** 2026-10-14 · **Status:** Accepted (Alex)
+
+**Context.** ADR-0061 shipped totems as a durable, account-wide equip with no wear
+mechanic — equip once, buff every mission forever. The user wanted totems to have a
+limited lifespan instead: 3 uses, consumed one-per-battle, breaking (unequipping and
+losing a copy) once exhausted. Bounded extension of ADR-0061's existing totem system, not
+a new spec/plan — brainstormed in chat, approved, implemented directly.
+
+**Decision.**
+- **`profiles.totem_charges jsonb not null default '{}'::jsonb`** — a per-totem-key charge
+  map (`{ [totemKey]: remainingUses }`), the same registry-driven JSONB pattern
+  `lifetime_stats`/`achievement_counters` already use (ADR-0004) rather than a new typed
+  column, since the charge count is keyed per totem definition, not a single scalar on the
+  profile.
+- **`claim_mission` re-derives the decrement from the same locked `profiles` row it already
+  reads/writes** — no new RPC parameter. The already-established `for update` lock on
+  `profiles` (CLAUDE.md's standing rule) covers the new decrement/break logic for free; it
+  reads `active_totem_id`/`totem_charges` under that same lock rather than trusting a value
+  passed in from the client or computed earlier in the Edge Function.
+- **Every claim costs a charge — wins and losses both.** The user's explicit ruling: a
+  totem wears out from being carried into a fight, not from winning one. Simpler to reason
+  about and closes a trivial exploit (deliberately losing missions to "save" totem
+  durability would otherwise be free).
+- **Unequip to `none` on break, not auto-requip from stock.** If the player owns a second
+  copy of the same totem, breaking the equipped one does not silently swap in the spare —
+  `active_totem_id` is set to `null` and the player re-equips manually. Keeps "what's
+  equipped" always an explicit player action, matching how gear already works (no
+  auto-reequip on gear break either, since gear doesn't break).
+- **Break-handling matches the established delete-if-last-else-decrement inventory
+  pattern** (same shape as `equip_item`/`upgrade_items`/`claim_craft`/mission consumables):
+  decrement `player_inventory.quantity`, deleting the row instead of leaving it at 0 — the
+  table's own `check (quantity > 0)` constraint requires it.
+- **`totem_broke` activity-log event** fires through the same `log_event` RPC every other
+  write site already uses (ADR-0060), with a resolved display name (not a bare
+  `totemKey`) — matching this project's established convention that every log site resolves
+  a real name before logging.
+
+**Consequences.**
+- No new migration-overload risk: `claim_mission`'s signature is unchanged (re-create with
+  the same argument list), so the ADR-0061 `start_mission` overload defect doesn't recur
+  here — there was nothing to add.
+- **A real constraint violation was self-caught and fixed during implementation**: the
+  originally-given break-handling SQL did a blind `quantity - 1` then a separate
+  `delete where quantity <= 0`, which violates `player_inventory`'s `check (quantity > 0)`
+  constraint the instant a player owns exactly one copy of the broken totem (the decrement
+  itself writes a row with `quantity = 0` before the delete can run). Fixed to match the
+  established delete-if-last-else-decrement pattern used everywhere else in this codebase.
+- **A real UX-consistency gap was caught by review, not by the implementer**: the first
+  draft of the `totem_broke` activity-log entry logged a bare `totemKey` instead of a
+  resolved name, unlike every other log-event site in the project. Fixed by widening
+  `mission-claim`'s totem GROQ projection to fetch `name` and passing it through the log
+  payload; `src/lib/events.ts` falls back to the key only if no name was resolved.
+- Full stack shipped and verified on this exact commit: migration + pgTAP coverage
+  (decrement, default-to-3, break-with-1-owned, break-with-many-owned, no-totem-equipped
+  no-op), `mission-claim` wiring, client type/service exposure (`totemCharges`), an
+  InventoryPage "X/3 uses left" readout, and the activity-log integration. Lint clean,
+  build clean, vitest 576/576, pgTAP 101/101.
+- **Not yet manually browser-verified** — same disclosed limitation as ADR-0061 (no
+  browser in this environment): the "X/3 uses left" readout and the totem breaking/
+  unequipping on the 3rd claim were never clicked through by a human.
+- No TODO.md entry existed for this feature until this ADR — code shipped and merged to
+  `master` (PR #150) before the written record caught up; this ADR closes that gap.
