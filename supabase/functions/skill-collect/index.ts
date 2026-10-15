@@ -4,13 +4,14 @@ import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { SKILL_BY_KEY } from '../../../src/lib/skills.ts'
 import { accrue } from '../../../src/lib/gather.ts'
 import { applyXp } from '../../../src/lib/leveling.ts'
+import { skillSecondsSpentKey, skillXpEarnedKey } from '../../../src/lib/lifetimeStats.ts'
 
 // skill-collect: bank a trainee's accrued skill XP, optionally stopping (unassigning). Computes the
 // gained XP from elapsed ticks (accrue(), src/lib/gather.ts — reused as-is, same math) then rolls it
 // into the character's current skill level/xp (applyXp(), src/lib/leveling.ts — the identical
 // capped-at-50 curve character levels use), then applies both via the atomic `collect_skill` RPC.
-// No stat modifiers (no speed/yield equivalent — spec §3, deferred) and no lifetime-stats/
-// acquisition tie-in (unlike gather-collect): skill training has no mechanical effect yet.
+// No stat modifiers (no speed/yield equivalent — spec §3, deferred) and no mechanical effect on
+// gameplay yet — lifetime-stats tracking (TODO.md) is purely for display on /statistics.
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -76,6 +77,12 @@ Deno.serve(async (req) => {
   const { level: newLevel, xp: newXp } = applyXp(current.level, current.xp, gained)
   const newLastCollectedAt = new Date(lastMs + consumedSec * 1000).toISOString()
 
+  // Track time unconditionally (whenever any time was consumed, same gate gatherSecondsSpent
+  // uses) and XP only when it's actually nonzero.
+  const lifetimeStatsDelta: Record<string, number> = {}
+  if (consumedSec > 0) lifetimeStatsDelta[skillSecondsSpentKey(assignment.skill_key)] = consumedSec
+  if (gained > 0) lifetimeStatsDelta[skillXpEarnedKey(assignment.skill_key)] = gained
+
   const { error: rpcErr } = await admin.rpc('collect_skill', {
     p_player: playerId,
     p_assignment_id: assignment.id,
@@ -84,6 +91,7 @@ Deno.serve(async (req) => {
     p_new_xp: newXp,
     p_new_last_collected_at: newLastCollectedAt,
     p_stop: stop,
+    p_lifetime_stats: lifetimeStatsDelta,
   })
   if (rpcErr) {
     console.error('collect_skill failed', rpcErr)

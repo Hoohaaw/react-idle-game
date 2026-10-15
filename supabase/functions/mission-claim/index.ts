@@ -490,6 +490,12 @@ Deno.serve(async (req) => {
   lifetimeStatsDelta.missionSecondsSent =
     (new Date(run.ends_at).getTime() - new Date(run.started_at).getTime()) / 1000
 
+  // charLevelsGained (TODO.md "Expand lifetime stats tracking"): 0 for non-leveling survivors and
+  // for a full loss, since charUpdates' level only ever differs from chars' pre-claim level in the
+  // win+survived+baseXp>0 branch above.
+  const levelsGained = charUpdates.reduce((sum, u, i) => sum + Math.max(0, u.level - chars[i].level), 0)
+  if (levelsGained > 0) lifetimeStatsDelta.charLevelsGained = levelsGained
+
   const postClaimLifetimeStats: Record<string, number> = { ...lifetimeStats }
   for (const [key, delta] of Object.entries(lifetimeStatsDelta)) {
     postClaimLifetimeStats[key] = (postClaimLifetimeStats[key] ?? 0) + delta
