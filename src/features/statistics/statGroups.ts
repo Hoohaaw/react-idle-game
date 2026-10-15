@@ -6,10 +6,11 @@ export type StatGroup = { title: string; stats: LifetimeStatDef[] }
 // a new resource in RESOURCE_SOURCE automatically lands in "Resources Gathered" with no edit here.
 export function groupLifetimeStats(): StatGroup[] {
   const resources = LIFETIME_STAT_DEFS.filter((d) => d.key.startsWith('resourceGathered.'))
-  const economy = LIFETIME_STAT_DEFS.filter((d) => d.key === 'goldEarned')
+  const economyKeys = new Set(['goldEarned', 'goldSpent'])
+  const economy = LIFETIME_STAT_DEFS.filter((d) => economyKeys.has(d.key))
   // Everything else defaults here — a new non-resource, non-gold stat lands in Missions & Combat
   // with no signal it might belong elsewhere. Recheck this grouping when adding one.
-  const combat = LIFETIME_STAT_DEFS.filter((d) => d.key !== 'goldEarned' && !d.key.startsWith('resourceGathered.'))
+  const combat = LIFETIME_STAT_DEFS.filter((d) => !economyKeys.has(d.key) && !d.key.startsWith('resourceGathered.'))
 
   return [
     { title: 'Missions & Combat', stats: combat },

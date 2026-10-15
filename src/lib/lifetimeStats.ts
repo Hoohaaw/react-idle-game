@@ -22,6 +22,7 @@ export function resourceGatheredKey(resource: string): string {
 
 export const LIFETIME_STAT_DEFS: LifetimeStatDef[] = [
   { key: 'goldEarned', label: 'Gold earned' },
+  { key: 'goldSpent', label: 'Gold spent' },
   { key: 'missionSecondsSent', label: 'Time spent on missions' },
   { key: 'missionsCleared', label: 'Missions cleared' },
   { key: 'missionsFailed', label: 'Missions failed' },
