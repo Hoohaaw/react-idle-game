@@ -24,8 +24,10 @@ export default function PrivacyPage() {
         stored against your account so your game persists between sessions.
       </LegalP>
       <LegalP>
-        We don't collect payment information (the Game has no real-money purchases today) and we
-        don't run third-party analytics, advertising, or tracking scripts.
+        We don't collect payment information (the Game has no real-money purchases today) and
+        we don't run advertising or tracking scripts. We use Umami, a cookieless, privacy-
+        focused analytics tool, to see aggregate traffic and page-visit counts — it doesn't use
+        cookies, doesn't track you across other sites, and doesn't collect personal data.
       </LegalP>
 
       <LegalH2>Cookies &amp; local storage</LegalH2>
