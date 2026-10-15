@@ -9,6 +9,7 @@
 // Unlike currencies/resources, spending never decrements these — they only ever go up.
 
 import { RESOURCE_SOURCE } from './resources'
+import { SKILL_DEFS } from './skills'
 
 export type LifetimeStatDef = {
   key: string
@@ -18,6 +19,16 @@ export type LifetimeStatDef = {
 /** The JSONB key for "total of this resource ever gathered" — `resourceGathered.<Resource>`. */
 export function resourceGatheredKey(resource: string): string {
   return `resourceGathered.${resource}`
+}
+
+/** The JSONB key for "total seconds spent training this skill" — `skillSecondsSpent.<skillKey>`. */
+export function skillSecondsSpentKey(skillKey: string): string {
+  return `skillSecondsSpent.${skillKey}`
+}
+
+/** The JSONB key for "total XP ever earned in this skill" — `skillXpEarned.<skillKey>`. */
+export function skillXpEarnedKey(skillKey: string): string {
+  return `skillXpEarned.${skillKey}`
 }
 
 export const LIFETIME_STAT_DEFS: LifetimeStatDef[] = [
@@ -34,10 +45,15 @@ export const LIFETIME_STAT_DEFS: LifetimeStatDef[] = [
   { key: 'itemsUpgraded', label: 'Items upgraded' },
   { key: 'gatherSecondsSpent', label: 'Time spent gathering' },
   { key: 'charactersDowned', label: 'Characters downed' },
+  { key: 'charLevelsGained', label: 'Character levels gained' },
   ...Object.keys(RESOURCE_SOURCE).map((resource) => ({
     key: resourceGatheredKey(resource),
     label: `${resource} gathered`,
   })),
+  ...SKILL_DEFS.flatMap((s) => [
+    { key: skillSecondsSpentKey(s.skillKey), label: `Time spent training ${s.label}` },
+    { key: skillXpEarnedKey(s.skillKey), label: `${s.label} XP earned` },
+  ]),
 ]
 
 export const LIFETIME_STAT_KEYS: string[] = LIFETIME_STAT_DEFS.map((d) => d.key)

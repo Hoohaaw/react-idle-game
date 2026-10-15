@@ -256,6 +256,10 @@ Deno.serve(async (req) => {
       lifetimeStatsDelta[`raidCleared.${defKey}`] = 1
     }
   }
+  // charLevelsGained (TODO.md "Expand lifetime stats tracking") — same sum-and-guard treatment
+  // as mission-claim's.
+  const levelsGained = charUpdates.reduce((sum, u, i) => sum + Math.max(0, u.level - chars[i].level), 0)
+  if (levelsGained > 0) lifetimeStatsDelta.charLevelsGained = levelsGained
 
   const { error: claimErr } = await admin.rpc('claim_group_stage', {
     p_player: playerId, p_kind: kind, p_def_key: defKey, p_won: win,

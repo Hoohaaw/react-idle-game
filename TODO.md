@@ -338,51 +338,18 @@ character sprite art. Older open items below may be stale — trust the mileston
     Not reachable in the normal serialized client flow and doesn't affect the authoritative stored
     record; deliberately not special-cased into the RPC to keep it a dumb generic
     `p_lifetime_stats` applier like the other 3 in this series.
-  - [ ] Roster: total character levels gained across the roster's lifetime. Exactly 2 write sites,
-    both already compute a per-character before/after level and both already accept
-    `p_lifetime_stats` — Edge-Function-only, no migration needed:
-    - `supabase/functions/mission-claim/index.ts` — `charUpdates` (~line 328) maps each character
-      to `{ id, level, xp, current_hp }`; `c.level` is pre-claim, the local `level` (reassigned
-      only `if (win && endHp > 0 && baseXp > 0)` via `applyXp(c.level, c.xp, gained).level`) is
-      post-claim. Sum `level - c.level` across all `charUpdates` entries (0 for non-leveling
-      survivors and for a full loss) and add to the existing `lifetimeStatsDelta` object — only
-      include the key if the sum is `> 0`, matching the `if (goldGranted > 0)` guard already there.
-    - `supabase/functions/group-claim-stage/index.ts` — identical shape: `charUpdates` (~line 210),
-      `c.level` before vs. `level` after (via `applyXp` at ~line 217, same win-gate). Same
-      sum-and-guard treatment into its own `lifetimeStatsDelta`.
-    Explicitly OUT of scope: `supabase/functions/skill-collect/index.ts`'s `applyXp` call levels up
-    a per-character SKILL (`player_characters.skills`), a wholly separate leveling curve from
-    character level (see `src/lib/skills.ts`'s doc comment) — do not count skill level-ups here.
-    Suggested key: `{ key: 'charLevelsGained', label: 'Character levels gained' }` — not yet
-    reserved anywhere in code, pick a different name freely if preferred.
-  - [ ] Skills: time trained or XP earned per skill. `SKILL_DEFS` in `src/lib/skills.ts` already
-    has 4 skills (Religion/Athletics/Farming/Mining, not just Religion — the "second skill type is
-    a one-line registry entry" note elsewhere in this file is about a 5th). Single write site:
-    `supabase/functions/skill-collect/index.ts`, which already computes both `consumedSec` and
-    `gained` (XP) per collect via `accrue()` (~line 75) — the exact shape `gather-collect` used for
-    `gatherSecondsSpent`. The RPC it calls, `collect_skill`, is defined at
-    `supabase/migrations/20260914110100_skill_rpcs.sql:70`, signature `(p_player uuid,
-    p_assignment_id uuid, p_skill_key text, p_new_level int, p_new_xp int, p_new_last_collected_at
-    timestamptz, p_stop boolean)` — no `p_lifetime_stats` param. `skill-collect`'s own top comment
-    says so explicitly ("no lifetime-stats/acquisition tie-in ... skill training has no mechanical
-    effect yet"), confirming a deliberate prior scope cut, not an oversight. Needs the drop/recreate
-    pattern to add an 8th param; check whether `collect_skill`'s body already locks `profiles`
-    before deciding if a fresh lock is needed (irrelevant either way per the `claim_craft` precedent
-    — a bare per-key `UPDATE ... WHERE player_id = p_player` is atomic regardless of a pre-existing
-    lock).
-    SHAPE DECISION NEEDED (not yet made): per-skill stats need dynamic per-skill keys, not one flat
-    counter — mirror `resourceGatheredKey()` (`src/lib/lifetimeStats.ts:19-21`) exactly: add a
-    `skillSecondsSpentKey(skillKey)` (and/or `skillXpEarnedKey(skillKey)`) helper returning
-    `` `skillSecondsSpent.${skillKey}` ``, then spread `SKILL_DEFS.map(...)` into
-    `LIFETIME_STAT_DEFS` the same way `RESOURCE_SOURCE` already is (see the
-    `...Object.keys(RESOURCE_SOURCE).map(...)` spread at the array's tail). Track time (parallels
-    `missionSecondsSent`/`gatherSecondsSpent` exactly, simplest) or XP (arguably redundant with the
-    skill's own level/xp already visible per-character) or both — genuinely undecided, a product
-    call not a technical one. Whichever is chosen, also decide `/statistics` grouping:
-    `groupLifetimeStats()` (`src/features/statistics/statGroups.ts`) has no "Skills" bucket today —
-    either add one (classify by the `skillSecondsSpent.`/`skillXpEarned.` prefix, same pattern as
-    `resourceGathered.`) or accept it landing in the "Missions & Combat" catch-all the way
-    `gatherSecondsSpent` did.
+  - [x] Roster: `charLevelsGained` (2026-10-15) — Edge-Function-only, no migration (both RPCs
+    already accepted `p_lifetime_stats`). Summed `level - c.level` across `charUpdates` in both
+    `mission-claim` and `group-claim-stage`, guarded `> 0` (0 for non-leveling survivors and a
+    full loss). Skill level-ups (`skill-collect`) correctly excluded — separate leveling curve.
+  - [x] Skills: `skillSecondsSpent.<skillKey>` / `skillXpEarned.<skillKey>` (2026-10-15) — decided
+    both metrics (time AND XP), dynamic per-skill keys (mirrors `resourceGatheredKey()` exactly),
+    dumped into the "Missions & Combat" catch-all (no new "Skills" bucket). `collect_skill` needed
+    the drop/recreate pattern for a new 8th param; no new lock needed (a bare per-key additive
+    update is atomic on its own, same reasoning as `claim_craft`/`upgrade_items`). Time tracked
+    unconditionally whenever consumed, XP only when nonzero — same gating `gatherSecondsSpent`
+    uses. pgTAP coverage added (`collect_skill.sql`, new — this RPC had none before).
+    `↳ context: supabase/migrations/20261015110000_skill_lifetime_stats.sql, src/lib/lifetimeStats.ts`
   - [x] Gathering: `gatherSecondsSpent` (2026-09-16, parallel to `missionSecondsSent`) —
     zero-migration: `collect_gather` already accepted arbitrary `p_lifetime_stats` deltas.
     `gather-collect` already computed `consumedSec`; tracked unconditionally (whenever any time was
@@ -482,10 +449,8 @@ character sprite art. Older open items below may be stale — trust the mileston
   cancel a finished-unclaimed craft, confirm exact reagent refund) — bundle into the same next-
   session verification pass as the lifetime-stats item above.
   `↳ context: project-crafting · supabase/migrations/20260923100000_craft_cancel.sql, docs/DECISIONS.md ADR-0052`
-- [ ] **Roster size target** — 19 `characterDef` docs live (matches ADR-0046's "all 19
-  characters"). Unclear whether that's the full intended roster or more are planned — no target
-  number found in docs/CHARACTERS.md or elsewhere. Needs a decision before "author the rest" is
-  actionable.
+- [x] **Roster size target** (2026-10-15) — decided: 19 stays the target for now, no more
+  characters planned at this time. Revisit if that changes.
   `↳ context: project-character-development, project-existing-assets · docs/CHARACTERS.md`
 
 ## App wiring
