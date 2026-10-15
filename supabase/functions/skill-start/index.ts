@@ -3,6 +3,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { SKILL_BY_KEY } from '../../../src/lib/skills.ts'
 import { fetchCharacterName } from '../_shared/characterName.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // skill-start: assign a character to train a skill (ADR-0003 server-authoritative write). Validates
 // the caller + that the skill is known (config is code — src/lib/skills.ts), then hands off to the
@@ -16,7 +17,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -68,4 +69,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ assignment }, 201)
-})
+}))

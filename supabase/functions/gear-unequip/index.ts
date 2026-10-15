@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { isGearSlotKey } from '../../../src/lib/equipment.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // gear-unequip: remove the item in a character's slot back to inventory (ADR-0003/0022).
 // No Sanity lookup needed — the atomic `unequip_item` RPC owns ownership / not-busy /
@@ -13,7 +14,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -51,4 +52,4 @@ Deno.serve(async (req) => {
   }
 
   return json(data, 200)
-})
+}))

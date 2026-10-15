@@ -6,6 +6,7 @@ import { missionDurationMultiplier } from '../../../src/lib/traits.ts'
 import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 import { resolveFlatAscendantBonus } from '../../../src/lib/ascendantShop.ts'
 import { validateMissionLoadout, type LoadoutEntry } from '../../../src/lib/consumables.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // mission-start: dispatch a party on a mission (ADR-0003 server-authoritative write). Validates the
 // caller, resolves the mission's authored duration from Sanity (the client is NOT trusted for it), and
@@ -19,7 +20,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -210,4 +211,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ run }, 201)
-})
+}))

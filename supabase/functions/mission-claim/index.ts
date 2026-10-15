@@ -40,6 +40,7 @@ import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 import { resolveCharAscendantBonuses, resolveFlatAscendantStatBonuses, resolveFlatAscendantBonus } from '../../../src/lib/ascendantShop.ts'
 import { resolveConsumableBuffBonus } from '../../../src/lib/consumables.ts'
 import { resolveTotemPartyBuffs, type TotemDef } from '../../../src/lib/totems.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // mission-claim: the combat resolver (ADR-0012/0013/0016). Runs the server-authoritative auto-battle
 // sim for a finished mission, then applies the outcome through the atomic `claim_mission` RPC.
@@ -148,7 +149,7 @@ const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
 
 const ITEMDEFS_GROQ = `*[_type == "itemDef" && itemKey in $keys]{ itemKey, statBonuses[]{ stat, kind, value } }`
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -619,4 +620,4 @@ Deno.serve(async (req) => {
     },
     200,
   )
-})
+}))

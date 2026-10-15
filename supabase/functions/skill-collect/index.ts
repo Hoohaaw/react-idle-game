@@ -5,6 +5,7 @@ import { SKILL_BY_KEY } from '../../../src/lib/skills.ts'
 import { accrue } from '../../../src/lib/gather.ts'
 import { applyXp } from '../../../src/lib/leveling.ts'
 import { skillSecondsSpentKey, skillXpEarnedKey } from '../../../src/lib/lifetimeStats.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // skill-collect: bank a trainee's accrued skill XP, optionally stopping (unassigning). Computes the
 // gained XP from elapsed ticks (accrue(), src/lib/gather.ts — reused as-is, same math) then rolls it
@@ -20,7 +21,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -113,4 +114,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ gainedXp: gained, skillKey: assignment.skill_key, newLevel, newXp, stopped: stop }, 200)
-})
+}))

@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // craft-start: spend a recipe's reagents and open the timed craft (ADR-0003 server-authoritative
 // write; docs/superpowers/specs/2026-09-09-crafting-create-recipes-design.md §5). Mirrors
@@ -20,7 +21,7 @@ type RecipeDef = {
   reagents?: { kind?: string; resource?: string | null; quantity?: number; itemKey?: string | null }[]
 } | null
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -125,4 +126,4 @@ Deno.serve(async (req) => {
       item_reagents: run.item_reagents,
     },
   }, 201)
-})
+}))

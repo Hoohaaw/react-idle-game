@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // transcend-player: the hard-reset action (ADR-0023). Validates the caller, checks the gate
 // (every currently-authored raid cleared at least once, ever — a permanent lifetime_stats flag,
@@ -12,7 +13,7 @@ function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -81,4 +82,4 @@ Deno.serve(async (req) => {
   }
 
   return json(result, 200)
-})
+}))
