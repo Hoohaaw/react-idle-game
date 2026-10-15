@@ -3303,3 +3303,97 @@ a new spec/plan — brainstormed in chat, approved, implemented directly.
   unequipping on the 3rd claim were never clicked through by a human.
 - No TODO.md entry existed for this feature until this ADR — code shipped and merged to
   `master` (PR #150) before the written record caught up; this ADR closes that gap.
+
+## ADR-0063 — Widen the per-fight variance roll: ADR-0038's ±10%/12% left almost no contested band
+
+**Date:** 2026-10-15 · **Status:** Accepted (Alex)
+
+**Context.** `TODO.md`'s standing complaint ("mission win-chance is too binary — needs
+strategic depth") traces to a gap in ADR-0038's own evidence, not a new problem: that ADR's
+committed report (`2026-07-14-variance-rolls`) already showed the ±10%/±12% rolls left the
+contested band (10–90% win) at only 3% of the sweep grid (51/1584 cells), cliffs still 134.
+ADR-0038 decided the roll's *shape* (per-fight, not per-hit) but never candidate-swept the roll
+*size* — the "Alternatives considered" section discusses widening per-hit variance and
+per-stat rolls instead, never a bigger PARTY_POWER_ROLL/ENEMY_STAT_ROLL. Investigated per the
+BALANCE.md playbook: read combat.ts, confirmed the committed baseline matched a fresh sweep (no
+drift), then candidate-swept 0.1→0.96 in both constants.
+
+**Decision.** `COMBAT.PARTY_POWER_ROLL: 0.1 → 0.4`, `COMBAT.ENEMY_STAT_ROLL: 0.12 → 0.48` (both
+4×). Picked over a stronger 0.65/0.78 candidate (which zeroed cliffs grid-wide and reached an
+18% contested band) because of a player-visible cost that candidate crossed into: the per-fight
+roll is shown honestly as a span on the character sheet (`src/lib/powerSpan.ts`, ADR-0038) — at
+0.65 a 50-value attack stat renders as "18–83", an unreadable ~5× spread. At 0.4 the same stat
+renders "30–70" — wide but legible. 0.4/0.48 was chosen as the point that fixes the complaint
+without that UI cost, not because it was the mathematically cleanest candidate.
+
+**Evidence** (`2026-10-15-widen-contested-band`, 500 seeds/cell, 4,752,000 fights, diffed
+against a matching 500-seed sweep at the old 0.1/0.12 — not committed, reproducible by
+reverting the two constants and re-running):
+- Middle band (10–90% win, naked slice): 59/1584 (4%) → 174/1584 (**11%**). Cliffs: 125 → 22.
+- Guardrails (`docs/BALANCE.md` target bands) hold: a one-tier-below reference cell stayed at
+  exactly 100% across the entire 0.1→0.96 candidate sweep, no exceptions found. A two-tiers-
+  above reference cell stayed at 0% through 0.5/0.6 and only reached 4.5% at the untaken
+  0.8/0.96 candidate — well inside the <15% ceiling even at that extreme.
+- 610 cells moved >15 win-rate points (370 up, 240 down) out of 9504. Every single one checked
+  against its own before-value: all 610 were already near an extreme (≤25% or ≥75%) before the
+  change — the expected "cliff-edge cells get pulled toward the middle" pattern, not an
+  unexplained mover. No cell with a stable mid-range before-value jumped unexpectedly.
+- Discriminating regression test (`combat.test.ts`): a fixture tuned so 54 (the OLD roll's
+  minimum rolled power) × 61 (max hits in 180s) = 3294 narrowly clears a 2900-HP wall every
+  time — 200/200 wins under the old 0.1/0.12, genuinely split (145/200) under the new 0.4/0.48.
+  Verified the failure for real: ran it against the old constants before committing, confirmed
+  200/200, restored.
+
+**Collateral test fallout (all fixed, not loosened arbitrarily):**
+- `powerSpan.test.ts` — literal ±10% expectations updated to ±40% (`30–70`, `60–140`).
+- `combat.test.ts`, "regen is time-normalized" — the old version raced a fixed enemy attack
+  against regen to prove per-fight regen isn't per-action; widening `ENEMY_STAT_ROLL` to ±48%
+  made the roll span wider than the gap between the old per-action-regen bug's rate and the
+  fix's rate, so no fixed attack value could make the race outcome seed-robust anymore (verified
+  algebraically: needed attack > 57.7 for a robust wipe AND < 44.6 to still distinguish from the
+  bug — contradictory). Rewrote to check the regen computation directly against a zero-damage
+  enemy instead of inferring it from a win/loss race — healthRegen is never rolled, so this is
+  exactly reproducible regardless of seed, and is a strictly better test than the race it
+  replaced.
+- `combat.test.ts`, "a healer sustains the party and stays safe" — retuned tank
+  health/defense and healer healingPower upward (empirically verified 500/500 seeds) so the
+  fixture stays robust under the new roll; the original margin was only safe at ±10%/12%.
+- `traits.test.ts`, the Mapborn discriminating sim pair — **a real, disclosed consequence, not
+  a fixture bug**: a flat +12% attack trait bonus is a much smaller fraction of a ±40% variance
+  budget than a ±10% one. Swept the fixture's wall-health across its full range and confirmed
+  the maximum achievable on/off win-rate gap anywhere is ~13 points now, down from the old
+  test's >25-point requirement. Recentred the fixture (wallHp 3900→4050) and lowered the gap
+  assertion to >0.08 (measured: 0.105) to match this reality, rather than picking numbers to
+  force the old threshold to pass.
+
+**Alternatives considered.** 0.65/0.78 (rejected: unreadable power-span UI, see Decision).
+0.2–0.3 range (weaker fixes, band only reaches 6–8%, cliffs only drop to 59–94 — insufficient
+given the standing complaint). Shortening fights or decoupling the win condition from a pure
+damage-race (both raised during the design discussion that led here) are real alternative
+levers but out of scope for a constant-tuning iteration — they're engine-shape changes, not
+tuning.
+
+**Consequences.**
+- `mission-claim` must be redeployed for the hosted sim to use the new span (same
+  redeploy-after-merge requirement ADR-0038 already established).
+- **Trait/blessing percentage bonuses are now proportionally less decisive** (see the
+  traits.test.ts finding above) — a flat +X% bonus competes against more luck than before. Not
+  fixed here; flagged for whoever next authors or balances trait/blessing content, since the
+  ~25-point swing older content may have been implicitly tuned against no longer holds.
+- **69 previously-impossible (0%) cells now read 15–21% winnable**, almost entirely off-meta
+  stress-test comps (`trio-no-tank`, `duo-tank-heal`, solo pushes) pushing 1-3 tiers past their
+  level, not the standard `trio-core` progression path. Read as "a reckless gamble now has a
+  real sliver of a chance" rather than a guardrail breach — the two-tiers-above target ceiling
+  (<15%) is about on-path progression, which held throughout (see Evidence).
+- **6 cells where a fully-invested (`geared`/`full-build`) comp previously won 100% of the time
+  now sit at 57–70%** — heavy investment stops being an absolute guarantee at a small number of
+  tier/level combinations. This is the direct, intended tradeoff of widening the roll (per-fight
+  variance applies to everyone, not just marginal comps) and was disclosed to Alex before this
+  value was chosen.
+- This is a one-line, two-constant, zero-migration, zero-schema change
+  (`COMBAT.PARTY_POWER_ROLL`/`ENEMY_STAT_ROLL`, `src/lib/combat.ts`) — if playtesting later says
+  the band is still wrong in either direction, retuning is: change the number, re-run
+  `node scripts/balance/sweep.ts`, redeploy. No data migration, no content re-authoring, no
+  design rework.
+- Player guide (`/game-stats`, "How Combat Works" / variance section) updated to describe the
+  wider band. `docs/BALANCE.md`'s tuning log gets a new row.

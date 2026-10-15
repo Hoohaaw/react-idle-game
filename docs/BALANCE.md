@@ -229,6 +229,7 @@ reproducible offline. When baseStats/growth change in Sanity, re-pull with:
 | 2026-07-10 | Speed DR above baseline (K=30, asymptote 4× actions; haste pre-curve) | `2026-07-10-speed-dr` | ADR-0030 |
 | 2026-07-10 | Roster re-costed to point-buy budgets + rarity | `2026-07-10-budget-recost` | ADR-0031 |
 | 2026-07-11 | Elemental schools + tier-gated enemy resistances | `2026-07-11-schools` | ADR-0033 |
+| 2026-10-15 | Per-fight variance roll widened 0.1/0.12 → 0.4/0.48 (4×) | `2026-10-15-widen-contested-band` | ADR-0063 |
 
 **v2 outcome (ADR-0024):** cliffs ~130 → ~78, healer inversions 8 → 4 (milder), real 30–80% win band
 appears (`marginBonus` engages). New binding constraint: **timeouts 22 → 87 heavy cells** — enemy HP
@@ -279,6 +280,18 @@ exact behavior). Gentle global compression (grid mean win rate 0.607→0.585), n
 stat BREADTH (every defensive growth at once), not any single engine channel. All engine-side
 runaway guards are now closed (regen · dodge · speed · threat); the remaining fix is a **content
 rebalance of Mordrek's defensive growth spread in Sanity**, then re-sweep.
+
+**Widen-contested-band outcome (ADR-0063, engine change):** `PARTY_POWER_ROLL`/`ENEMY_STAT_ROLL`
+0.1/0.12 → 0.4/0.48 (4×). ADR-0038's own committed report had already shown its fix left the
+contested band at only 3% of the grid — this iteration candidate-swept the roll *size* for the
+first time (ADR-0038 only ever decided the roll's shape). Middle band 4%→11% (500-seed sweep;
+3%→4% is sweep-seed-count noise, not drift), cliffs 125→22. 0.65/0.78 reached 18% band / 0
+cliffs but was rejected on a player-visible cost: the power-span UI (`powerSpan.ts`) renders an
+unreadable ±65% spread at that size. Both target-band guardrails (one-tier-below ~100%,
+two-tiers-above <15%) held throughout the full 0.1→0.96 candidate range tested. **Disclosed
+tradeoff, not fixed here:** flat percentage trait/blessing bonuses are now proportionally less
+decisive (max achievable win-rate gap for a +12% attack trait fixture dropped from >25pts to
+~13pts) — a real balance consideration for whoever next authors trait/blessing content.
 
 ## Baseline findings — 2026-07-10 (untuned v1 constants)
 

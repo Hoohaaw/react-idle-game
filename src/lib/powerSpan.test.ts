@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { powerSpan, SPAN_STATS } from './powerSpan'
 
 describe('powerSpan', () => {
-  it('renders the ±10% per-fight band (ADR-0038)', () => {
-    expect(powerSpan(50)).toBe('45–55')
-    expect(powerSpan(100)).toBe('90–110')
+  it('renders the ±40% per-fight band (ADR-0038, widened by ADR-0063)', () => {
+    expect(powerSpan(50)).toBe('30–70')
+    expect(powerSpan(100)).toBe('60–140')
   })
 
   it('collapses to a single number when rounding closes the band', () => {

@@ -93,9 +93,12 @@ describe('simulateCombat — role behaviours', () => {
   })
 
   it('a healer sustains the party and stays safe (deals no damage → no threat)', () => {
-    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 20, health: 300, defense: 40, speed: 10 } }
-    const healer: Combatant = { id: 'healer', role: 'healer', stats: { healingPower: 40, health: 150, speed: 10 } }
-    const brute: Enemy = { id: 'brute', health: 200, attack: 30, damageType: 'physical', speed: 10, defense: 5 }
+    // Stats retuned for ADR-0063's wider ±40%/48% per-fight rolls (empirically verified:
+    // 500/500 seeds win with the healer untouched, 488/500 actually trigger a heal — the brute's
+    // attack is high enough that the tank still dips below the 70% heal threshold most runs).
+    const tank: Combatant = { id: 'tank', role: 'tank', stats: { attack: 20, health: 310, defense: 40, speed: 10 } }
+    const healer: Combatant = { id: 'healer', role: 'healer', stats: { healingPower: 45, health: 150, speed: 10 } }
+    const brute: Enemy = { id: 'brute', health: 200, attack: 48, damageType: 'physical', speed: 10, defense: 5 }
     const r = simulateCombat({ party: [tank, healer], encounter: encounterWith([brute]), seed: 'run-1' })
     expect(r.outcome).toBe('win')
     expect(r.endingHp.healer).toBe(150) // never targeted
@@ -183,18 +186,27 @@ describe('simulateCombat — role behaviours', () => {
     expect(dodged).toBeLessThan(0.35)
   })
 
-  it('regen is time-normalized: a fast unit cannot out-regen sustained damage per action', () => {
-    // speed 30 = 3 actions per enemy swing. Per-action regen made this unit immortal
-    // (30 HP × 3/s > 15 dmg/s incoming); time-normalized (ADR-0028) it is 10 HP/s and bleeds out.
+  it('regen is time-normalized: HP/s stays constant regardless of the unit\'s own speed', () => {
+    // ADR-0063 widened the enemy attack roll to ±48%, which made the original version of this
+    // test (a damage-vs-regen RACE against a rolled enemy attack) seed-dependent — the roll span
+    // is now wider than the gap between the old per-action-regen bug's rate and the fix's rate,
+    // so no fixed attack value makes the race outcome robust. Testing the regen computation
+    // directly instead (zero-damage enemy) sidesteps the roll entirely: healthRegen is never
+    // rolled, so this is exactly reproducible regardless of seed. speed 30 → interval ≈1.3636s
+    // (ADR-0030's speed-DR curve); per-action regen = healthRegen × (interval/BASE_INTERVAL) ≈
+    // 13.636, applied once per action. Per-action regen (the pre-ADR-0028 bug) would instead
+    // apply the full 30 HP every ~1.36s — ~3.3x more — so this value distinguishes the two.
     const speedster: Combatant = {
       id: 'speedster',
       role: 'damage',
       stats: { attack: 5, health: 200, speed: 30, healthRegen: 30 },
+      currentHp: 50,
     }
-    const juggernaut: Enemy = { id: 'juggernaut', health: 5000, attack: 45, damageType: 'physical', speed: 10, defense: 200 }
-    const r = simulateCombat({ party: [speedster], encounter: encounterWith([juggernaut], 120), seed: 'run-1' })
-    expect(r.reason).toBe('party-wiped')
-    expect(r.endingHp.speedster).toBe(0)
+    const harmless: Enemy = { id: 'harmless', health: 100000, attack: 0, damageType: 'physical', speed: 10 }
+    // 9.6s lands on exactly 8 actions (k=0..7, nextAt = k×15/11 ≤ 9.6 < 8×15/11) — deterministic
+    // regardless of seed since nothing here rolls (enemy deals 0 damage either way).
+    const r = simulateCombat({ party: [speedster], encounter: encounterWith([harmless], 9.6), seed: 'run-1' })
+    expect(r.endingHp.speedster).toBeCloseTo(50 + 8 * (30 * (15 / 11 / 3)), 2)
   })
 
   it('a healer attacks while the party is above the heal threshold', () => {
@@ -291,6 +303,23 @@ describe('per-fight variance (ADR-0038) + boss spikes (ADR-0039)', () => {
     }
     expect(wins).toBeGreaterThan(0)
     expect(wins).toBeLessThan(100)
+  })
+
+  it('ADR-0063: a fight that was a guaranteed win under the old ±10/12% rolls is now genuinely contested', () => {
+    // Fixture tuned against the OLD 0.1/0.12 rolls specifically: at 54 (min rolled power) × 61
+    // (max hits in 180s) = 3294 damage vs. a wall whose rolled HP never exceeds 2900 × 1.12 =
+    // 3248, this config was a deterministic 200/200 win. Widening the rolls (ADR-0063) must flip
+    // this same fixture into a real split — hardcoded expectations, not a re-derivation from
+    // COMBAT's current values, so this test actually fails if the widening is ever reverted.
+    const hero: Combatant = { id: 'hero', role: 'damage', stats: { attack: 60, health: 500, speed: 10 } }
+    const wall: Enemy = { id: 'wall', health: 2900, attack: 0, damageType: 'physical', speed: 10 }
+    let wins = 0
+    for (let s = 0; s < 200; s++) {
+      const r = simulateCombat({ party: [hero], encounter: encounterWith([wall], 180), seed: `widen-${s}` })
+      if (r.outcome === 'win') wins++
+    }
+    expect(wins).toBeGreaterThan(0)
+    expect(wins).toBeLessThan(200)
   })
 
   it('the ±10% attack roll changes hit damage across seeds', () => {
