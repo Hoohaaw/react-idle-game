@@ -8,8 +8,8 @@
 //
 // Unlike currencies/resources, spending never decrements these — they only ever go up.
 
-import { RESOURCE_SOURCE } from './resources'
-import { SKILL_DEFS } from './skills'
+import { RESOURCE_SOURCE } from './resources.ts'
+import { SKILL_DEFS } from './skills.ts'
 
 export type LifetimeStatDef = {
   key: string
