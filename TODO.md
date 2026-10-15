@@ -497,7 +497,8 @@ character sprite art. Older open items below may be stale — trust the mileston
   the existing `Deno.serve` handler, doesn't touch any function's own logic). DSN in
   `VITE_SENTRY_DSN` (client) and the `SENTRY_DSN` Supabase secret (server) — never hardcoded.
   Deployed and smoke-tested live. **Uptime monitoring (a separate concern — is the site even
-  reachable) is still not set up** — this only covers errors, not outages.
+  reachable) is still not set up** — this only covers errors, not outages. Tool is already
+  decided (Alex self-hosts Uptime Kuma), just not pointed at this project yet — deferred.
   `↳ context: src/instrument.ts, src/main.tsx, supabase/functions/_shared/sentry.ts`
 - [x] **Analytics tool — Umami wired up and verified live** (chosen 2026-09-17, shipped
   2026-10-15, PR #152) — Umami Cloud hobby plan, script tag in `index.html`, a
