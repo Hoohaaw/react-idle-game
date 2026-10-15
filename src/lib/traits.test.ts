@@ -80,9 +80,13 @@ describe('discriminating sim pair (Mapborn)', () => {
     condition: { type: 'map', value: 'gravemarch' },
     effects: [{ stat: 'attack', kind: 'pct', value: 12 }],
   })
-  // Marginal by construction: 60 atk × 61 actions = 3660 vs 3900 hp — the hero kills the wall
-  // JUST too slowly at the roll midpoint; +12% attack (4099) clears it at the midpoint.
-  const enemy: Enemy = { id: 'wall', health: 3900, attack: 0, damageType: 'physical', speed: 10 }
+  // Recentred for ADR-0063's wider ±40% roll (empirically, not by the old closed-form midpoint
+  // math): a flat +12% attack bonus is a much smaller fraction of a ±40% variance budget than a
+  // ±10% one, so the achievable on/off gap anywhere in this fixture's range tops out around
+  // 0.13 now (was >0.25 under the old roll) — a real, expected consequence of widening the
+  // roll, not a bug in this fixture. wallHp=4050 is the measured point giving off<0.5, on>0.5,
+  // and the largest gap (0.105) at this exact 200-seed stream.
+  const enemy: Enemy = { id: 'wall', health: 4050, attack: 0, damageType: 'physical', speed: 10 }
   const winRate = (ctx: { mapKey?: string }) => {
     const stats = effectiveStats({
       level: 1,
@@ -104,6 +108,6 @@ describe('discriminating sim pair (Mapborn)', () => {
     const on = winRate({ mapKey: 'gravemarch' })
     expect(off).toBeLessThan(0.5) // below the roll midpoint without the bonus
     expect(on).toBeGreaterThan(0.5) // above it with the bonus
-    expect(on - off).toBeGreaterThan(0.25) // and the gap is decisive, not noise
+    expect(on - off).toBeGreaterThan(0.08) // the gap is real, not noise (ADR-0063 shrank the max achievable gap — see comment above)
   })
 })

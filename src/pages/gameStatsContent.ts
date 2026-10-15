@@ -154,8 +154,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       '— and the damage taken stays. Heroes reduced to 0 HP are DOWNED and must be stabilized in the ' +
       'Infirmary before they can act again. No two runs are identical: each fight, every hero rolls ' +
       'their attack within the span shown on their stat sheet (a good day or a bad one), and every ' +
-      'enemy rolls its health and attack a little wider — so a close matchup is a genuine gamble, ' +
-      'not a fixed script. BOSSES also unleash a SPIKE ATTACK every so often: a much heavier hit ' +
+      'enemy rolls its health and attack even wider — so a close matchup is a genuine gamble, not a ' +
+      'fixed script, and pushing a mission a tier above your comfort zone is a real risk/reward call ' +
+      'rather than an automatic loss. BOSSES also unleash a SPIKE ATTACK every so often: a much heavier hit ' +
       'that strikes a RANDOM hero, ignoring the tank. Bring the health, dodge, or healer to absorb ' +
       'one — or the damage to kill the boss before too many land. When you pick a party, the send ' +
       'screen shows an ESTIMATED SUCCESS percentage — the real battle simulated two hundred times ' +

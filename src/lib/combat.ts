@@ -49,18 +49,24 @@ export const COMBAT = {
   /** A blocked hit loses this fraction of its damage. */
   BLOCK_FACTOR: 0.5,
   /**
-   * Per-fight stat rolls (ADR-0038). Each fight, every party member's attack power rolls
-   * uniformly within ±PARTY_POWER_ROLL, and every enemy's max HP and attack roll independently
-   * within ±ENEMY_STAT_ROLL — a "good day / bad day" swing. Per-HIT rng (crit/dodge/block)
-   * averages out over a fight's hundreds of hits, so without a per-FIGHT roll the sim is
-   * effectively deterministic per config: win rates snap to ~0%/~100% with a razor-thin middle.
-   * These rolls create a real contested band where the dispatch estimator reads 40–70% and
-   * pushing is a genuine gamble. Healing power does NOT roll (attack only), and party HP never
-   * rolls (it's persistent, carried between missions). The party roll is player-visible: attack
-   * stats display as a span (see src/lib/powerSpan.ts).
+   * Per-fight stat rolls (ADR-0038, widened by ADR-0063). Each fight, every party member's
+   * attack power rolls uniformly within ±PARTY_POWER_ROLL, and every enemy's max HP and attack
+   * roll independently within ±ENEMY_STAT_ROLL — a "good day / bad day" swing. Per-HIT rng
+   * (crit/dodge/block) averages out over a fight's hundreds of hits, so without a per-FIGHT roll
+   * the sim is effectively deterministic per config: win rates snap to ~0%/~100% with a
+   * razor-thin middle. These rolls create a real contested band where the dispatch estimator
+   * reads 40–70% and pushing is a genuine gamble. Healing power does NOT roll (attack only), and
+   * party HP never rolls (it's persistent, carried between missions). The party roll is
+   * player-visible: attack stats display as a span (see src/lib/powerSpan.ts).
+   * ADR-0038's original 0.1/0.12 left the contested band at only 3% of the sweep grid (cliffs:
+   * 130) — too narrow to answer "the win-chance curve is too 100%→0%" (TODO.md). Widened 4× to
+   * 0.4/0.48 (ADR-0063): sweep-verified cliffs 130→20, contested band 3%→11%, while both target
+   * guardrails hold (one-tier-below stays ~100%, two-tiers-above stays at 0% — no leak). A
+   * larger 0.65/0.78 candidate zeroed cliffs entirely but was rejected: it widens the player-
+   * visible attack-stat span (powerSpan.ts) to an unreadable ±65% (e.g. "18–83" on a 50 value).
    */
-  PARTY_POWER_ROLL: 0.1,
-  ENEMY_STAT_ROLL: 0.12,
+  PARTY_POWER_ROLL: 0.4,
+  ENEMY_STAT_ROLL: 0.48,
   /** Tanks generate this much more threat per point of damage than everyone else. */
   TANK_THREAT_MULT: 4,
   /**
