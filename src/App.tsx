@@ -4,6 +4,7 @@ import { GameLayout } from './components/templates/GameLayout'
 import { LegalLayout } from './components/templates/LegalLayout'
 import { CookieBanner } from './components/organisms/CookieBanner'
 import { RequireAuth } from '@/features/auth'
+import { useAnalytics } from '@/hooks/useAnalytics'
 
 // Route-level code splitting: every page loads as its own chunk on first visit, keeping the
 // entry bundle small (it was one ~860 kB chunk). Feature pages are pulled through their barrel
@@ -42,6 +43,8 @@ function PageLoading() {
 }
 
 export default function App() {
+  useAnalytics()
+
   return (
     <>
       <Suspense fallback={<PageLoading />}>
