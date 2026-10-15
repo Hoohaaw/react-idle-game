@@ -110,6 +110,7 @@ Deno.serve(async (req) => {
     p_cost_currencies: cost.currencies,
     p_cost_resources: cost.resources,
     p_settlements: settlements,
+    p_lifetime_stats: { goldSpent: cost.currencies.gold ?? 0 },
   })
   if (rpcErr) {
     // Most likely insufficient funds or a concurrent upgrade (level assertion).

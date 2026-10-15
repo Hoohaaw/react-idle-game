@@ -294,39 +294,19 @@ character sprite art. Older open items below may be stale — trust the mileston
     be name-based, not signature-based — it would NOT actually have caught this regression, since
     the old 2-arg grant already satisfied it by name. Not fixed here, out of scope for this PR.)
     `npx supabase test db` run locally (79/79 passing).
-  - [ ] Economy: `goldSpent` (counterpart to `goldEarned` — hoarder vs. spender). Audited
-    2026-09-17: exactly 3 write sites currently deduct `currencies.gold`, none touch
-    `p_lifetime_stats` for it yet:
-    - `recruit_character` already accepts `p_lifetime_stats` (PR #131) — just add
-      `goldSpent: goldCost` into the existing `p_lifetime_stats: { charactersRecruited: 1 }`
-      object in `supabase/functions/recruit/index.ts`. No migration needed.
-    - `upgrade_infirmary` (`supabase/migrations/20260707150000_infirmary.sql:165`, signature
-      `(p_player uuid, p_new_level int, p_cost_currencies jsonb, p_cost_resources jsonb,
-      p_settlements jsonb)`) has no `p_lifetime_stats` param — needs the drop/recreate pattern (6th
-      param). It already deducts `p_cost_currencies` generically (any currency key, not hardcoded
-      to gold) in a loop at line ~220; add the standard `p_lifetime_stats` increment loop right
-      after that deduction loop, no new lock needed (the row is already locked earlier via
-      `perform 1 from public.profiles ... for update` at line ~185). Edge Function
-      (`supabase/functions/infirmary-upgrade/index.ts:110`, cost object is
-      `UPGRADE_COSTS[level].currencies` from `src/lib/infirmary.ts`) should pass
-      `p_lifetime_stats: { goldSpent: cost.currencies.gold ?? 0 }` — only count `gold` even though
-      the RPC is currency-generic (future Wood/Copper/Iron-only upgrade tiers shouldn't inflate
-      this stat).
-    - `respec_blessings` (latest def in `supabase/migrations/20260908140000_group_runs.sql:564`,
-      signature `(p_player uuid, p_char uuid, p_cost numeric)`) has no `p_lifetime_stats` param —
-      needs the drop/recreate pattern (4th param). Already locks `profiles` via `for update` at the
-      gold-balance check (~line 620) before deducting at ~line 630 — reuse that lock. Edge Function
-      (`supabase/functions/blessing-respec/index.ts:44`; cost is the constant `RESPEC_COST = 500`
-      from `src/lib/blessings.ts:28`) should pass `p_lifetime_stats: { goldSpent: RESPEC_COST }`
-      unconditionally — respec always succeeds if the RPC doesn't raise.
-    Checked and ruled out (spend a JSONB-shaped cost but never `currencies.gold`):
-    `purchase_echo_shop_node`/`purchase_ascendant_shop_node`
-    (`supabase/migrations/20260915150000_lock_shop_purchase_price.sql`) spend `echoes`/
-    `ascendant_shards` respectively; `start_craft`
-    (`supabase/migrations/20260910110000_craft_runs.sql`) only spends `p_resource_reagents`/
-    `p_item_reagents` (resources + inventory items) — no currency reagent exists in the recipe
-    schema today. Before implementing, re-grep `supabase/migrations/` for `currencies->>'gold'`
-    and `set currencies = jsonb_set` in case a new gold-spend RPC was added since 2026-09-17.
+  - [x] Economy: `goldSpent` (2026-10-15, counterpart to `goldEarned` — hoarder vs. spender). All
+    3 audited write sites wired: `recruit_character` (Edge-Function-only, already accepted
+    `p_lifetime_stats`), `upgrade_infirmary` and `respec_blessings` (both needed the drop/recreate
+    pattern for a new param, both reused an already-existing `for update` lock — no new lock
+    needed either time). Client registry entry added (`src/lib/lifetimeStats.ts`) plus a fix to
+    `statGroups.ts`'s Economy-group filter, which was hardcoded to exactly `'goldEarned'` and
+    would otherwise have silently routed the new stat into the Missions & Combat catch-all.
+    pgTAP coverage added (`infirmary_lifetime_stats.sql`, new; `respec_blessings.sql`, extended).
+    Deliberately not using a `profiles` trigger to catch every future gold-spend site
+    automatically — every other lifetime stat in this codebase is wired explicitly per-RPC, and a
+    trigger comparing `currencies->>'gold'` before/after couldn't distinguish a real player spend
+    from an admin/support correction touching the same column.
+    `↳ context: supabase/migrations/20261015100000_infirmary_lifetime_stats.sql, src/lib/lifetimeStats.ts, src/features/statistics/statGroups.ts`
   - [x] Roster: `charactersRecruited` (2026-09-16, survives Transcend wipes, unlike the current
     live roster count) — `recruit_character` didn't accept `p_lifetime_stats` yet, so this needed a
     small migration (`20260916120000_recruit_character_lifetime_stats.sql`): drop the old 5-arg

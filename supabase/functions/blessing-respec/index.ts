@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
     p_player: playerId,
     p_char: characterId,
     p_cost: RESPEC_COST,
+    p_lifetime_stats: { goldSpent: RESPEC_COST },
   })
   if (rpcErr) {
     // respec_blessings raises 'respec_blessings: <reason>' for every validation failure

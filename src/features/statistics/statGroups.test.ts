@@ -18,10 +18,10 @@ describe('groupLifetimeStats', () => {
     expect(new Set(allGroupedKeys)).toEqual(new Set(LIFETIME_STAT_DEFS.map((d) => d.key))) // no stat lost
   })
 
-  it('puts goldEarned in the Economy group', () => {
+  it('puts goldEarned and goldSpent in the Economy group', () => {
     const groups = groupLifetimeStats()
     const economy = groups.find((g) => g.title === 'Economy')!
-    expect(economy.stats.map((s) => s.key)).toEqual(['goldEarned'])
+    expect(economy.stats.map((s) => s.key)).toEqual(['goldEarned', 'goldSpent'])
   })
 
   it('puts every resourceGathered.<Resource> key in the Resources Gathered group', () => {
@@ -34,11 +34,12 @@ describe('groupLifetimeStats', () => {
     }
   })
 
-  it('excludes goldEarned and all resourceGathered.* keys from Missions & Combat', () => {
+  it('excludes goldEarned, goldSpent, and all resourceGathered.* keys from Missions & Combat', () => {
     const groups = groupLifetimeStats()
     const combat = groups.find((g) => g.title === 'Missions & Combat')!
     const combatKeys = combat.stats.map((s) => s.key)
     expect(combatKeys).not.toContain('goldEarned')
+    expect(combatKeys).not.toContain('goldSpent')
     expect(combatKeys.some((key) => key.startsWith('resourceGathered.'))).toBe(false)
   })
 })

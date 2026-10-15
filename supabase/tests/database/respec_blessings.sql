@@ -2,7 +2,7 @@
 -- own check is in group_runs_busy_check.sql), gold balance check, tree wipe. Fixture convention:
 -- one player+character per scenario.
 begin;
-select plan(8);
+select plan(9);
 
 -- 1. Character not found/not owned.
 insert into auth.users (id, email, raw_user_meta_data)
@@ -85,6 +85,27 @@ select is(
   (select (currencies->>'gold')::int from public.profiles where player_id = '50000000-0000-0000-0000-000000000001'),
   400,
   'respec_blessings deducts the cost from gold'
+);
+
+-- 9. goldSpent lifetime-stat tracking (TODO.md): the RPC applies whatever p_lifetime_stats the
+-- caller passes — the Edge Function layer decides the value (RESPEC_COST), this just proves the
+-- generic increment loop fires on this RPC.
+insert into auth.users (id, email, raw_user_meta_data)
+values ('50000000-0000-0000-0000-000000000041', 'respec-5@test.local', jsonb_build_object('username', 'respec_5'));
+insert into public.player_characters (id, player_id, character_def_id, level, blessings)
+values ('50000000-0000-0000-0000-000000000042', '50000000-0000-0000-0000-000000000041', 'test_char', 15,
+        jsonb_build_object('row1', 'a'));
+update public.profiles set currencies = jsonb_build_object('gold', 500) where player_id = '50000000-0000-0000-0000-000000000041';
+
+select public.respec_blessings(
+  '50000000-0000-0000-0000-000000000041'::uuid, '50000000-0000-0000-0000-000000000042'::uuid, 100,
+  jsonb_build_object('goldSpent', 100)
+);
+
+select is(
+  (select (lifetime_stats->>'goldSpent')::int from public.profiles where player_id = '50000000-0000-0000-0000-000000000041'),
+  100,
+  'respec_blessings increments lifetime_stats.goldSpent by the passed amount'
 );
 
 select * from finish();
