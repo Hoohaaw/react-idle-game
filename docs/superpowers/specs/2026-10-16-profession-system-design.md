@@ -87,14 +87,14 @@ reagent/currency checks).
 
 ## Decision 4 — Four recipe-acquisition channels
 
-1. **Trainer purchase.** Pay gold, learn immediately. Gated by the profession's current level
-   (a recipe can require, say, level 3 to buy — `recipeDef` needs a `requiredLevel` field,
+1. **Profession-expert purchase.** Pay gold, learn immediately. Gated by the profession's current
+   level (a recipe can require, say, level 3 to buy — `recipeDef` needs a `requiredLevel` field,
    separate from `xpAwarded`/`professionKey`).
 2. **Quest reward.** A new `professionQuestDef` Sanity type: `professionKey`, `requiredLevel`,
-   a reagent-line-shaped cost (Decision 5), and a `rewardRecipe` reference. Turning in the cost at
-   a trainer unlocks `rewardRecipe` once; the quest is then permanently complete for that player
-   (no repeat). **Level-10-exclusive quests are not a separate mechanism** — they're just
-   `professionQuestDef` entries authored with `requiredLevel: 10`, confirmed explicitly.
+   a reagent-line-shaped cost (Decision 5), and a `rewardRecipe` reference. Turning the cost in to
+   the profession expert unlocks `rewardRecipe` once; the quest is then permanently complete for
+   that player (no repeat). **Level-10-exclusive quests are not a separate mechanism** — they're
+   just `professionQuestDef` entries authored with `requiredLevel: 10`, confirmed explicitly.
 3. **Level-up reward.** Reaching a new level can itself grant a recipe directly — an optional
    `recipeDef` reference on... (needs a home; simplest is a `grantedAtLevel` field directly on
    `recipeDef` rather than a separate per-level table, since it's a 1:1 "this recipe unlocks at
@@ -104,24 +104,27 @@ reagent/currency checks).
    recipe-unlock — widening it to support a recipe-kind drop is mechanical plumbing, not a feel
    decision, and can be resolved at plan-writing time rather than blocking this spec.
 
-## Decision 5 — Quest costs reuse `reagentLine`, extended with a currency kind
+## Decision 5 — Quest costs reuse `reagentLine`, extended with a currency kind; ordinary crafting
+stays item/resource-only
 
 The user wants quest turn-ins to mix "gold, Steel, a specific helmet, and so on" — `reagentLine`
 (`studio/schemaTypes/objects/reagentLine.ts`) already covers `resource` and `item` kinds but has
 **no currency kind today** (confirmed by reading the schema — recipes have never been able to cost
 gold). Adding a third `kind: 'currency'` option (referencing `CURRENCY_DEFS`,
 `src/lib/currencies.ts`) to `reagentLine` itself — not a separate quest-only cost type — means
-quests get exactly the mix-and-match cost the user asked for, and ordinary crafting recipes
-incidentally gain the ability to cost gold too (not required by this spec, but a natural side
-benefit of extending the shared type rather than forking it).
+quests get exactly the mix-and-match cost the user asked for. **Explicitly confirmed scope:**
+crafting from the profession menu stays item/resource-only, same as today — the new currency kind
+exists on the shared type for quest turn-ins to use, but regular `recipeDef` reagent costs are not
+expected to start using it.
 
-## Decision 6 — Trainers are a UI concept, not a located NPC
+## Decision 6 — The profession expert is a UI concept, not a located NPC
 
-This game has no world-traversal/location concept (everything is menu-driven dispatch) — a
-"trainer" is a panel inside each profession's section listing that profession's buyable recipes
-(channel 1) and available quests (channel 2), not an NPC to travel to. Exact page placement
-(a new `/professions` route vs. folding into the existing Crafting page) is deferred to the
-implementation plan, not a design decision this spec needs to settle.
+This game has no world-traversal/location concept (everything is menu-driven dispatch) — the
+"profession expert" (the role you buy recipes from and turn quest items in to — one role, not a
+separate trainer-vs-quest-giver split) is a panel inside each profession's section listing that
+profession's buyable recipes (channel 1) and available quests (channel 2), not an NPC to travel
+to. Exact page placement (a new `/professions` route vs. folding into the existing Crafting page)
+is deferred to the implementation plan, not a design decision this spec needs to settle.
 
 ## UI requirement: show XP before crafting
 
@@ -145,7 +148,7 @@ sequencing): Alchemy/Carving/Prospecting/Tempering/Arcane Writing's actual recip
 specific XP/cost numbers, and what each profession mechanically deepens.
 
 **Explicitly deferred as implementation detail, not design:** the recipe-drop loot mechanism
-(Decision 4, channel 4), exact trainer UI placement (Decision 6).
+(Decision 4, channel 4), exact profession-expert UI placement (Decision 6).
 
 ## Self-review notes
 
