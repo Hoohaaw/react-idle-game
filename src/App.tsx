@@ -32,6 +32,7 @@ const StatisticsPage = lazy(() => import('@/features/statistics').then((m) => ({
 const ActivityPage = lazy(() => import('@/features/activity').then((m) => ({ default: m.ActivityPage })))
 const GameStatsPage = lazy(() => import('./pages/GameStatsPage'))
 const AchievementsPage = lazy(() => import('@/features/achievements').then((m) => ({ default: m.AchievementsPage })))
+const FeedbackPage = lazy(() => import('./pages/FeedbackPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 function PageLoading() {
@@ -86,6 +87,7 @@ export default function App() {
               <Route path="/activity" element={<ActivityPage />} />
               <Route path="/game-stats" element={<GameStatsPage />} />
               <Route path="/achievements" element={<AchievementsPage />} />
+              <Route path="/feedback" element={<FeedbackPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>
