@@ -3,6 +3,7 @@ import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { statsByCharacter, type CharRowForHp } from '../_shared/charMaxHp.ts'
 import { healState } from '../../../src/lib/infirmary.ts'
 import { fetchCharacterName } from '../_shared/characterName.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // infirmary-discharge: settle an admission (ADR-0003/0021). The server derives the healed HP
 // from admitted_at + hp_at_admission with the shared engine (compute-on-read, ADR-0002) and the
@@ -16,7 +17,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -119,4 +120,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ characterId, current_hp: newHp, phase: state.phase }, 200)
-})
+}))

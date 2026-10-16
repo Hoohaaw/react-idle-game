@@ -2,6 +2,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { MINE_BY_RESOURCE } from '../../../src/lib/gather.ts'
 import { fetchCharacterName } from '../_shared/characterName.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // gather-start: assign a character to a mine (ADR-0003 server-authoritative write, ADR-0019). Validates the
 // caller + that the resource is a known mine (config is code — src/lib/gather.ts), then hands off to the
@@ -15,7 +16,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -67,4 +68,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ assignment }, 201)
-})
+}))

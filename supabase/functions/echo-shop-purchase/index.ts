@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { ECHO_SHOP_NODES } from '../../../src/lib/echoShop.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // echo-shop-purchase: buy the next level of one Echo Shop node (ADR-0053). The cost is resolved
 // authoritatively INSIDE the RPC now (supabase/migrations/20260915150000_lock_shop_purchase_price.sql),
@@ -13,7 +14,7 @@ function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -58,4 +59,4 @@ Deno.serve(async (req) => {
   }
 
   return json(result, 200)
-})
+}))

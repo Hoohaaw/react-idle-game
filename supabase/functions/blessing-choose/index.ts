@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // blessing-choose: pick one of the two choices for a blessing row (ADR-0045), permanent. No
 // Sanity fetch — unlike gear (which needs the itemDef's authored slot/minLevel), a blessing pick
@@ -18,7 +19,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -95,4 +96,4 @@ Deno.serve(async (req) => {
   }
 
   return json(data, 200)
-})
+}))

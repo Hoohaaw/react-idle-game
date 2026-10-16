@@ -18,6 +18,7 @@ import {
 import { rollItemLoot } from '../../../src/lib/loot.ts'
 import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 import { resolveCharAscendantBonuses, resolveFlatAscendantStatBonuses, resolveFlatAscendantBonus } from '../../../src/lib/ascendantShop.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // group-claim-stage: the dungeon/raid combat resolver (spec §5). Combatant-building is IDENTICAL to
 // mission-claim (character-intrinsic, not mission-specific) — deliberately not extracted into a
@@ -66,7 +67,7 @@ const CHARDEFS_GROQ = `*[_type == "characterDef" && charKey in $keys]{
 }`
 const ITEMDEFS_GROQ = `*[_type == "itemDef" && itemKey in $keys]{ itemKey, statBonuses[]{ stat, kind, value } }`
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -316,4 +317,4 @@ Deno.serve(async (req) => {
     characters: charUpdates,
     stageIndex, runComplete: win && isLastStage,
   }, 200)
-})
+}))

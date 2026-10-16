@@ -1,5 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // record-login: bumps days_played once per UTC calendar day and runs the achievements check
 // (spec 2026-09-13 §4c) — the one genuinely new write path in the achievements system, since
@@ -15,7 +16,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -34,4 +35,4 @@ Deno.serve(async (req) => {
   }
 
   return json(data, 200)
-})
+}))

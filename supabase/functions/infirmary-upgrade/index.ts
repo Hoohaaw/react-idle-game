@@ -2,6 +2,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { statsByCharacter, type CharRowForHp } from '../_shared/charMaxHp.ts'
 import { INFIRMARY, UPGRADE_COSTS, settleForUpgrade } from '../../../src/lib/infirmary.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // infirmary-upgrade: raise the infirmary one level (ADR-0003/0021) — more beds, faster regen,
 // shorter stabilize. Costs gold + gathered resources (the first real resource sink; PROVISIONAL
@@ -16,7 +17,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -130,4 +131,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ infirmary_level: newLevel }, 200)
-})
+}))

@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // totem-equip: swap the player's single account-level totem slot (design spec §E). No
 // busy-check (not scoped to any one character, unlike gear's equip_item) — free to swap
@@ -14,7 +15,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -58,4 +59,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ activeTotemId: data }, 200)
-})
+}))

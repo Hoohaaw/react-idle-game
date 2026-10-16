@@ -5,6 +5,7 @@ import { statsByCharacter } from '../_shared/charMaxHp.ts'
 import { evaluateCondition, type PlayerAcquisitionState } from '../../../src/lib/acquisition.ts'
 import { fetchAcquisitionCandidates } from '../_shared/characterAcquisition.ts'
 import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // gather-collect: bank a gatherer's accrued yield, optionally stopping (unassigning). ADR-0019. Computes the
 // payout in TS from elapsed ticks (src/lib/gather.ts — the same math the client displays), then applies it
@@ -18,7 +19,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -173,4 +174,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ gained, resource: assignment.resource_id, stopped: stop, newlyUnlocked }, 200)
-})
+}))

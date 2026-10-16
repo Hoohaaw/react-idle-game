@@ -3,6 +3,7 @@ import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { maxHpByCharacter, type CharRowForHp } from '../_shared/charMaxHp.ts'
 import { bedsForLevel } from '../../../src/lib/infirmary.ts'
 import { fetchCharacterName } from '../_shared/characterName.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // infirmary-admit: put a damaged character in an infirmary bed (ADR-0003/0021). Validates the
 // caller + that the character actually has HP to recover, then hands off to the atomic
@@ -16,7 +17,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -107,4 +108,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ admission }, 201)
-})
+}))

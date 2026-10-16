@@ -4,6 +4,7 @@ import { sanityQuery } from '../_shared/sanity.ts'
 import { GROUP_PARTY_CAP, GROUP_LOCKOUT, type GroupKind } from '../../../src/lib/groupContent.ts'
 import { resolveShopBonus } from '../../../src/lib/echoShop.ts'
 import { resolveFlatAscendantBonus } from '../../../src/lib/ascendantShop.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // group-start-stage: dispatch the CURRENT stage of a dungeon/raid run (ADR-0003 server-authoritative
 // write; docs/superpowers/specs/2026-09-08-dungeons-and-raids-design.md §5). Mirrors mission-start's
@@ -16,7 +17,7 @@ function json(body: unknown, status: number) {
 
 type GroupDef = { name?: string; stages?: { durationSeconds?: number }[]; gateKey?: string | null } | null
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -113,4 +114,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ run: groupRun }, 201)
-})
+}))

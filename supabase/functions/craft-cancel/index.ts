@@ -1,5 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // craft-cancel: abandon the player's in-progress (or finished-but-unclaimed) craft and refund every
 // reagent it spent, in full. Mirrors craft-claim's auth/lookup shape but simpler — no Sanity lookup,
@@ -13,7 +14,7 @@ function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -41,4 +42,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ ok: true }, 200)
-})
+}))

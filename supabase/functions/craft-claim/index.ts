@@ -3,6 +3,7 @@ import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
 import { makeRng } from '../../../src/lib/combat.ts'
 import { rollRarity } from '../../../src/lib/loot.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // craft-claim: close a finished craft and grant ONE copy of the recipe's result at a rarity rolled
 // from the authored weights (docs/superpowers/specs/2026-09-09-crafting-create-recipes-design.md
@@ -16,7 +17,7 @@ function json(body: unknown, status: number) {
 
 type RecipeDef = { resultItemKey?: string | null; resultItemName?: string | null; resultRarityWeights?: { rarity: string; weight: number }[] | null } | null
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -98,4 +99,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ itemDefId: granted.item_def_id, rarity: granted.rarity }, 200)
-})
+}))

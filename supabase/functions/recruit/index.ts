@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { sanityQuery } from '../_shared/sanity.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // recruit: the atomic acquisition write (ADR-0003, docs/superpowers/specs/2026-08-20-character-
 // acquisition-design.md §7). Fetches the character's acquisition (goldCost + whether it has an
@@ -25,7 +26,7 @@ const ACQUISITION_GROQ = `*[_type == "characterDef" && charKey == $key][0]{
   charKey, name, acquisition{ goldCost, condition{ type } }
 }`
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -93,4 +94,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ character: charRow }, 201)
-})
+}))

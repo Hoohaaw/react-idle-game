@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@sanity/client": "^7.22.1",
+    "@sentry/react": "^11.8.0",
     "@supabase/supabase-js": "^2.106.2",
     "@tanstack/react-query": "^5.100.14",
     "framer-motion": "^12.40.0",

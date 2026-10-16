@@ -2,6 +2,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { RESPEC_COST } from '../../../src/lib/blessings.ts'
 import { fetchCharacterName } from '../_shared/characterName.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // blessing-respec: pay gold to wipe a character's entire blessing tree back to `{}` (ADR-0047).
 // All-or-nothing — see respec_blessings's header for why partial-row respec isn't offered.
@@ -16,7 +17,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -65,4 +66,4 @@ Deno.serve(async (req) => {
   }
 
   return json(data, 200)
-})
+}))

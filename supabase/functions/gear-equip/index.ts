@@ -2,6 +2,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createAdminClient } from '../_shared/supabaseAdmin.ts'
 import { fetchItemDef } from '../_shared/itemDefs.ts'
 import { isGearSlotKey, itemSlotForSlotKey, requiredLevelForRarity } from '../../../src/lib/equipment.ts'
+import { withSentry } from '../_shared/sentry.ts'
 
 // gear-equip: equip an inventory item into a character slot (ADR-0003/0022). Validates the
 // caller + that the item's authored slot matches the target slot key (Sanity-dependent, so it
@@ -18,7 +19,7 @@ function json(body: unknown, status: number) {
   })
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
@@ -78,4 +79,4 @@ Deno.serve(async (req) => {
   }
 
   return json(data, 200)
-})
+}))
