@@ -488,6 +488,15 @@ character sprite art. Older open items below may be stale — trust the mileston
   `Sitemap:` line — grep for `your-domain.example` to find every occurrence once a real one
   exists). Alt text and mobile breakpoints weren't flagged as gaps but weren't verified either.
   `↳ context: index.html, public/, src/pages/TermsPage.tsx, PrivacyPage.tsx`
+- [ ] **Support / feedback page** (2026-10-15) — no contact form, no Discord/social links
+  anywhere in the app today; the only "contact" surface is the placeholder email inside the
+  legal boilerplate (`docs/QUALITY.md` D9, scored 5%). Needs a real page/route (and a real
+  destination — email, form, Discord invite, etc., still undecided) before this closes.
+  `↳ context: src/pages/TermsPage.tsx, PrivacyPage.tsx, docs/QUALITY.md D9`
+- [ ] **Error / uptime monitoring** (2026-10-15) — zero error-boundary component, zero Sentry/
+  Bugsnag, zero uptime pinger anywhere (`docs/QUALITY.md` D6, scored 0%). A production crash or
+  outage today is invisible unless a player reports it.
+  `↳ context: docs/QUALITY.md D6`
 - [x] **Analytics tool — Umami wired up and verified live** (chosen 2026-09-17, shipped
   2026-10-15, PR #152) — Umami Cloud hobby plan, script tag in `index.html`, a
   `useAnalytics()` hook (`src/hooks/useAnalytics.ts`) calling `umami.track()` on route
