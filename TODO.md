@@ -482,12 +482,16 @@ character sprite art. Older open items below may be stale — trust the mileston
   flagged in-page as not lawyer-reviewed. `CookieBanner` discloses local-storage usage, dismissed
   once via a localStorage flag, linked from both pages and from `AuthPage`'s register step.
   `↳ context: src/pages/TermsPage.tsx, PrivacyPage.tsx, src/components/organisms/CookieBanner.tsx, src/components/templates/LegalLayout.tsx`
-- [ ] **Launch checklist — still open** — a real contact address (both legal pages currently say
-  `support@your-domain.example`, a placeholder); a real production domain (`your-domain.example`
-  is a placeholder in `sitemap.xml`, `index.html`'s `og:url`/`og:image`, and `robots.txt`'s
-  `Sitemap:` line — grep for `your-domain.example` to find every occurrence once a real one
-  exists). Alt text and mobile breakpoints weren't flagged as gaps but weren't verified either.
-  `↳ context: index.html, public/, src/pages/TermsPage.tsx, PrivacyPage.tsx`
+- [x] **Real production domain** (2026-10-16) — live on Vercel (`react-idle-game-three.vercel.app`,
+  free tier; a paid custom domain is a planned follow-up, swap again then). `sitemap.xml`,
+  `index.html`'s `og:url`/`og:image`, and `robots.txt`'s `Sitemap:` line all updated off the old
+  `your-domain.example` placeholder.
+  `↳ context: index.html, public/robots.txt, public/sitemap.xml`
+- [ ] **Launch checklist — still open** — a real contact address (both legal pages still say
+  `support@your-domain.example`, a placeholder — this is the D9 support-channel gap, needs a real
+  destination decided first, not just a URL swap). Alt text and mobile breakpoints weren't flagged
+  as gaps but weren't verified either.
+  `↳ context: src/pages/TermsPage.tsx, PrivacyPage.tsx`
 - [x] **Error monitoring — Sentry wired up on both halves** (2026-10-15) — `@sentry/react` on
   the frontend (`src/instrument.ts`, imported first in `main.tsx`; React 19's
   `reactErrorHandler()` wired into `createRoot`, not the older `ErrorBoundary` component; session
