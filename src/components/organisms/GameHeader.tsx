@@ -32,6 +32,7 @@ const NAV = [
   { label: 'Activity', to: '/activity' },
   { label: 'Achievements', to: '/achievements' },
   { label: 'Game Stats', to: '/game-stats' },
+  { label: 'Feedback', to: '/feedback' },
   { label: 'Design', to: '/design' }, // dev-only — remove before production
 ]
 

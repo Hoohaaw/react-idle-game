@@ -504,11 +504,15 @@ character sprite art. Older open items below may be stale — trust the mileston
   reachable) is still not set up** — this only covers errors, not outages. Tool is already
   decided (Alex self-hosts Uptime Kuma), just not pointed at this project yet — deferred.
   `↳ context: src/instrument.ts, src/main.tsx, supabase/functions/_shared/sentry.ts`
-- [ ] **Support / feedback page** (2026-10-15) — no contact form, no Discord/social links
-  anywhere in the app today; the only "contact" surface is the placeholder email inside the
-  legal boilerplate (`docs/QUALITY.md` D9, scored 5%). Needs a real page/route (and a real
-  destination — email, form, Discord invite, etc., still undecided) before this closes.
-  `↳ context: src/pages/TermsPage.tsx, PrivacyPage.tsx, docs/QUALITY.md D9`
+- [x] **Support / feedback page** (2026-10-16) — a `/feedback` page (`src/pages/FeedbackPage.tsx`,
+  linked in the main nav) posts to a new `submit_feedback` RPC + `feedback_submissions` table
+  (owner-read RLS, no client write — ADR-0003). Server enforces a 5-minute per-player cooldown
+  and a 1000-char cap so a player can't spam/flood the table; no row lock on the cooldown check
+  (deliberate — this guards against spam, not a financial exploit). No reply flow or ticket
+  history in-app; Alex reads submissions from the Supabase dashboard. Chose this over Gmail/
+  Outlook (couldn't set one up right now) and over Discord (bigger ongoing commitment) — reuses
+  infra that already exists instead of a new external account.
+  `↳ context: supabase/migrations/20261016100000_feedback_submissions.sql, src/pages/FeedbackPage.tsx, src/services/feedback.ts`
 - [x] **Analytics tool — Umami wired up and verified live** (chosen 2026-09-17, shipped
   2026-10-15, PR #152) — Umami Cloud hobby plan, script tag in `index.html`, a
   `useAnalytics()` hook (`src/hooks/useAnalytics.ts`) calling `umami.track()` on route
