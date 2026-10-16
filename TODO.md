@@ -500,6 +500,11 @@ character sprite art. Older open items below may be stale — trust the mileston
   reachable) is still not set up** — this only covers errors, not outages. Tool is already
   decided (Alex self-hosts Uptime Kuma), just not pointed at this project yet — deferred.
   `↳ context: src/instrument.ts, src/main.tsx, supabase/functions/_shared/sentry.ts`
+- [ ] **Support / feedback page** (2026-10-15) — no contact form, no Discord/social links
+  anywhere in the app today; the only "contact" surface is the placeholder email inside the
+  legal boilerplate (`docs/QUALITY.md` D9, scored 5%). Needs a real page/route (and a real
+  destination — email, form, Discord invite, etc., still undecided) before this closes.
+  `↳ context: src/pages/TermsPage.tsx, PrivacyPage.tsx, docs/QUALITY.md D9`
 - [x] **Analytics tool — Umami wired up and verified live** (chosen 2026-09-17, shipped
   2026-10-15, PR #152) — Umami Cloud hobby plan, script tag in `index.html`, a
   `useAnalytics()` hook (`src/hooks/useAnalytics.ts`) calling `umami.track()` on route
