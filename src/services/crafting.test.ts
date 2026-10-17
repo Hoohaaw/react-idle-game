@@ -95,6 +95,26 @@ describe('fetchRecipes', () => {
   it('queries result with a coalesce across itemKey/consumableKey/totemKey so no result type is dropped', () => {
     expect(RECIPES_QUERY).toContain('coalesce(itemKey, consumableKey, totemKey)')
   })
+
+  it('passes professionKey and xpAwarded through when authored', async () => {
+    vi.mocked(sanity.fetch).mockResolvedValue([
+      {
+        recipeKey: 'minor-healing-potion',
+        name: 'Minor Healing Potion',
+        durationSeconds: 60,
+        professionKey: 'alchemy',
+        xpAwarded: 15,
+        result: { itemKey: 'minor-healing-potion', name: 'Minor Healing Potion' },
+        resultRarityWeights: [],
+        reagents: [{ kind: 'resource', resource: 'Herb', quantity: 1, item: null }],
+      },
+    ] as never)
+
+    const recipes = await fetchRecipes()
+
+    expect(recipes[0].professionKey).toBe('alchemy')
+    expect(recipes[0].xpAwarded).toBe(15)
+  })
 })
 
 describe('fetchCraftRun', () => {
