@@ -15,6 +15,8 @@ export type RecipeView = {
   name: string
   description?: string
   durationSeconds: number
+  professionKey?: string
+  xpAwarded?: number
   result: { itemKey: string; name: string; slot: string }
   resultRarityWeights: { rarity: string; weight: number }[]
   reagents: ReagentLine[]
@@ -24,6 +26,7 @@ export type RecipeView = {
 
 export const RECIPES_QUERY = `*[_type == "recipeDef" && defined(recipeKey)]{
   recipeKey, name, description, durationSeconds,
+  professionKey, xpAwarded,
   "result": result->{ "itemKey": coalesce(itemKey, consumableKey, totemKey), name, slot },
   resultRarityWeights[]{ rarity, weight },
   reagents[]{ kind, resource, quantity, "item": item->{ itemKey, name, slot } }
@@ -34,6 +37,8 @@ type RawRecipe = {
   name: string
   description?: string | null
   durationSeconds: number
+  professionKey?: string | null
+  xpAwarded?: number | null
   // "itemKey" here is really coalesce(itemKey, consumableKey, totemKey) — see RECIPES_QUERY. The
   // result can be an itemDef, consumableDef, or totemDef (Task 12 widened recipeDef.result);
   // only itemDef has a `slot`, so it's optional and defaulted below.
@@ -72,6 +77,8 @@ export async function fetchRecipes(): Promise<RecipeView[]> {
       name: r.name,
       description: r.description ?? undefined,
       durationSeconds: r.durationSeconds,
+      professionKey: r.professionKey ?? undefined,
+      xpAwarded: r.xpAwarded ?? undefined,
       result: { itemKey: r.result.itemKey, name: r.result.name ?? r.result.itemKey, slot: r.result.slot ?? '' },
       resultRarityWeights: r.resultRarityWeights ?? [],
       reagents,

@@ -42,6 +42,7 @@ function makeProfile(overrides: Partial<PlayerProfile> = {}): PlayerProfile {
     ascendantShardsEarnedTotal: 0,
     daysPlayed: 0,
     achievementCounters: {},
+    professions: {},
     ...overrides,
   }
 }

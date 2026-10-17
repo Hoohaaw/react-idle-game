@@ -237,6 +237,7 @@ export type Database = {
           lifetime_stats: Json
           map_progress: Json
           player_id: string
+          professions: Json
           reset_count: number
           resources: Json
           totem_charges: Json
@@ -262,6 +263,7 @@ export type Database = {
           lifetime_stats?: Json
           map_progress?: Json
           player_id: string
+          professions?: Json
           reset_count?: number
           resources?: Json
           totem_charges?: Json
@@ -287,6 +289,7 @@ export type Database = {
           lifetime_stats?: Json
           map_progress?: Json
           player_id?: string
+          professions?: Json
           reset_count?: number
           resources?: Json
           totem_charges?: Json

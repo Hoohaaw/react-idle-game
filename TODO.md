@@ -58,10 +58,21 @@ character sprite art. Older open items below may be stale — trust the mileston
     field-visibility check and the actual click-through dispatch/equip flow were never
     exercised (no browser in this environment, disclosed throughout). Do this before
     treating the feature as launch-verified.
-  - [ ] The five professions (Alchemy, Carving, Prospecting, Tempering, Arcane Writing)
-    that build richer content on top of this framework are separate, sequential specs —
-    not started.
-  `↳ context: docs/DECISIONS.md ADR-0061, docs/superpowers/specs/2026-10-12-mission-prep-consumables-design.md, docs/superpowers/plans/2026-10-12-mission-prep-consumables.md, src/lib/consumables.ts, src/lib/totems.ts`
+  - [x] **Profession system framework** (ADR-0064, 2026-10-17) — the shared account-wide
+    leveling/recipe-acquisition system the five professions below sit on top of. Shipped:
+    `profiles.professions jsonb`, `src/lib/professions.ts`'s linear leveling curve (10-level
+    cap, `100 × level`), `recipeDef`'s optional `professionKey`/`xpAwarded`/`requiredLevel`/
+    `grantedAtLevel`/`learnCost` fields, `reagentLine`'s new currency kind (quest-only, not
+    regular crafting), the `professionQuestDef` Sanity type, 2 new RPCs
+    (`learn_profession_recipe`, `claim_profession_quest`) + `start_craft`/`claim_craft`
+    redefinitions, 2 new Edge Functions (`profession-learn-recipe`, `profession-claim-quest`),
+    and a new `/professions` page. Not manually browser-verified (no browser in this
+    environment, disclosed throughout).
+  - [ ] The five professions' own **content** (Alchemy, Carving, Prospecting, Tempering,
+    Arcane Writing — their actual recipes, quests, and specific XP/cost numbers) is still
+    unauthored. The framework above is built; each profession remains its own separate,
+    sequential follow-up spec per ADR-0061's original ordering.
+  `↳ context: docs/DECISIONS.md ADR-0061, ADR-0064, docs/superpowers/specs/2026-10-12-mission-prep-consumables-design.md, docs/superpowers/plans/2026-10-12-mission-prep-consumables.md, docs/superpowers/specs/2026-10-16-profession-system-design.md, docs/superpowers/plans/2026-10-16-profession-system.md, src/lib/consumables.ts, src/lib/totems.ts, src/lib/professions.ts`
 
 ## Current queue — 2026-07-13 (post maps session)
 - [x] **World maps + stage progression** (ADR-0034, PRs #51/#52, deployed + e2e-verified) — map

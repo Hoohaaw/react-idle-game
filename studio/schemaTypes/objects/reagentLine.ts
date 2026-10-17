@@ -1,5 +1,6 @@
 import { defineType, defineField } from 'sanity'
 import { RESOURCE_SOURCE } from '../../../src/lib/resources'
+import { CURRENCY_DEFS } from '../../../src/lib/currencies'
 
 // One reagent a recipe consumes (docs/superpowers/specs/2026-09-09-crafting-create-recipes-
 // design.md §4a): either N of a raw resource (the gather-loop registry — keys are the LIVE
@@ -16,7 +17,7 @@ export const reagentLine = defineType({
       name: 'kind',
       title: 'Kind',
       type: 'string',
-      options: { list: [{ title: 'Resource', value: 'resource' }, { title: 'Item', value: 'item' }], layout: 'radio' },
+      options: { list: [{ title: 'Resource', value: 'resource' }, { title: 'Item', value: 'item' }, { title: 'Currency', value: 'currency' }], layout: 'radio' },
       initialValue: 'resource',
       validation: (rule) => rule.required(),
     }),
@@ -47,6 +48,19 @@ export const reagentLine = defineType({
         }),
     }),
     defineField({
+      name: 'currency',
+      title: 'Currency',
+      type: 'string',
+      options: { list: CURRENCY_DEFS.map((c) => ({ title: c.label, value: c.key })) },
+      hidden: ({ parent }) => (parent as { kind?: string } | undefined)?.kind !== 'currency',
+      validation: (rule) =>
+        rule.custom((value: string | undefined, context) => {
+          const kind = (context.parent as { kind?: string } | undefined)?.kind
+          if (kind !== 'currency') return true
+          return value ? true : 'A currency reagent needs a currency.'
+        }),
+    }),
+    defineField({
       name: 'quantity',
       title: 'Quantity',
       type: 'number',
@@ -55,9 +69,10 @@ export const reagentLine = defineType({
     }),
   ],
   preview: {
-    select: { kind: 'kind', resource: 'resource', itemName: 'item.name', quantity: 'quantity' },
-    prepare({ kind, resource, itemName, quantity }) {
-      return { title: `${quantity ?? '?'}× ${kind === 'item' ? (itemName ?? '(item)') : (resource ?? '(resource)')}` }
+    select: { kind: 'kind', resource: 'resource', itemName: 'item.name', currency: 'currency', quantity: 'quantity' },
+    prepare({ kind, resource, itemName, currency, quantity }) {
+      const label = kind === 'item' ? (itemName ?? '(item)') : kind === 'currency' ? (currency ?? '(currency)') : (resource ?? '(resource)')
+      return { title: `${quantity ?? '?'}× ${label}` }
     },
   },
 })

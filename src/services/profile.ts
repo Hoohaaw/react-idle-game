@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { ProfessionState } from './professions'
 
 // The player's account wallet + scalars, read from `profiles` (RLS owner-read, SELECT-only grant).
 // Balances are JSONB maps keyed by the code registries (currencies -> src/lib/currencies.ts;
@@ -50,13 +51,16 @@ export type PlayerProfile = {
    *  `legendaryItemsEquipped`, `capstonesEarned`, `charactersReachedLevelCap`. Absent key = zero.
    *  Never wiped. */
   achievementCounters: Record<string, number>
+  /** professionKey -> { level, xp, knownRecipes, completedQuests } (docs/superpowers/specs/
+   *  2026-10-16-profession-system-design.md). Absent key = unstarted (level 0). */
+  professions: Record<string, ProfessionState>
 }
 
 export async function fetchProfile(): Promise<PlayerProfile> {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'username, currencies, resources, active_totem_id, totem_charges, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played, achievement_counters',
+      'username, currencies, resources, active_totem_id, totem_charges, reset_count, infirmary_level, map_progress, unlocked_characters, echoes, echo_shop, lifetime_stats, ascendant_shards, ascendant_shop, ascendant_milestones, transcend_count, achievements, ascendant_shards_earned_total, days_played, achievement_counters, professions',
     )
     .maybeSingle()
   if (error) throw error
@@ -81,5 +85,6 @@ export async function fetchProfile(): Promise<PlayerProfile> {
     ascendantShardsEarnedTotal: data?.ascendant_shards_earned_total ?? 0,
     daysPlayed: data?.days_played ?? 0,
     achievementCounters: (data?.achievement_counters ?? {}) as Record<string, number>,
+    professions: (data?.professions ?? {}) as Record<string, ProfessionState>,
   }
 }

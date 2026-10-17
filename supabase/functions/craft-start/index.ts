@@ -18,6 +18,7 @@ const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
 type RecipeDef = {
   name?: string
   durationSeconds?: number
+  professionKey?: string | null
   reagents?: { kind?: string; resource?: string | null; quantity?: number; itemKey?: string | null }[]
 } | null
 
@@ -56,7 +57,7 @@ Deno.serve(withSentry(async (req) => {
   try {
     def = await sanityQuery<RecipeDef>(
       `*[_type == "recipeDef" && recipeKey == $key][0]{
-        name, durationSeconds,
+        name, durationSeconds, professionKey,
         reagents[]{ kind, resource, quantity, "itemKey": item->itemKey }
       }`,
       { key: recipeDefId },
@@ -94,6 +95,7 @@ Deno.serve(withSentry(async (req) => {
     p_resource_reagents: resourceReagents,
     p_item_reagents: itemReagents,
     p_duration_seconds: def.durationSeconds,
+    p_profession_key: def.professionKey ?? null,
   })
   if (rpcErr) {
     const reason = rpcErr.message.replace(/^.*start_craft:\s*/, '')
