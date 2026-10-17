@@ -24,6 +24,7 @@ const NAV = [
   { label: 'Shop', to: '/shop' },
   { label: 'Inventory', to: '/inventory' },
   { label: 'Crafting', to: '/crafting' },
+  { label: 'Professions', to: '/professions' },
   { label: 'Upgrades', to: '/upgrades' },
   { label: 'Blessings', to: '/blessings' },
   { label: 'Respec', to: '/respec' },

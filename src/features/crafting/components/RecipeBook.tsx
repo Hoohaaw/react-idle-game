@@ -51,6 +51,9 @@ function RecipeRow({ recipe, selected, onSelect }: { recipe: RecipeView; selecte
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
         <span style={{ color: 'var(--color-text-primary)', fontSize: 13, fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{recipe.name}</span>
+        {recipe.xpAwarded != null && (
+          <span style={{ color: 'var(--color-text-gold)', fontSize: 10, whiteSpace: 'nowrap' }}>+{recipe.xpAwarded} XP</span>
+        )}
         <span style={{ color: 'var(--color-text-muted)', fontSize: 10, whiteSpace: 'nowrap' }}>{formatRemaining(recipe.durationSeconds * 1000)}</span>
       </div>
       <p style={{ color: '#5b9bd5', fontSize: 11, marginTop: 4 }}>{recipe.result.name} <span style={{ color: 'var(--color-text-muted)' }}>({recipe.result.slot})</span></p>
