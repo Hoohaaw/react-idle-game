@@ -45,6 +45,7 @@ Deno.serve(withSentry(async (req) => {
     return json({ error: 'Could not load recipe' }, 502)
   }
   if (!def?.professionKey) return json({ error: 'Recipe is not a profession recipe' }, 404)
+  if (!def.learnCost || def.learnCost <= 0) return json({ error: 'Recipe is not purchasable' }, 404)
 
   const { data, error: rpcErr } = await admin.rpc('learn_profession_recipe', {
     p_player: playerId,
