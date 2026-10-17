@@ -338,12 +338,18 @@ begin
   end loop;
 
   -- Resource + currency cost: verify every line against the already-locked profile row before
-  -- deducting any of them.
+  -- deducting any of them. Each read takes its own `for update` (this project's rule: a read that
+  -- decides a grant/deduction must lock in that same read, never rely on an earlier statement in
+  -- the same function having already locked it — ADR-0054 bit this twice).
   for v_line in select * from jsonb_array_elements(coalesce(p_resource_cost, '[]'::jsonb))
   loop
     v_code := v_line->>'code';
     v_need := (v_line->>'quantity')::integer;
-    select coalesce((resources->>v_code)::numeric, 0) into v_have from public.profiles where player_id = p_player;
+    if v_code is null or v_need is null or v_need < 1 then
+      raise exception 'claim_profession_quest: invalid resource cost';
+    end if;
+    select coalesce((resources->>v_code)::numeric, 0) into v_have
+      from public.profiles where player_id = p_player for update;
     if v_have < v_need then
       raise exception 'claim_profession_quest: not enough resource % (have %, need %)', v_code, v_have, v_need;
     end if;
@@ -352,7 +358,11 @@ begin
   loop
     v_code := v_line->>'code';
     v_need := (v_line->>'quantity')::integer;
-    select coalesce((currencies->>v_code)::numeric, 0) into v_have from public.profiles where player_id = p_player;
+    if v_code is null or v_need is null or v_need < 1 then
+      raise exception 'claim_profession_quest: invalid currency cost';
+    end if;
+    select coalesce((currencies->>v_code)::numeric, 0) into v_have
+      from public.profiles where player_id = p_player for update;
     if v_have < v_need then
       raise exception 'claim_profession_quest: not enough currency % (have %, need %)', v_code, v_have, v_need;
     end if;
