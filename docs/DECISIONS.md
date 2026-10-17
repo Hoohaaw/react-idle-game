@@ -3397,3 +3397,103 @@ tuning.
   design rework.
 - Player guide (`/game-stats`, "How Combat Works" / variance section) updated to describe the
   wider band. `docs/BALANCE.md`'s tuning log gets a new row.
+
+## ADR-0064 — Profession system: account-wide leveling + 4 recipe-acquisition channels
+
+**Date:** 2026-10-17 · **Status:** Accepted (Alex)
+
+**Context.** ADR-0061 named five follow-on professions (Alchemy, Carving, Prospecting,
+Tempering, Arcane Writing), each meant to deepen one mechanic the consumables/totem framework
+introduced, built one at a time as separate specs. Before authoring any of those five, this
+plan builds the shared leveling/acquisition system they all sit on top of — modeled loosely on
+WoW Classic's profession structure (trainer-taught recipes, a skill-tier gate) but substantially
+simplified: a 10-level cap instead of 300, flat per-craft XP instead of a probabilistic
+skill-up chance. Design: `docs/superpowers/specs/2026-10-16-profession-system-design.md`. Plan
+(9 tasks): `docs/superpowers/plans/2026-10-16-profession-system.md`.
+
+**Decision.**
+- **Account-wide, not per-character** (spec Decision 1). Professions live on a new
+  `profiles.professions jsonb not null default '{}'::jsonb` column, shaped
+  `{ "<professionKey>": { "level": int, "xp": int, "knownRecipes": [recipeKey, ...] } }` — a
+  deliberate difference from the existing Skills system (`SKILL_DEFS`/`skill_assignments`,
+  ADR-0056), which **is** per-character and passive. Professions are active (XP earned by
+  crafting, not by waiting) and shared across the whole account, matching how the Echo Shop/
+  Ascendant Shop are already account-wide. An absent profession key means level 0/0 xp/no
+  recipes known — the same "absent key = zero" convention `currencies`/`resources` already use
+  (ADR-0004). Joins the `currencies`/`resources`/`echo_shop` reset tier: wiped to `{}` on
+  Transcendence (`transcend_player`), survives a soft Reset (`reset_player` untouched).
+- **Linear leveling curve, 10-level cap** (spec Decision 2). Level *L* → *L+1* costs `100 × L`
+  XP — confirmed explicitly linear, not exponential, after a doubling reading of the same two
+  example numbers was raised and rejected during design. Cumulative XP from level 1 to the cap:
+  100+200+...+900 = 4,500. `src/lib/professions.ts`'s `applyProfessionXp(level, xp, gained)`
+  mirrors `src/lib/leveling.ts`'s `applyXp` shape exactly (xp resets to the remainder on each
+  level-up, rolls over multiple levels from one large gain) but with this linear curve instead
+  of character leveling's power curve; `xpToNextProfessionLevel(level)` returns `Infinity` at
+  the cap so a capped profession discards further XP rather than overflowing or dividing by
+  zero.
+- **`recipeDef.professionKey` is optional, not required** — a real backward-compatibility call
+  this plan made that the spec left open. The 3 existing reference recipes have no profession
+  and keep working unchanged: absence of `professionKey` means "generic recipe," no profession
+  gate on `start_craft`, no XP grant on `claim_craft`. Only when `professionKey` is set does
+  `xpAwarded` become required (min 1), and only then does `start_craft`'s new recipe-known gate
+  apply — a player cannot start a craft for a profession recipe not already in that
+  profession's `knownRecipes`.
+- **Four recipe-acquisition channels** (spec Decision 4), all resolved server-side (never
+  trusting a client-supplied cost or level):
+  1. **Profession-expert purchase** — `learn_profession_recipe` (new RPC), called from the new
+     `profession-learn-recipe` Edge Function, which resolves `learnCost`/`requiredLevel` from
+     Sanity and rejects (404) a recipe with no `learnCost` as not purchasable — a real gap
+     caught and fixed after the first draft (commit `9d0c36e`) let any profession recipe be
+     "bought" for free.
+  2. **Quest reward** — the new `professionQuestDef` Sanity type (`professionKey`,
+     `requiredLevel`, a `reagentLine`-shaped `cost`, a `rewardRecipe` reference) plus the new
+     `claim_profession_quest` RPC / `profession-claim-quest` Edge Function. Turning in the cost
+     unlocks `rewardRecipe` once, permanently (`completedQuests` guards against a repeat
+     claim). Level-10-exclusive quests are not a separate mechanism — just entries authored
+     with `requiredLevel: 10`.
+  3. **Level-up reward** — an optional `recipeDef.grantedAtLevel` field; `claim_craft`'s
+     new `p_newly_known_recipes text[]` param lets `craft-claim` auto-grant any recipe whose
+     `grantedAtLevel` falls in `(oldLevel, newLevel]` the moment a craft's XP crosses it.
+  4. **World/dungeon drop** — left as an open implementation detail per the spec, not built in
+     this plan; deferred to whichever profession's content follow-up first wants a recipe drop.
+- **`reagentLine` gains a `currency` kind, scoped to quest turn-ins only** (spec Decision 5).
+  `reagentLine` (`studio/schemaTypes/objects/reagentLine.ts`) previously covered only
+  `resource`/`item` kinds — recipes had never been able to cost gold. The new `currency` kind
+  (referencing `CURRENCY_DEFS`) lets `professionQuestDef.cost` mix resources, items, and
+  currency in one turn-in, which is what the user asked for. **Explicitly not** extended to
+  ordinary crafting: `start_craft`/`claim_craft` reagent costs stay item/resource-only, exactly
+  as before — the currency kind exists on the shared type for quests alone, and no existing or
+  new `recipeDef` is expected to use it for a regular craft.
+
+**Consequences.**
+- Full stack shipped on this branch: the Sanity schema (`recipeDef`'s 4 new fields,
+  `reagentLine`'s currency kind, `professionQuestDef`), `src/lib/professions.ts`
+  (`PROFESSION_DEFS`, `PROFESSION_KEYS`, `applyProfessionXp`), one migration
+  (`supabase/migrations/20261016110000_professions.sql`) adding `profiles.professions` and
+  redefining `start_craft`/`claim_craft`/`transcend_player` plus the two new RPCs
+  (`learn_profession_recipe`, `claim_profession_quest`), the `craft-start`/`craft-claim` Edge
+  Function updates, the two brand-new Edge Functions (`profession-learn-recipe`,
+  `profession-claim-quest`), client services (`src/services/professions.ts`), and the new
+  `/professions` route (`src/pages/ProfessionsPage.tsx`) showing each profession's level/XP/
+  known recipes plus a recipe-purchase action. `RecipeBook.tsx` shows a recipe's `xpAwarded`
+  before the player commits to crafting it, per the spec's explicit UI requirement.
+- **A real locking-rule violation was caught and fixed during implementation, not before**
+  (commit `918411f`): the first draft of `claim_profession_quest` verified its resource-cost
+  and currency-cost lines against values read under the function's *earlier* `for update` lock
+  on `professions`/`knownRecipes`, rather than re-reading `resources`/`currencies` under their
+  own locked read — the exact pattern CLAUDE.md's standing rule warns against ("copy the lock
+  too — don't assume the new site's control flow reproduces the old site's incidental
+  locking"). Fixed to add `for update` to both verification loops directly, plus the same null/
+  `< 1` input validation the item-cost loop and `start_craft`'s resource loop already apply.
+  Flagged as a lesson: this is the second time in this project a copied RPC pattern needed its
+  own explicit lock re-added rather than inheriting one from elsewhere in the function.
+- The five professions' own recipes, quests, and specific XP/cost numbers are explicitly not
+  part of this plan — each is still its own sequential follow-up spec per ADR-0061's original
+  ordering, now building on a shipped system instead of a planned one. `ProfessionsPage.tsx`'s
+  quest section is a placeholder until that content exists.
+- The recipe-kind world/dungeon drop channel (spec Decision 4, channel 4) remains unbuilt —
+  `lootDrop` still only references `itemDef`; widening it is deferred, as the spec flagged, to
+  whichever profession's content wave first wants it.
+- Not yet manually browser-verified in this environment (no browser available, disclosed
+  throughout, same limitation as ADR-0061/0062): the `/professions` page's profession switcher,
+  the recipe-purchase flow, and the pre-craft XP badge were never clicked through by a human.
