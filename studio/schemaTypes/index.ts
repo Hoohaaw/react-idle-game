@@ -27,6 +27,7 @@ import { raidDef } from './raidDef'
 import { rarityWeight } from './objects/rarityWeight'
 import { reagentLine } from './objects/reagentLine'
 import { recipeDef } from './recipeDef'
+import { professionQuestDef } from './professionQuestDef'
 
 export const schemaTypes = [
   characterDef,
@@ -58,4 +59,5 @@ export const schemaTypes = [
   rarityWeight,
   reagentLine,
   recipeDef,
+  professionQuestDef,
 ]
