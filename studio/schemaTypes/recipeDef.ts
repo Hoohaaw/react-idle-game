@@ -86,7 +86,7 @@ export const recipeDef = defineType({
     defineField({
       name: 'requiredLevel',
       title: 'Required profession level',
-      description: 'The profession level needed to buy or craft this recipe. Only meaningful when professionKey is set.',
+      description: 'The profession level needed to buy this recipe (via profession-learn-recipe) or claim a quest that rewards it. Does not gate crafting a recipe you already know.',
       type: 'number',
       initialValue: 1,
       hidden: ({ parent }) => !(parent as { professionKey?: string } | undefined)?.professionKey,

@@ -10,7 +10,7 @@ export type ProfessionState = {
   level: number
   xp: number
   knownRecipes: string[]
-  completedQuests: string[]
+  completedQuests?: string[]
 }
 
 export async function learnProfessionRecipe(recipeKey: string): Promise<void> {

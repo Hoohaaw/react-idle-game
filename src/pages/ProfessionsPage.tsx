@@ -19,7 +19,7 @@ export default function ProfessionsPage() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['profile'] }),
   })
 
-  const state = profile?.professions?.[selected] ?? { level: 0, xp: 0, knownRecipes: [] }
+  const state = profile?.professions?.[selected] ?? { level: 1, xp: 0, knownRecipes: [] }
   const needed = xpToNextProfessionLevel(state.level)
 
   return (

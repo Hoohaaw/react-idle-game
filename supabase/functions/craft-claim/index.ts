@@ -87,11 +87,11 @@ Deno.serve(withSentry(async (req) => {
     }
     const professions = (profileRow?.professions ?? {}) as Record<string, { level?: number; xp?: number } | undefined>
     const current = professions[def.professionKey]
-    const { level, xp } = applyProfessionXp(current?.level ?? 0, current?.xp ?? 0, def.xpAwarded)
+    const { level, xp } = applyProfessionXp(current?.level ?? 1, current?.xp ?? 0, def.xpAwarded)
 
     // A level-up may auto-grant recipes authored with grantedAtLevel in (oldLevel, newLevel].
     let newlyKnownRecipes: string[] = []
-    const oldLevel = current?.level ?? 0
+    const oldLevel = current?.level ?? 1
     if (level > oldLevel) {
       try {
         const granted = await sanityQuery<{ recipeKey: string }[]>(
@@ -100,7 +100,8 @@ Deno.serve(withSentry(async (req) => {
         )
         newlyKnownRecipes = granted.map((g) => g.recipeKey)
       } catch (e) {
-        console.error('craft-claim: grantedAtLevel lookup failed — continuing without it', e)
+        console.error('craft-claim: grantedAtLevel lookup failed', e)
+        return json({ error: 'Could not resolve level-up recipe grants' }, 502)
       }
     }
 

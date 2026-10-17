@@ -2,7 +2,7 @@
 -- claim_profession_quest, and the claim_craft profession-XP grant
 -- (docs/superpowers/specs/2026-10-16-profession-system-design.md).
 begin;
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values ('90000000-0000-0000-0000-000000000001', 'professions-1@test.local', jsonb_build_object('username', 'professions_1'));
@@ -21,11 +21,12 @@ select lives_ok(
 );
 delete from public.craft_runs where player_id = '90000000-0000-0000-0000-000000000001';
 
--- 3. learn_profession_recipe rejects a level too low.
+-- 3. learn_profession_recipe rejects a level too low. The player's alchemy entry is untouched
+-- (absent), which now reads as level 1 (the bootstrap fix), not 0 — still too low for 5.
 update public.profiles set currencies = jsonb_build_object('gold', 500) where player_id = '90000000-0000-0000-0000-000000000001';
 select throws_ok(
   $$ select public.learn_profession_recipe('90000000-0000-0000-0000-000000000001'::uuid, 'alchemy', 'greater-healing-potion', 100, 5) $$,
-  'learn_profession_recipe: profession level too low (needs 5, has 0)'
+  'learn_profession_recipe: profession level too low (needs 5, has 1)'
 );
 
 -- 4. learn_profession_recipe succeeds at a level the player has, deducts gold, adds the recipe.
@@ -97,6 +98,19 @@ select is(
 select throws_ok(
   $$ select public.claim_profession_quest('90000000-0000-0000-0000-000000000001'::uuid, 'alchemy', 'alchemist-trial', 1, 'unique-elixir', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb) $$,
   'claim_profession_quest: quest already completed'
+);
+
+-- 10. The bootstrap fix: a SECOND, completely fresh player whose `professions` column is still
+-- the migration's bare `{}` default (never touched, unlike player 1's `alchemy` which test 4 set
+-- to level 1) can still learn a requiredLevel:1 recipe — the absent profession entry must read as
+-- level 1, not 0, or no player could ever acquire a profession's first recipe.
+insert into auth.users (id, email, raw_user_meta_data)
+values ('90000000-0000-0000-0000-000000000002', 'professions-2@test.local', jsonb_build_object('username', 'professions_2'));
+update public.profiles set currencies = jsonb_build_object('gold', 100) where player_id = '90000000-0000-0000-0000-000000000002';
+
+select lives_ok(
+  $$ select public.learn_profession_recipe('90000000-0000-0000-0000-000000000002'::uuid, 'carving', 'first-carving-recipe', 50, 1) $$,
+  'a profession a player has never touched reads as level 1, not 0 — a requiredLevel:1 recipe is learnable immediately'
 );
 
 select * from finish();

@@ -3475,7 +3475,8 @@ skill-up chance. Design: `docs/superpowers/specs/2026-10-16-profession-system-de
   Function updates, the two brand-new Edge Functions (`profession-learn-recipe`,
   `profession-claim-quest`), client services (`src/services/professions.ts`), and the new
   `/professions` route (`src/pages/ProfessionsPage.tsx`) showing each profession's level/XP/
-  known recipes plus a recipe-purchase action. `RecipeBook.tsx` shows a recipe's `xpAwarded`
+  known recipes (the purchase-recipe mutation is wired but has no button yet, since no
+  purchasable recipe content exists in this initial ship). `RecipeBook.tsx` shows a recipe's `xpAwarded`
   before the player commits to crafting it, per the spec's explicit UI requirement.
 - **A real locking-rule violation was caught and fixed during implementation, not before**
   (commit `918411f`): the first draft of `claim_profession_quest` verified its resource-cost
@@ -3484,7 +3485,7 @@ skill-up chance. Design: `docs/superpowers/specs/2026-10-16-profession-system-de
   own locked read — the exact pattern CLAUDE.md's standing rule warns against ("copy the lock
   too — don't assume the new site's control flow reproduces the old site's incidental
   locking"). Fixed to add `for update` to both verification loops directly, plus the same null/
-  `< 1` input validation the item-cost loop and `start_craft`'s resource loop already apply.
+  `< 1` input validation `start_craft`'s resource loop already applies.
   Flagged as a lesson: this is the second time in this project a copied RPC pattern needed its
   own explicit lock re-added rather than inheriting one from elsewhere in the function.
 - The five professions' own recipes, quests, and specific XP/cost numbers are explicitly not

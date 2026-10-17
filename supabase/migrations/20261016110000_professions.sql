@@ -226,7 +226,7 @@ declare
   v_known jsonb;
 begin
   select coalesce((currencies->>'gold')::numeric, 0),
-         coalesce((professions -> p_profession_key ->> 'level')::int, 0),
+         coalesce((professions -> p_profession_key ->> 'level')::int, 1),
          coalesce(professions -> p_profession_key -> 'knownRecipes', '[]'::jsonb)
     into v_gold, v_level, v_known
     from public.profiles
@@ -296,7 +296,7 @@ declare
   v_known    jsonb;
   v_completed jsonb;
 begin
-  select coalesce((professions -> p_profession_key ->> 'level')::int, 0),
+  select coalesce((professions -> p_profession_key ->> 'level')::int, 1),
          coalesce(professions -> p_profession_key -> 'knownRecipes', '[]'::jsonb),
          coalesce(professions -> p_profession_key -> 'completedQuests', '[]'::jsonb)
     into v_level, v_known, v_completed
