@@ -4,6 +4,7 @@ import { sanityQuery } from '../_shared/sanity.ts'
 import { makeRng } from '../../../src/lib/combat.ts'
 import { rollRarity } from '../../../src/lib/loot.ts'
 import { withSentry } from '../_shared/sentry.ts'
+import { applyProfessionXp } from '../../../src/lib/professions.ts'
 
 // craft-claim: close a finished craft and grant ONE copy of the recipe's result at a rarity rolled
 // from the authored weights (docs/superpowers/specs/2026-09-09-crafting-create-recipes-design.md
@@ -15,7 +16,13 @@ function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 }
 
-type RecipeDef = { resultItemKey?: string | null; resultItemName?: string | null; resultRarityWeights?: { rarity: string; weight: number }[] | null } | null
+type RecipeDef = {
+  resultItemKey?: string | null
+  resultItemName?: string | null
+  resultRarityWeights?: { rarity: string; weight: number }[] | null
+  professionKey?: string | null
+  xpAwarded?: number | null
+} | null
 
 Deno.serve(withSentry(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -55,7 +62,7 @@ Deno.serve(withSentry(async (req) => {
   let def: RecipeDef
   try {
     def = await sanityQuery<RecipeDef>(
-      `*[_type == "recipeDef" && recipeKey == $key][0]{ "resultItemKey": coalesce(result->itemKey, result->consumableKey, result->totemKey), "resultItemName": result->name, resultRarityWeights[]{ rarity, weight } }`,
+      `*[_type == "recipeDef" && recipeKey == $key][0]{ "resultItemKey": coalesce(result->itemKey, result->consumableKey, result->totemKey), "resultItemName": result->name, resultRarityWeights[]{ rarity, weight }, professionKey, xpAwarded }`,
       { key: recipeDefId },
     )
   } catch (e) {
@@ -63,6 +70,42 @@ Deno.serve(withSentry(async (req) => {
     return json({ error: 'Could not load recipe' }, 502)
   }
   if (!def?.resultItemKey) return json({ error: 'Recipe has no result item' }, 500)
+
+  // 2b. Profession XP (Decision 2/3). Fetch the player's CURRENT profession state before
+  // computing the new level/xp — claim_craft just persists what we compute here, same
+  // compute/persist split mission-claim already uses for character level-ups.
+  let professionUpdate: { professionKey: string; level: number; xp: number; newlyKnownRecipes: string[] } | null = null
+  if (def.professionKey && typeof def.xpAwarded === 'number' && def.xpAwarded > 0) {
+    const { data: profileRow, error: profileErr } = await admin
+      .from('profiles')
+      .select('professions')
+      .eq('player_id', playerId)
+      .single()
+    if (profileErr) {
+      console.error('craft-claim: profile lookup failed', profileErr)
+      return json({ error: 'Could not load profile' }, 500)
+    }
+    const professions = (profileRow?.professions ?? {}) as Record<string, { level?: number; xp?: number } | undefined>
+    const current = professions[def.professionKey]
+    const { level, xp } = applyProfessionXp(current?.level ?? 0, current?.xp ?? 0, def.xpAwarded)
+
+    // A level-up may auto-grant recipes authored with grantedAtLevel in (oldLevel, newLevel].
+    let newlyKnownRecipes: string[] = []
+    const oldLevel = current?.level ?? 0
+    if (level > oldLevel) {
+      try {
+        const granted = await sanityQuery<{ recipeKey: string }[]>(
+          `*[_type == "recipeDef" && professionKey == $key && defined(grantedAtLevel) && grantedAtLevel > $oldLevel && grantedAtLevel <= $newLevel]{ recipeKey }`,
+          { key: def.professionKey, oldLevel, newLevel: level },
+        )
+        newlyKnownRecipes = granted.map((g) => g.recipeKey)
+      } catch (e) {
+        console.error('craft-claim: grantedAtLevel lookup failed — continuing without it', e)
+      }
+    }
+
+    professionUpdate = { professionKey: def.professionKey, level, xp, newlyKnownRecipes }
+  }
 
   // 3. Roll the rarity — deterministic per run, so a retried claim can't re-roll.
   // The seed is roll_seed, a server-generated column the client cannot read (column-level GRANT
@@ -78,6 +121,10 @@ Deno.serve(withSentry(async (req) => {
     p_result_item_def_id: def.resultItemKey,
     p_result_rarity: rarity,
     p_lifetime_stats: { itemsCrafted: 1 },
+    p_profession_key: professionUpdate?.professionKey ?? null,
+    p_profession_level: professionUpdate?.level ?? null,
+    p_profession_xp: professionUpdate?.xp ?? null,
+    p_newly_known_recipes: professionUpdate?.newlyKnownRecipes ?? [],
   })
   if (claimErr) {
     console.error('craft-claim: claim_craft failed', claimErr)
