@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/react'
 import './index.css'
 import App from './App.tsx'
 import { initAuth } from './stores/authStore'
+import { ErrorBoundary } from './components/organisms/ErrorBoundary'
 
 const queryClient = new QueryClient()
 
@@ -19,10 +20,12 @@ createRoot(document.getElementById('root')!, {
   onRecoverableError: Sentry.reactErrorHandler(),
 }).render(
   <StrictMode>
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 )
