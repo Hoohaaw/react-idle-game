@@ -2,7 +2,10 @@ import { useEffect, useRef } from 'react'
 
 // Module-level, not a React hook with per-component state — this runs once at import time
 // regardless of how many components import it, so there's exactly one visibilitychange
-// listener no matter how many CountdownTimers call signalReady() while the tab is hidden.
+// listener no matter how many callers (CountdownTimer, or any useSignalWhenDone caller) fire
+// signalReady() while the tab is hidden. If a component mounts with `done` already true (e.g.
+// a page loaded on a stale/already-finished run while the tab was hidden the whole time), the
+// signal still fires once on that first hidden render — harmless, since it genuinely is ready.
 const ORIGINAL_TITLE = document.title
 const READY_TITLE = `✓ Ready! — ${ORIGINAL_TITLE}`
 

@@ -10,6 +10,9 @@ export function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec
   const done = endsAt - now <= 0
   const wasDone = useRef(done)
 
+  // Intentionally mirrors useTabReadySignal's useSignalWhenDone inline, rather than calling it
+  // — this file predates that extraction and is only rendered on the /design showcase page, not
+  // worth the churn to refactor. Keep both in sync if the transition-detection logic ever changes.
   useEffect(() => {
     if (done && !wasDone.current) signalReady()
     wasDone.current = done
