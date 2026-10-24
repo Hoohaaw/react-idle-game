@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+
 // Module-level, not a React hook with per-component state — this runs once at import time
 // regardless of how many components import it, so there's exactly one visibilitychange
 // listener no matter how many CountdownTimers call signalReady() while the tab is hidden.
@@ -13,4 +15,15 @@ document.addEventListener('visibilitychange', () => {
 // and it would clobber whatever title the visible page already set.
 export function signalReady() {
   if (document.hidden) document.title = READY_TITLE
+}
+
+// Fires signalReady() the instant `done` transitions from false to true — the same transition-
+// detection logic CountdownTimer.tsx uses inline, generalized so the real gameplay cards that
+// render their own inline countdown (instead of the shared CountdownTimer atom) can wire in too.
+export function useSignalWhenDone(done: boolean) {
+  const wasDone = useRef(done)
+  useEffect(() => {
+    if (done && !wasDone.current) signalReady()
+    wasDone.current = done
+  }, [done])
 }

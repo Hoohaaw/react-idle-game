@@ -3,6 +3,7 @@ import { ProgressBar } from '@/components/atoms/ProgressBar'
 import { PrimaryButton } from '@/components/atoms/Button'
 import { useNow } from '@/hooks/useNow'
 import { formatRemaining } from '@/lib/time'
+import { useSignalWhenDone } from '@/hooks/useTabReadySignal'
 
 // An in-progress mission (maps to a mission_runs row). `startedAt`/`endsAt` are absolute epoch ms —
 // pass the row's started_at/ends_at directly. The countdown reconstructs from those, so it's
@@ -11,6 +12,7 @@ export function ActiveMissionCard({ name, partySize, startedAt, endsAt, onClaim 
   const now = useNow()
   const remaining = Math.max(0, endsAt - now)
   const done = remaining <= 0
+  useSignalWhenDone(done)
   const total = Math.max(1, endsAt - startedAt)
   const pct = Math.min(100, Math.max(0, ((now - startedAt) / total) * 100))
   return (
