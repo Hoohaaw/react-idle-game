@@ -1,12 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNow } from '../../hooks/useNow'
 import { formatRemaining } from '../../lib/time'
 import { IconSlot } from './IconSlot'
+import { signalReady } from '../../hooks/useTabReadySignal'
 
 export function CountdownTimer({ durationSec, startedSecAgo = 0 }: { durationSec: number; startedSecAgo?: number }) {
   const [endsAt] = useState(() => Date.now() + (durationSec - startedSecAgo) * 1000)
   const now = useNow()
   const done = endsAt - now <= 0
+  const wasDone = useRef(done)
+
+  useEffect(() => {
+    if (done && !wasDone.current) signalReady()
+    wasDone.current = done
+  }, [done])
+
   return (
     <span className="atom-heavy" style={{
       display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 4,
