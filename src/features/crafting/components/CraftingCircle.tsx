@@ -5,6 +5,7 @@ import { RarityBadge } from '@/components/atoms/RarityBadge'
 import { RARITY_STYLES } from '@/lib/rarity'
 import { RESOURCE_COLOR } from '@/lib/resources'
 import { formatRemaining } from '@/lib/time'
+import { useSignalWhenDone } from '@/hooks/useTabReadySignal'
 import type { ResolvedReagent, ItemRarityChoice } from '@/lib/crafting'
 import { RarityPicker } from './RarityPicker'
 
@@ -33,6 +34,7 @@ export function CraftingCircle({ reagents, resultName, rarityChoices, onPickRari
   const SIZE = 300, RADIUS = 110, SLOT = 58, CENTER = 88
   const slots: (ResolvedReagent | null)[] = Array.from({ length: SLOT_COUNT }, (_, i) => reagents[i] ?? null)
   const ready = inProgress && remainingMs <= 0
+  useSignalWhenDone(ready)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, width: 340, flexShrink: 0 }}>

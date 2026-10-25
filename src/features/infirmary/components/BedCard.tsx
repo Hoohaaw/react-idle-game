@@ -1,6 +1,7 @@
 import { useNow } from '@/hooks/useNow'
 import { healState, regenPerSec } from '@/lib/infirmary'
 import { formatRemaining } from '@/lib/time'
+import { useSignalWhenDone } from '@/hooks/useTabReadySignal'
 import type { RosterMember } from '@/hooks/useRoster'
 import type { InfirmaryAdmission } from '@/services/infirmary'
 import { PrimaryButton } from '@/components/atoms/Button'
@@ -28,6 +29,7 @@ export function BedCard({ member, admission, infirmaryLevel, onDischarge, discha
     maxHp: member.maxHp,
     recoverySpeedPct,
   })
+  useSignalWhenDone(state.phase === 'full')
 
   const effRate = Math.round(regenPerSec(infirmaryLevel) * (1 + Math.max(0, recoverySpeedPct) / 100))
   const phaseLine =

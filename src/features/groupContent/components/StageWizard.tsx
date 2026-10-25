@@ -3,6 +3,7 @@ import { PrimaryButton } from '@/components/atoms/Button'
 import { SectionLabel } from '@/components/molecules/SectionLabel'
 import { useNow } from '@/hooks/useNow'
 import { formatRemaining } from '@/lib/time'
+import { useSignalWhenDone } from '@/hooks/useTabReadySignal'
 import type { RosterMember } from '@/hooks/useRoster'
 import type { TraitContext } from '@/lib/traits'
 import type { GroupStageView, GroupClaimResponse } from '@/services/groupContent'
@@ -70,6 +71,7 @@ export function StageWizard({
   const endsAtMs = stageEndsAt ? new Date(stageEndsAt).getTime() : null
   const inFlight = endsAtMs != null && endsAtMs > now
   const readyToClaim = endsAtMs != null && !inFlight
+  useSignalWhenDone(readyToClaim)
   const lost = claimOutcome === 'loss'
   const dispatching = !inFlight && !readyToClaim && !lost
   // Same fallback-to-timeout-bucket pattern ClaimReward.tsx uses for its own loss screens.
