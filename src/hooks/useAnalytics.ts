@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 
 declare global {
   interface Window {
-    umami?: { track: (eventNameOrUrl?: string, eventData?: Record<string, unknown>) => void }
+    umami?: { track: (eventName?: string, eventData?: Record<string, unknown>) => void }
   }
 }
 
