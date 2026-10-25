@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchMissions, startMission, claimMission, type MissionLoadoutEntry } from '@/services/missions'
 import { fetchConsumableDefs } from '@/services/consumables'
+import { trackMilestoneOnce } from '@/hooks/useAnalytics'
 
 // Mission-specific hooks. The shared roster + runtime reads (useRoster, useMissionRuns, owned chars, …)
 // live in @/hooks/useRoster — imported directly by the pages that need them.
@@ -34,6 +35,7 @@ export function useClaimMission() {
   return useMutation({
     mutationFn: (runId: string) => claimMission(runId),
     onSuccess: () => {
+      trackMilestoneOnce('first_mission_claimed')
       // Run deleted; levels/xp/HP changed; wallet + inventory changed.
       void qc.invalidateQueries({ queryKey: ['missionRuns'] })
       void qc.invalidateQueries({ queryKey: ['ownedCharacters'] })

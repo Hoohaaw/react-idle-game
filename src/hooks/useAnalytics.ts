@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 
 declare global {
   interface Window {
-    umami?: { track: (url?: string) => void }
+    umami?: { track: (eventNameOrUrl?: string, eventData?: Record<string, unknown>) => void }
   }
 }
 
@@ -22,4 +22,17 @@ export function useAnalytics() {
     }
     window.umami?.track(location.pathname + location.search)
   }, [location.pathname, location.search])
+}
+
+// One-time progression milestones (first mission claimed, first Reset, first Transcendence, …)
+// — fires window.umami.track(key) at most once ever per browser, gated by localStorage so a
+// refresh or a repeat of the same action never re-fires it. Namespaced like GameLayout's own
+// 'achievements:lastRecordedLoginDate' flag to avoid key collisions. Never throws if
+// window.umami is missing (ad-blocker, not yet loaded) — callers (mutation onSuccess handlers)
+// must never fail because analytics didn't load.
+export function trackMilestoneOnce(key: string) {
+  const flagKey = `milestones:${key}`
+  if (localStorage.getItem(flagKey)) return
+  localStorage.setItem(flagKey, 'true')
+  window.umami?.track(key)
 }
