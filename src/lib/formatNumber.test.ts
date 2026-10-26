@@ -38,6 +38,12 @@ describe('formatNumber', () => {
     expect(formatNumber(999500000)).toBe('1B')
   })
 
+  it('passes non-finite values through as plain text, with no suffix', () => {
+    expect(formatNumber(Infinity)).toBe('Infinity')
+    expect(formatNumber(-Infinity)).toBe('-Infinity')
+    expect(formatNumber(NaN)).toBe('NaN')
+  })
+
   it('preserves the sign on negative numbers', () => {
     expect(formatNumber(-142)).toBe('-142')
     expect(formatNumber(-1500)).toBe('-1.5K')

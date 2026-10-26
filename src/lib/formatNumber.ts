@@ -17,6 +17,7 @@ function formatTier(scaled: number, suffix: string): string {
 }
 
 export function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) return String(value)
   const sign = value < 0 ? '-' : ''
   const abs = Math.abs(value)
 
