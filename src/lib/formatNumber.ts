@@ -8,18 +8,29 @@ const SUFFIXES: [number, string][] = [
   [1_000, 'K'],
 ]
 
+function formatTier(scaled: number, suffix: string): string {
+  const decimals = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2
+  const formatted = decimals === 0
+    ? scaled.toFixed(0)
+    : scaled.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, '')
+  return `${formatted}${suffix}`
+}
+
 export function formatNumber(value: number): string {
   const sign = value < 0 ? '-' : ''
   const abs = Math.abs(value)
 
-  for (const [threshold, suffix] of SUFFIXES) {
+  for (let i = 0; i < SUFFIXES.length; i++) {
+    const [threshold, suffix] = SUFFIXES[i]
     if (abs < threshold) continue
     const scaled = abs / threshold
     const decimals = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2
-    const formatted = decimals === 0
-      ? scaled.toFixed(0)
-      : scaled.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, '')
-    return `${sign}${formatted}${suffix}`
+    if (decimals === 0 && Math.round(scaled) >= 1000 && i > 0) {
+      // Rounds up into the next-larger tier — format against that tier instead.
+      const [nextThreshold, nextSuffix] = SUFFIXES[i - 1]
+      return `${sign}${formatTier(abs / nextThreshold, nextSuffix)}`
+    }
+    return `${sign}${formatTier(scaled, suffix)}`
   }
   return `${sign}${abs.toLocaleString()}`
 }

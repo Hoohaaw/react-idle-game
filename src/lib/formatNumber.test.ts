@@ -31,6 +31,13 @@ describe('formatNumber', () => {
     expect(formatNumber(4_200_000_000)).toBe('4.2B')
   })
 
+  it('promotes to the next suffix tier when rounding reaches 1000 (no "1000K" / "1000M")', () => {
+    expect(formatNumber(999499)).toBe('999K')
+    expect(formatNumber(999500)).toBe('1M')
+    expect(formatNumber(999999)).toBe('1M')
+    expect(formatNumber(999500000)).toBe('1B')
+  })
+
   it('preserves the sign on negative numbers', () => {
     expect(formatNumber(-142)).toBe('-142')
     expect(formatNumber(-1500)).toBe('-1.5K')
