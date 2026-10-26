@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchGateMap, resetPlayer, purchaseEchoShopNode } from '@/services/reset'
 import { fetchRaidKeys, transcendPlayer, purchaseAscendantShopNode } from '@/services/transcend'
 import { useProfile } from '@/hooks/useProfile'
+import { trackMilestoneOnce } from '@/hooks/useAnalytics'
 
 export function useGateMap() {
   return useQuery({ queryKey: ['resetGateMap'], queryFn: fetchGateMap })
@@ -13,6 +14,7 @@ export function useResetPlayer() {
   return useMutation({
     mutationFn: resetPlayer,
     onSuccess: () => {
+      trackMilestoneOnce('first_reset')
       void qc.invalidateQueries({ queryKey: ['profile'] })
     },
   })
@@ -53,6 +55,7 @@ export function useTranscendPlayer() {
   return useMutation({
     mutationFn: transcendPlayer,
     onSuccess: () => {
+      trackMilestoneOnce('first_transcend')
       void qc.invalidateQueries()
     },
   })
