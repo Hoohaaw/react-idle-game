@@ -1,4 +1,5 @@
 import { IconSlot } from './IconSlot'
+import { formatNumber } from '@/lib/formatNumber'
 
 export function CoinDisplay({ amount }: { amount: number }) {
   return (
@@ -24,7 +25,7 @@ export function CoinDisplay({ amount }: { amount: number }) {
         fontSize: '15px',
         fontWeight: 'bold',
         textShadow: '0 0 8px rgba(232,192,80,0.4), 0 1px 2px rgba(0,0,0,0.9)',
-      }}>{amount.toLocaleString()}</span>
+      }}>{formatNumber(amount)}</span>
     </div>
   )
 }
