@@ -10,6 +10,7 @@ import { SchoolBadge } from '../atoms/SchoolBadge'
 import { TraitChips } from '../molecules/TraitChips'
 import { resolveRole, ROLE_STYLES, type CharacterRole } from '../../lib/roles'
 import { PROFICIENCY_BY_KEY } from '@/lib/proficiencies'
+import { formatNumber } from '@/lib/formatNumber'
 import type { School } from '../../lib/schools'
 import type { TraitDef } from '../../lib/traits'
 import type { StatValue, StatGrowth, StatSourceBreakdown } from '../../lib/stats'
@@ -137,7 +138,7 @@ export function CharacterCard({
           <div style={{ width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
               <span style={{ color: 'var(--color-text-muted)', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase' }}>Experience</span>
-              <span style={{ color: 'var(--color-text-primary)', fontSize: '10px', fontWeight: 'bold' }}>{xpCurrent} / {xpNeeded}</span>
+              <span style={{ color: 'var(--color-text-primary)', fontSize: '10px', fontWeight: 'bold' }}>{formatNumber(xpCurrent)} / {formatNumber(xpNeeded)}</span>
             </div>
             <ProgressBar value={xpPct} label="" color="#7c2dbe" />
           </div>
